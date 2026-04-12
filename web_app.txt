@@ -1,0 +1,21 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyD55EFcYciz8tr7arTyi6IxPLZBu0aE6qA",
+  authDomain: "nutri-tracker-9689c.firebaseapp.com",
+  projectId: "nutri-tracker-9689c",
+  storageBucket: "nutri-tracker-9689c.firebasestorage.app",
+  messagingSenderId: "402005388165",
+  appId: "1:402005388165:web:73f9a636ec1812f40f72ec",
+  measurementId: "G-6V6L6W2FG4"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
