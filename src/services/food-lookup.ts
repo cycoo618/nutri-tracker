@@ -76,7 +76,18 @@ function getNutrient(food: UsdaFood, id: number): number {
   return food.foodNutrients.find(n => n.nutrientId === id)?.value ?? 0;
 }
 
+/** 判断字符串是否主要为中文（超过30%是CJK字符） */
+function isChinese(text: string): boolean {
+  const cjk = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
+  return cjk / text.length > 0.3;
+}
+
 export async function searchOpenFoodFacts(query: string): Promise<FoodItem[]> {
+  // USDA 只支持英文搜索，中文查询直接返回空（避免浪费请求和让用户看到无意义的结果）
+  if (isChinese(query)) {
+    return [];
+  }
+
   try {
     const url =
       `https://api.nal.usda.gov/fdc/v1/foods/search` +
