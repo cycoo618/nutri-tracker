@@ -21,19 +21,62 @@ function getMealTypeFromTime(): MealType {
   return 'snack'; // 下午 / 深夜 → 加餐
 }
 
+/** localStorage key for a user's daily log */
+function localKey(userId: string, date: string) {
+  return `nutri_log_${userId}_${date}`;
+}
+
+function saveToLocal(userId: string, date: string, log: DailyLog) {
+  try {
+    localStorage.setItem(localKey(userId, date), JSON.stringify(log));
+  } catch { /* storage full — ignore */ }
+}
+
+function loadFromLocal(userId: string, date: string): DailyLog | null {
+  try {
+    const raw = localStorage.getItem(localKey(userId, date));
+    return raw ? (JSON.parse(raw) as DailyLog) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useFoodLog(userId: string | undefined) {
   const [currentDate, setCurrentDate] = useState(getTodayString());
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
   const [loading, setLoading] = useState(false);
   const [recentFoods, setRecentFoods] = useState<RecentFoodEntry[]>(() => getRecentFoods());
 
-  // 加载当天记录
+  // 加载当天记录：先读 localStorage（即时显示），再从 Firestore 同步
   useEffect(() => {
     if (!userId) return;
-    setLoading(true);
+
+    // 1. 立刻从本地缓存恢复（零延迟，防止刷新白屏）
+    const cached = loadFromLocal(userId, currentDate);
+    if (cached) {
+      setDailyLog(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    // 2. 后台从 Firestore 拉取最新数据（可能比本地更新，如跨设备）
     getDailyLog(userId, currentDate)
       .then(log => {
-        setDailyLog(log || createEmptyDailyLog(userId, currentDate));
+        if (log) {
+          // Firestore 有数据（可能是别的设备写的）→ 更新状态和缓存
+          setDailyLog(log);
+          saveToLocal(userId, currentDate, log);
+        } else if (!cached) {
+          // Firestore 没数据 + 本地也没缓存 → 创建空白
+          setDailyLog(createEmptyDailyLog(userId, currentDate));
+          // 不把空白写入 localStorage，等用户真正添加食物再写
+        }
+        // Firestore 没数据 但 缓存有 → 保持缓存（已经 setDailyLog 过了）
+      })
+      .catch(() => {
+        // Firestore 失败 → 继续用本地缓存（已显示）；没缓存时用空白
+        if (!cached) setDailyLog(createEmptyDailyLog(userId, currentDate));
       })
       .finally(() => setLoading(false));
   }, [userId, currentDate]);
@@ -92,8 +135,10 @@ export function useFoodLog(userId: string | undefined) {
     recordFoodUsage(food, grams, unit);
     setRecentFoods(getRecentFoods());
 
-    await saveDailyLog(finalLog);
-  }, [dailyLog, userId, recalculateTotal]);
+    // 先写 localStorage（同步，即时持久化），再写 Firestore（异步）
+    saveToLocal(userId, currentDate, finalLog);
+    saveDailyLog(finalLog).catch(err => console.warn('Firestore save failed:', err));
+  }, [dailyLog, userId, currentDate, recalculateTotal]);
 
   /** 移除食物 — 按 itemId 搜索所有餐次，无需指定餐次 */
   const removeFood = useCallback(async (itemId: string) => {
@@ -109,8 +154,10 @@ export function useFoodLog(userId: string | undefined) {
 
     const finalLog = recalculateTotal(updatedLog);
     setDailyLog(finalLog);
-    await saveDailyLog(finalLog);
-  }, [dailyLog, recalculateTotal]);
+
+    if (userId) saveToLocal(userId, currentDate, finalLog);
+    saveDailyLog(finalLog).catch(err => console.warn('Firestore save failed:', err));
+  }, [dailyLog, userId, currentDate, recalculateTotal]);
 
   /** 获取日期范围内的记录（用于周/月分析） */
   const getLogsInRange = useCallback(async (startDate: string, endDate: string) => {

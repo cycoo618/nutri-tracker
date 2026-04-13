@@ -34,11 +34,74 @@ export function searchBuiltinFoods(query: string): FoodItem[] {
 }
 
 // =====================
-// 第二层：Open Food Facts API
+// 第二层 A：Open Food Facts API（中文查询）
+// 多语言食品库，中文食品覆盖较好
 // =====================
 
+interface OFFProduct {
+  code?: string;
+  product_name?: string;
+  product_name_zh?: string;
+  brands?: string;
+  serving_size?: string;
+  nutriments?: Record<string, number>;
+}
+
+/** 用 Open Food Facts 搜索中文食物 */
+async function searchOpenFoodFactsChinese(query: string): Promise<FoodItem[]> {
+  try {
+    const url =
+      `https://world.openfoodfacts.org/cgi/search.pl` +
+      `?search_terms=${encodeURIComponent(query)}` +
+      `&search_simple=1&action=process&json=1&lc=zh&page_size=20`;
+
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const products: OFFProduct[] = data.products ?? [];
+
+    const results: FoodItem[] = [];
+    for (const p of products) {
+      const n = p.nutriments ?? {};
+      const kcal = n['energy-kcal_100g'] ?? n['energy_100g'] ?? 0;
+      if (kcal <= 0) continue;
+
+      const name = p.product_name_zh?.trim() || p.product_name?.trim();
+      if (!name) continue;
+
+      const brand = p.brands?.split(',')[0].trim() || undefined;
+
+      // 份量推断
+      const partialFood = { name, nameEn: name, aliases: [] as string[], category: 'branded' as const };
+      const servingSizes = inferServingSizes(partialFood);
+
+      results.push({
+        id: `off_${p.code ?? Math.random().toString(36).slice(2)}`,
+        name,
+        category: 'branded',
+        brand,
+        per100g: {
+          calories: Math.round(kcal),
+          protein:  n['proteins_100g']       ?? 0,
+          carbs:    n['carbohydrates_100g']   ?? 0,
+          fat:      n['fat_100g']             ?? 0,
+          fiber:    n['fiber_100g']           ?? 0,
+          sugar:    n['sugars_100g']          || undefined,
+          sodium:   n['sodium_100g'] != null ? Math.round(n['sodium_100g'] * 1000) : undefined,
+        },
+        servingSizes,
+        source: 'openfoodfacts',
+      });
+    }
+    return results;
+  } catch (err) {
+    console.warn('Open Food Facts 查询失败:', err);
+    return [];
+  }
+}
+
 // =====================
-// 第二层：USDA FoodData Central API
+// 第二层 B：USDA FoodData Central API（英文查询）
 // 免费，注册即得 key：https://fdc.nal.usda.gov/api-guide.html
 // =====================
 
@@ -83,11 +146,12 @@ function isChinese(text: string): boolean {
 }
 
 export async function searchOpenFoodFacts(query: string): Promise<FoodItem[]> {
-  // USDA 只支持英文搜索，中文查询直接返回空（避免浪费请求和让用户看到无意义的结果）
+  // 中文查询 → Open Food Facts 中文库
   if (isChinese(query)) {
-    return [];
+    return searchOpenFoodFactsChinese(query);
   }
 
+  // 英文查询 → USDA
   try {
     const url =
       `https://api.nal.usda.gov/fdc/v1/foods/search` +

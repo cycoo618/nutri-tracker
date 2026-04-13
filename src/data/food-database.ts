@@ -3402,6 +3402,196 @@ export const FOOD_DATABASE: FoodItem[] = [
     servingSizes: [{ label: '1杯(250ml)', grams: 250 }],
     source: 'builtin', tags: [],
   },
+
+  // ── 家常汤/面食 ──────────────────────────────
+
+  {
+    id: 'homecook-001', name: '疙瘩汤', nameEn: 'Chinese Flour-Drop Soup',
+    aliases: ['面疙瘩', '疙瘩面', '搅疙瘩', '面疙瘩汤'],
+    category: 'grain',
+    per100g: { calories: 72, protein: 3.0, carbs: 13.0, fat: 1.2, fiber: 0.4, sodium: 280 },
+    gi: 55, giLevel: 'low',
+    servingSizes: [
+      { label: '1小碗 (250g)', grams: 250 },
+      { label: '1大碗 (400g)', grams: 400 },
+    ],
+    source: 'builtin', tags: ['家常', '汤'],
+  },
+
+  {
+    id: 'homecook-002', name: '番茄蛋花汤', nameEn: 'Tomato Egg Drop Soup',
+    aliases: ['西红柿蛋汤', '番茄鸡蛋汤', '西红柿鸡蛋汤'],
+    category: 'vegetable',
+    per100g: { calories: 35, protein: 2.5, carbs: 3.5, fat: 1.2, fiber: 0.4, sodium: 220 },
+    gi: 25, giLevel: 'low',
+    servingSizes: [
+      { label: '1碗 (300g)', grams: 300 },
+    ],
+    source: 'builtin', tags: ['家常', '汤', '低卡'],
+  },
+
+  {
+    id: 'homecook-003', name: '紫菜蛋花汤', nameEn: 'Seaweed Egg Drop Soup',
+    aliases: ['紫菜汤', '海苔蛋花汤', '紫菜蛋汤'],
+    category: 'seafood',
+    per100g: { calories: 28, protein: 2.8, carbs: 2.0, fat: 1.0, fiber: 0.3, sodium: 350 },
+    gi: 20, giLevel: 'low',
+    servingSizes: [
+      { label: '1碗 (300g)', grams: 300 },
+    ],
+    source: 'builtin', tags: ['家常', '汤', '低卡'],
+  },
+
+  {
+    id: 'homecook-004', name: '酸辣汤', nameEn: 'Hot and Sour Soup',
+    aliases: ['酸辣汤', '胡辣汤'],
+    category: 'other',
+    per100g: { calories: 55, protein: 3.5, carbs: 6.0, fat: 2.0, fiber: 0.5, sodium: 420 },
+    gi: 35, giLevel: 'low',
+    servingSizes: [
+      { label: '1碗 (300g)', grams: 300 },
+    ],
+    source: 'builtin', tags: ['家常', '汤'],
+  },
+
+  {
+    id: 'homecook-005', name: '米线', nameEn: 'Rice Noodle Soup',
+    aliases: ['云南米线', '过桥米线', '汤米线', '牛肉米线'],
+    category: 'grain',
+    per100g: { calories: 95, protein: 4.0, carbs: 17.0, fat: 1.5, fiber: 0.3, sodium: 380 },
+    gi: 58, giLevel: 'medium',
+    servingSizes: [
+      { label: '1碗 (450g)', grams: 450 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-006', name: '手擀面', nameEn: 'Hand-Rolled Noodles',
+    aliases: ['手工面', '手擀面条', '擀面条'],
+    category: 'grain',
+    per100g: { calories: 110, protein: 3.8, carbs: 22.0, fat: 0.8, fiber: 0.5, sodium: 180 },
+    gi: 55, giLevel: 'low',
+    servingSizes: [
+      { label: '1碗 (200g熟面)', grams: 200 },
+      { label: '1大碗 (300g熟面)', grams: 300 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-007', name: '炸酱面', nameEn: 'Noodles with Fried Soybean Paste',
+    aliases: ['炸酱面', '老北京炸酱面'],
+    category: 'grain',
+    per100g: { calories: 185, protein: 7.5, carbs: 25.0, fat: 6.5, fiber: 1.0, sodium: 520 },
+    gi: 55, giLevel: 'low',
+    servingSizes: [
+      { label: '1碗 (300g)', grams: 300 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-008', name: '葱油拌面', nameEn: 'Scallion Oil Noodles',
+    aliases: ['葱油面', '上海葱油拌面'],
+    category: 'grain',
+    per100g: { calories: 200, protein: 4.5, carbs: 28.0, fat: 8.0, fiber: 0.5, sodium: 380 },
+    gi: 55, giLevel: 'low',
+    servingSizes: [
+      { label: '1碗 (250g)', grams: 250 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-009', name: '小笼包', nameEn: 'Soup Dumplings (Xiaolongbao)',
+    aliases: ['小笼汤包', '汤包', 'xiaolongbao', 'soup dumpling'],
+    category: 'grain',
+    per100g: { calories: 215, protein: 9.5, carbs: 25.0, fat: 8.5, fiber: 0.5, sodium: 420 },
+    gi: 50, giLevel: 'low',
+    servingSizes: [
+      { label: '1个 (20g)', grams: 20 },
+      { label: '1笼6个 (120g)', grams: 120 },
+      { label: '1笼8个 (160g)', grams: 160 },
+    ],
+    source: 'builtin', tags: ['家常', '早餐'],
+  },
+
+  {
+    id: 'homecook-010', name: '锅贴', nameEn: 'Pan-Fried Dumplings (Guotie)',
+    aliases: ['煎饺', '锅贴饺子', 'potsticker', 'pan-fried dumpling'],
+    category: 'grain',
+    per100g: { calories: 230, protein: 9.0, carbs: 26.0, fat: 10.0, fiber: 0.8, sodium: 460 },
+    gi: 50, giLevel: 'low',
+    servingSizes: [
+      { label: '1个 (30g)', grams: 30 },
+      { label: '6个 (180g)', grams: 180 },
+      { label: '10个 (300g)', grams: 300 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-011', name: '韭菜盒子', nameEn: 'Chive and Egg Pancake',
+    aliases: ['韭菜饼', '韭菜鸡蛋盒', '韭菜合子'],
+    category: 'grain',
+    per100g: { calories: 220, protein: 7.5, carbs: 25.0, fat: 10.0, fiber: 1.5, sodium: 380 },
+    gi: 48, giLevel: 'low',
+    servingSizes: [
+      { label: '1个 (80g)', grams: 80 },
+      { label: '2个 (160g)', grams: 160 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-012', name: '鸡蛋羹', nameEn: 'Steamed Egg Custard',
+    aliases: ['蒸鸡蛋', '水蒸蛋', '鸡蛋蒸'],
+    category: 'egg',
+    per100g: { calories: 65, protein: 6.5, carbs: 0.5, fat: 4.0, fiber: 0, sodium: 220 },
+    gi: 0, giLevel: 'low',
+    servingSizes: [
+      { label: '1小碗 (150g)', grams: 150 },
+      { label: '1大碗 (250g)', grams: 250 },
+    ],
+    source: 'builtin', tags: ['家常', '高蛋白', '低卡'],
+  },
+
+  {
+    id: 'homecook-013', name: '土豆丝', nameEn: 'Shredded Potato Stir-fry',
+    aliases: ['炒土豆丝', '醋溜土豆丝', '酸辣土豆丝'],
+    category: 'vegetable',
+    per100g: { calories: 95, protein: 1.8, carbs: 18.0, fat: 2.5, fiber: 1.5, sodium: 280 },
+    gi: 55, giLevel: 'low',
+    servingSizes: [
+      { label: '1份 (150g)', grams: 150 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-014', name: '地三鲜', nameEn: 'Stir-fried Eggplant Potato Pepper',
+    aliases: ['地三鲜', '茄子土豆辣椒'],
+    category: 'vegetable',
+    per100g: { calories: 120, protein: 2.0, carbs: 14.0, fat: 6.0, fiber: 2.0, sodium: 350 },
+    gi: 40, giLevel: 'low',
+    servingSizes: [
+      { label: '1份 (200g)', grams: 200 },
+    ],
+    source: 'builtin', tags: ['家常'],
+  },
+
+  {
+    id: 'homecook-015', name: '西葫芦炒蛋', nameEn: 'Zucchini with Egg Stir-fry',
+    aliases: ['西葫芦鸡蛋', '炒西葫芦', '角瓜炒蛋'],
+    category: 'vegetable',
+    per100g: { calories: 75, protein: 4.5, carbs: 4.0, fat: 4.5, fiber: 0.8, sodium: 260 },
+    gi: 20, giLevel: 'low',
+    servingSizes: [
+      { label: '1份 (180g)', grams: 180 },
+    ],
+    source: 'builtin', tags: ['家常', '低卡'],
+  },
 ];
 
 // ============================================

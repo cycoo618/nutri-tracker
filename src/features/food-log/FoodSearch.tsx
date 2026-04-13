@@ -163,8 +163,6 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
               <div className="text-gray-600 font-medium">没有找到「{query}」</div>
               {onlineError ? (
                 <div className="text-amber-500 text-sm mt-1 mb-3">{onlineError}</div>
-              ) : /[\u4e00-\u9fff]/.test(query) ? (
-                <div className="text-gray-400 text-sm mt-1 mb-3">联网搜索仅支持英文，中文食物请创建自定义食物或手动录入</div>
               ) : (
                 <div className="text-gray-400 text-sm mt-1 mb-3">本地和联网搜索都未找到</div>
               )}
