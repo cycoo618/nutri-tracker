@@ -12,6 +12,7 @@ import { searchCustomFoods } from '../../utils/customFoods';
 import { GIBadge } from '../../components/ui/GIBadge';
 import { ManualFoodEntry } from './ManualFoodEntry';
 import { RecipeBuilder } from './RecipeBuilder';
+import { NutritionLabelScanner } from './NutritionLabelScanner';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 
 interface FoodSearchProps {
@@ -21,7 +22,7 @@ interface FoodSearchProps {
 }
 
 type SearchState = 'idle' | 'searching_builtin' | 'searching_online' | 'done';
-type View = 'search' | 'manual' | 'recipe';
+type View = 'search' | 'manual' | 'recipe' | 'scanner';
 
 export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchProps) {
   const [view, setView] = useState<View>('search');
@@ -112,6 +113,15 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
   if (view === 'recipe') {
     return (
       <RecipeBuilder
+        onClose={onClose}
+        onSaved={food => onSelect(food)}
+      />
+    );
+  }
+
+  if (view === 'scanner') {
+    return (
+      <NutritionLabelScanner
         onClose={onClose}
         onSaved={food => onSelect(food)}
       />
@@ -245,10 +255,16 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
           {results.length > 0 && (
             <div className="px-4 pb-4 pt-1 border-t border-gray-50 flex gap-3">
               <button
+                onClick={() => setView('scanner')}
+                className="flex-1 py-2 text-sm text-gray-400 hover:text-blue-600 transition-colors text-center"
+              >
+                📷 拍照识别
+              </button>
+              <button
                 onClick={() => setView('recipe')}
                 className="flex-1 py-2 text-sm text-gray-500 hover:text-green-600 transition-colors text-center"
               >
-                🧪 创建自定义食物
+                🧪 自定义食物
               </button>
               <button
                 onClick={() => setView('manual')}
@@ -262,13 +278,21 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
           {/* 空状态 — 常用食物 + 自定义食物入口 */}
           {!query && (
             <div className="p-4">
-              {/* 创建自定义食物按钮 */}
-              <button
-                onClick={() => setView('recipe')}
-                className="w-full mb-4 py-3 flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl text-sm text-green-700 font-medium transition-colors"
-              >
-                <span>🧪</span> 创建自定义食物（组合食材）
-              </button>
+              {/* 快捷操作按钮组 */}
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <button
+                  onClick={() => setView('scanner')}
+                  className="py-3 flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-sm text-blue-700 font-medium transition-colors"
+                >
+                  <span>📷</span> 拍照识别
+                </button>
+                <button
+                  onClick={() => setView('recipe')}
+                  className="py-3 flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl text-sm text-green-700 font-medium transition-colors"
+                >
+                  <span>🧪</span> 自定义食物
+                </button>
+              </div>
 
               {recentFoods.length > 0 ? (
                 <>
