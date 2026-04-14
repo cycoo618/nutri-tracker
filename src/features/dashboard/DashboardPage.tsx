@@ -15,6 +15,7 @@ import { MacroCard } from '../../components/ui/MacroCard';
 import { GIBadge } from '../../components/ui/GIBadge';
 import { FoodSearch } from '../food-log/FoodSearch';
 import { AddFoodModal } from '../food-log/AddFoodModal';
+import { FoodPantryPage } from '../pantry/FoodPantryPage';
 import { formatDateCN, formatNumber } from '../../utils/calculator';
 
 interface DashboardPageProps {
@@ -51,6 +52,7 @@ export function DashboardPage({
   onLogout,
 }: DashboardPageProps) {
   const [showSearch, setShowSearch] = useState(false);
+  const [showPantry, setShowPantry] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
 
@@ -87,9 +89,19 @@ export function DashboardPage({
               {GOAL_LABELS[profile.goal]}
             </span>
           </div>
-          <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
-            登出
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowPantry(true)}
+              className="text-sm text-gray-500 hover:text-green-600 flex items-center gap-1 transition-colors"
+              title="我的食材库"
+            >
+              <span>📦</span>
+              <span className="hidden sm:inline">食材库</span>
+            </button>
+            <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
+              登出
+            </button>
+          </div>
         </div>
       </header>
 
@@ -263,6 +275,18 @@ export function DashboardPage({
             setShowSearch(false);
           }}
           onClose={() => setShowSearch(false)}
+        />
+      )}
+
+      {/* Food Pantry */}
+      {showPantry && (
+        <FoodPantryPage
+          onClose={() => setShowPantry(false)}
+          onAddToLog={(food) => {
+            setSelectedFood(food);
+            setQuickEntry(null);
+            setShowPantry(false);
+          }}
         />
       )}
 
