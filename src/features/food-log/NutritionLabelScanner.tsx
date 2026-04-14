@@ -3,9 +3,10 @@
 // 拍照 / 上传 → Claude Vision 识别 → 确认保存
 // ============================================
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
+import { getGeminiKey, saveGeminiKey } from '../../services/nutrition-vision';
 
 // ── 外部分析函数的接口定义 ──────────────────
 
@@ -26,7 +27,7 @@ declare function analyzeNutritionLabel(imageBase64: string): Promise<ExtractedNu
 
 // ── 类型 ────────────────────────────────────
 
-type Step = 'capture' | 'analyzing' | 'confirm' | 'error';
+type Step = 'setup' | 'capture' | 'analyzing' | 'confirm' | 'error';
 
 interface Field {
   key: keyof ExtractedNutrition;
@@ -54,15 +55,21 @@ interface NutritionLabelScannerProps {
 // ── Component ───────────────────────────────
 
 export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScannerProps) {
-  const [step, setStep]           = useState<Step>('capture');
+  const [step, setStep]               = useState<Step>(() => getGeminiKey() ? 'capture' : 'setup');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [extracted, setExtracted] = useState<ExtractedNutrition | null>(null);
-  const [errorMsg, setErrorMsg]   = useState<string | null>(null);
-  const [saving, setSaving]       = useState(false);
+  const [extracted, setExtracted]     = useState<ExtractedNutrition | null>(null);
+  const [errorMsg, setErrorMsg]       = useState<string | null>(null);
+  const [saving, setSaving]           = useState(false);
+  const [keyInput, setKeyInput]       = useState('');
 
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // 如果已有 key 但进入了 setup，跳回 capture
+  useEffect(() => {
+    if (step === 'setup' && getGeminiKey()) setStep('capture');
+  }, [step]);
 
   // ── 图片选择处理 ──────────────────────────
 
@@ -98,6 +105,16 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
     const file = e.target.files?.[0];
     if (file) handleFile(file);
     e.target.value = '';
+  };
+
+  // ── 保存 API Key ─────────────────────────
+
+  const handleSaveKey = () => {
+    const k = keyInput.trim();
+    if (!k) return;
+    saveGeminiKey(k);
+    setKeyInput('');
+    setStep('capture');
   };
 
   // ── 重新拍摄 ─────────────────────────────
@@ -174,6 +191,46 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
+
+          {/* ── Step 0: Setup API Key ── */}
+          {step === 'setup' && (
+            <div className="p-6 space-y-4">
+              <div className="text-center">
+                <div className="text-4xl mb-3">🔑</div>
+                <p className="font-medium text-gray-800 mb-1">填入 Gemini API Key</p>
+                <p className="text-sm text-gray-500">
+                  免费获取：前往{' '}
+                  <a
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline"
+                  >
+                    aistudio.google.com
+                  </a>
+                  {' '}→ Get API key
+                </p>
+              </div>
+
+              <input
+                type="text"
+                value={keyInput}
+                onChange={e => setKeyInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveKey()}
+                placeholder="AIza..."
+                className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
+                autoFocus
+              />
+              <button
+                onClick={handleSaveKey}
+                disabled={!keyInput.trim()}
+                className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-xl font-medium transition-colors"
+              >
+                保存并继续
+              </button>
+              <p className="text-xs text-gray-400 text-center">Key 仅存储在你的设备上，不经过任何服务器</p>
+            </div>
+          )}
 
           {/* ── Step 1: Capture ── */}
           {step === 'capture' && (
