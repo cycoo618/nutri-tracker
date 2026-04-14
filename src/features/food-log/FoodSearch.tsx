@@ -236,7 +236,9 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-gray-900 truncate">{food.name}</span>
                       {food.source === 'user_added' && (
-                        <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded shrink-0">自制</span>
+                        <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded shrink-0">
+                          {food.tags?.includes('扫码') ? '📷 扫码' : food.tags?.includes('手动') ? '手动' : '自制'}
+                        </span>
                       )}
                       {food.brand && (
                         <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">{food.brand}</span>

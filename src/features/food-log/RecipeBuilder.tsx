@@ -1,7 +1,6 @@
 // ============================================
 // 自定义食物构建器
 // 用户可以把多种食材按克数组合，生成一个新的自定义食物
-// 例：手打黑豆浆 = 红豆30g + 黑豆30g + 黑米30g + 黑芝麻5g + 红枣3个
 // ============================================
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,21 +15,92 @@ interface RecipeBuilderProps {
   onSaved: (foodItem: FoodItem) => void;
 }
 
+// 快捷克数选项
+const QUICK_GRAMS = [5, 10, 20, 30, 50, 75, 100, 150, 200];
+
+// ── GramInput 子组件 ────────────────────────────────────────────────
+// 用 text+inputMode=decimal 代替 type=number，避免 iOS 小数点删除 bug
+// 包含快捷克数芯片
+function GramInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [text, setText] = useState(() => String(value));
+  const prevRef = useRef(value);
+
+  // 外部值变化时同步（如点击芯片）
+  if (prevRef.current !== value) {
+    prevRef.current = value;
+    setText(String(value));
+  }
+
+  const commit = (raw: string) => {
+    const n = parseFloat(raw.replace(',', '.'));
+    if (!isNaN(n) && n > 0) {
+      onChange(n);
+      setText(String(n));
+      prevRef.current = n;
+    } else {
+      setText(String(value)); // 无效时恢复
+    }
+  };
+
+  return (
+    <div>
+      {/* 输入框 */}
+      <div className="flex items-center border-2 border-gray-200 focus-within:border-green-400 rounded-xl bg-white transition-colors">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onBlur={() => commit(text)}
+          onKeyDown={e => e.key === 'Enter' && commit(text)}
+          className="w-20 py-2.5 pl-3 pr-1 text-sm font-semibold focus:outline-none rounded-l-xl bg-transparent"
+          placeholder="100"
+        />
+        <span className="pr-3 text-xs text-gray-400 font-medium">g</span>
+      </div>
+      {/* 快捷芯片 */}
+      <div className="flex gap-1.5 mt-2 overflow-x-auto pb-0.5 no-scrollbar">
+        {QUICK_GRAMS.map(g => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => onChange(g)}
+            className={`shrink-0 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              value === g
+                ? 'bg-green-100 border-green-300 text-green-700 font-semibold'
+                : 'border-gray-200 text-gray-400 hover:border-green-300 hover:text-green-600'
+            }`}
+          >
+            {g}g
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 主组件 ─────────────────────────────────────────────────────────
 export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
   const [name, setName] = useState('');
-  const [servingLabel, setServingLabel] = useState('');   // 可选自定义份量名
+  const [servingLabel, setServingLabel] = useState('');
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
 
-  // 食材搜索
   const [ingQuery, setIngQuery] = useState('');
   const [ingResults, setIngResults] = useState<FoodItem[]>([]);
   const [showIngSearch, setShowIngSearch] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // 实时计算营养
   const { per100g, totalGrams } = calcRecipeNutrition(ingredients);
   const totalCalories = Math.round(per100g.calories * totalGrams / 100);
 
@@ -41,18 +111,26 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
     const timer = setTimeout(() => {
       const builtin = searchBuiltinFoods(q);
       const custom = searchCustomFoods(q);
-      // 合并去重
-      const all = [...custom, ...builtin].slice(0, 12);
-      setIngResults(all);
+      setIngResults([...custom, ...builtin].slice(0, 12));
     }, 200);
     return () => clearTimeout(timer);
   }, [ingQuery]);
 
-  // 添加食材（默认100g，用户可修改）
+  // 下拉出现时自动滚动，确保用户能看到结果
+  useEffect(() => {
+    if (ingResults.length > 0 && showIngSearch) {
+      setTimeout(() => {
+        searchContainerRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 80);
+    }
+  }, [ingResults.length, showIngSearch]);
+
   const addIngredient = (food: FoodItem) => {
     setIngredients(prev => {
-      const exists = prev.find(i => i.foodId === food.id);
-      if (exists) return prev; // 已添加则忽略
+      if (prev.find(i => i.foodId === food.id)) return prev;
       return [...prev, {
         foodId: food.id,
         foodName: food.name,
@@ -65,9 +143,8 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
     setShowIngSearch(false);
   };
 
-  const updateGrams = (idx: number, val: string) => {
-    const g = Math.max(0.1, Number(val) || 0);
-    setIngredients(prev => prev.map((ing, i) => i === idx ? { ...ing, grams: g } : ing));
+  const updateGrams = (idx: number, val: number) => {
+    setIngredients(prev => prev.map((ing, i) => i === idx ? { ...ing, grams: val } : ing));
   };
 
   const removeIngredient = (idx: number) => {
@@ -83,6 +160,7 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
     const defaultLabel = `1份 (${totalGrams}g)`;
     const record = saveCustomFood({
       name: name.trim(),
+      pantrySource: 'recipe',
       ingredients,
       totalGrams,
       per100g,
@@ -91,14 +169,13 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
       ],
     });
 
-    // 转成 FoodItem 直接可用
-    const foodItem: FoodItem = {
+    const foodItem = {
       id: record.id,
       name: record.name,
-      category: 'other',
+      category: 'other' as const,
       per100g: record.per100g,
       servingSizes: record.servingSizes,
-      source: 'user_added',
+      source: 'user_added' as const,
       tags: ['自制'],
     };
 
@@ -123,7 +200,7 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4 space-y-5">
 
           {/* 食物名称 */}
           <div>
@@ -137,7 +214,7 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
             />
           </div>
 
-          {/* 自定义份量标签（可选） */}
+          {/* 份量标签 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               份量标签 <span className="text-gray-400 font-normal">（可选，默认"1份"）</span>
@@ -162,32 +239,31 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
 
             {/* 已添加食材 */}
             {ingredients.length > 0 && (
-              <div className="space-y-2 mb-3">
+              <div className="space-y-3 mb-3">
                 {ingredients.map((ing, idx) => (
-                  <div key={ing.foodId} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
-                    <span className="flex-1 text-sm text-gray-800 truncate">{ing.foodName}</span>
-                    <div className="relative shrink-0">
-                      <input
-                        type="number"
-                        value={ing.grams}
-                        onChange={e => updateGrams(idx, e.target.value)}
-                        className="w-20 border border-gray-200 rounded-lg px-2 py-1 pr-5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">g</span>
+                  <div key={ing.foodId} className="bg-gray-50 rounded-xl px-3 pt-3 pb-2.5">
+                    {/* 名称行 */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-800 truncate flex-1">{ing.foodName}</span>
+                      <button
+                        onClick={() => removeIngredient(idx)}
+                        className="text-gray-300 hover:text-red-400 text-xl leading-none ml-2 shrink-0 transition-colors"
+                      >
+                        ×
+                      </button>
                     </div>
-                    <button
-                      onClick={() => removeIngredient(idx)}
-                      className="text-gray-300 hover:text-red-400 text-lg leading-none shrink-0 transition-colors"
-                    >
-                      ×
-                    </button>
+                    {/* 克数输入 + 快捷芯片 */}
+                    <GramInput
+                      value={ing.grams}
+                      onChange={v => updateGrams(idx, v)}
+                    />
                   </div>
                 ))}
               </div>
             )}
 
             {/* 添加食材搜索框 */}
-            <div className="relative">
+            <div ref={searchContainerRef} className="relative">
               <div className="flex items-center gap-2 border border-dashed border-green-400 rounded-xl px-4 py-2.5 bg-green-50 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
                 <span className="text-green-500 text-lg shrink-0">＋</span>
                 <input
@@ -232,12 +308,10 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
                 <span className="text-sm font-semibold text-gray-700">合并营养预览</span>
                 <span className="text-xs text-gray-400">基于配比总量 {totalGrams}g</span>
               </div>
-              {/* 这一份总计 */}
               <div className="text-center mb-3 py-2 bg-white rounded-lg">
                 <div className="text-2xl font-bold text-green-700">{totalCalories}</div>
                 <div className="text-xs text-gray-400">这一份总热量 (kcal)</div>
               </div>
-              {/* per100g */}
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-500">
                 <div className="flex justify-between">
                   <span>每100g热量</span>
@@ -260,7 +334,6 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
                   <span className="font-medium text-gray-700">{formatNumber(per100g.fiber)}g</span>
                 </div>
               </div>
-              {/* 食材明细 */}
               <div className="mt-3 pt-3 border-t border-green-100">
                 <div className="text-xs text-gray-400 mb-1.5">食材明细</div>
                 {ingredients.map(ing => {

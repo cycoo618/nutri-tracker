@@ -20,6 +20,8 @@ export interface CustomFoodRecord {
   id: string;
   name: string;
   description?: string;
+  /** 来源：recipe=组合食材, scanned=拍照识别, manual=手动录入 */
+  pantrySource?: 'recipe' | 'scanned' | 'manual';
   ingredients: RecipeIngredient[];
   /** 所有食材总克重 */
   totalGrams: number;
@@ -78,6 +80,9 @@ function nullable(v: number): number | undefined {
 
 /** 将 CustomFoodRecord 转成搜索/添加用的 FoodItem */
 export function recordToFoodItem(rec: CustomFoodRecord): FoodItem {
+  const tag = rec.pantrySource === 'scanned' ? '扫码'
+    : rec.pantrySource === 'manual' ? '手动'
+    : '自制';
   return {
     id: rec.id,
     name: rec.name,
@@ -85,7 +90,7 @@ export function recordToFoodItem(rec: CustomFoodRecord): FoodItem {
     per100g: rec.per100g,
     servingSizes: rec.servingSizes,
     source: 'user_added',
-    tags: ['自制'],
+    tags: [tag],
   };
 }
 

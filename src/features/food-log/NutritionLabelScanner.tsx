@@ -141,6 +141,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
     try {
       const record = saveCustomFood({
         name: extracted.name || '扫描食物',
+        pantrySource: 'scanned',
         ingredients: [],  // 直接录入营养数据，无原料分解
         totalGrams: 100,
         per100g: {

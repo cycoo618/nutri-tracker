@@ -89,23 +89,13 @@ export function DashboardPage({
               {GOAL_LABELS[profile.goal]}
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowPantry(true)}
-              className="text-sm text-gray-500 hover:text-green-600 flex items-center gap-1 transition-colors"
-              title="我的食材库"
-            >
-              <span>📦</span>
-              <span className="hidden sm:inline">食材库</span>
-            </button>
-            <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
-              登出
-            </button>
-          </div>
+          <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
+            登出
+          </button>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 pb-24">
+      <main className="max-w-lg mx-auto px-4 pb-32">
         {/* Date Navigator */}
         <div className="flex items-center justify-center gap-4 py-4">
           <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
@@ -257,13 +247,35 @@ export function DashboardPage({
         </div>
       </main>
 
-      {/* Floating Add Button */}
-      <button
-        onClick={() => setShowSearch(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 active:scale-95 transition-all z-20"
-      >
-        +
-      </button>
+      {/* Bottom Tab Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-20 safe-area-inset-bottom">
+        <div className="max-w-lg mx-auto flex items-end h-16">
+          {/* 今日 tab */}
+          <button className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-green-600">
+            <span className="text-xl">📊</span>
+            <span className="text-xs font-medium">今日</span>
+          </button>
+
+          {/* 中间 + 按钮 */}
+          <div className="flex flex-col items-center justify-end pb-3 px-4">
+            <button
+              onClick={() => setShowSearch(true)}
+              className="w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 active:scale-95 transition-all -translate-y-3"
+            >
+              +
+            </button>
+          </div>
+
+          {/* 食材库 tab */}
+          <button
+            onClick={() => setShowPantry(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-gray-400 hover:text-green-600 transition-colors"
+          >
+            <span className="text-xl">📦</span>
+            <span className="text-xs font-medium">食材库</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Search Modal */}
       {showSearch && (
