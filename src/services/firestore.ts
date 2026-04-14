@@ -38,8 +38,13 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   return snap.exists() ? (snap.data() as UserProfile) : null;
 }
 
+/** 递归删除对象中所有 undefined 字段（Firestore 不接受 undefined） */
+function stripUndefined<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
-  await withTimeout(setDoc(doc(db, USERS_COLLECTION, profile.uid), profile as DocumentData));
+  await withTimeout(setDoc(doc(db, USERS_COLLECTION, profile.uid), stripUndefined(profile) as DocumentData));
 }
 
 export async function updateUserProfile(
@@ -63,7 +68,7 @@ export async function getDailyLog(userId: string, date: string): Promise<DailyLo
 }
 
 export async function saveDailyLog(log: DailyLog): Promise<void> {
-  await withTimeout(setDoc(doc(db, LOGS_COLLECTION, log.id), log as DocumentData));
+  await withTimeout(setDoc(doc(db, LOGS_COLLECTION, log.id), stripUndefined(log) as DocumentData));
 }
 
 export async function getDailyLogs(
