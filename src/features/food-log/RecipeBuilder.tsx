@@ -188,15 +188,18 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
 
             {/* 添加食材搜索框 */}
             <div className="relative">
-              <input
-                ref={searchRef}
-                type="text"
-                value={ingQuery}
-                onChange={e => { setIngQuery(e.target.value); setShowIngSearch(true); }}
-                onFocus={() => setShowIngSearch(true)}
-                placeholder="搜索食材，如「红豆」「黑米」…"
-                className="w-full border border-dashed border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
+              <div className="flex items-center gap-2 border border-dashed border-green-400 rounded-xl px-4 py-2.5 bg-green-50 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
+                <span className="text-green-500 text-lg shrink-0">＋</span>
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={ingQuery}
+                  onChange={e => { setIngQuery(e.target.value); setShowIngSearch(true); }}
+                  onFocus={() => setShowIngSearch(true)}
+                  placeholder="搜索并添加食材，如「黑米」「红枣」…"
+                  className="flex-1 bg-transparent text-sm focus:outline-none text-gray-700 placeholder-green-400"
+                />
+              </div>
               {/* 搜索结果下拉 */}
               {showIngSearch && ingResults.length > 0 && (
                 <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-52 overflow-y-auto">
