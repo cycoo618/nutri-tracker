@@ -3,7 +3,7 @@
 // 拍照 / 上传 → Claude Vision 识别 → 确认保存
 // ============================================
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
 import { getGeminiKey, saveGeminiKey } from '../../services/nutrition-vision';
@@ -66,10 +66,6 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // 如果已有 key 但进入了 setup，跳回 capture
-  useEffect(() => {
-    if (step === 'setup' && getGeminiKey()) setStep('capture');
-  }, [step]);
 
   // ── 图片选择处理 ──────────────────────────
 
