@@ -193,18 +193,18 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
             <div className="p-6 space-y-4">
               <div className="text-center">
                 <div className="text-4xl mb-3">🔑</div>
-                <p className="font-medium text-gray-800 mb-1">填入 Gemini API Key</p>
+                <p className="font-medium text-gray-800 mb-1">填入 Groq API Key</p>
                 <p className="text-sm text-gray-500">
                   免费获取：前往{' '}
                   <a
-                    href="https://aistudio.google.com/apikey"
+                    href="https://console.groq.com/keys"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 underline"
                   >
-                    aistudio.google.com
+                    console.groq.com
                   </a>
-                  {' '}→ Get API key
+                  {' '}注册后创建 API Key（完全免费）
                 </p>
               </div>
 
@@ -258,7 +258,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                 onClick={() => setStep('setup')}
                 className="w-full mt-3 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
               >
-                🔑 更换 Gemini API Key
+                🔑 更换 Groq API Key
               </button>
             </div>
           )}
@@ -371,7 +371,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                 onClick={() => { setKeyInput(''); setStep('setup'); }}
                 className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-sm font-medium transition-colors"
               >
-                🔑 更换 Gemini API Key
+                🔑 更换 Groq API Key
               </button>
               <button
                 onClick={reset}

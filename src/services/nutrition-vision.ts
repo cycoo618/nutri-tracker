@@ -1,15 +1,18 @@
 // ============================================
 // 营养标签视觉识别服务
-// 使用 Google Gemini Vision API 分析图片（免费）
+// 使用 Groq LLaMA Vision API（免费）
 // API Key 由用户提供，存储在 localStorage
 // ============================================
 
 import type { ExtractedNutrition } from '../features/food-log/NutritionLabelScanner';
 
-const LOCAL_KEY = 'nutri_gemini_key';
+const LOCAL_KEY = 'nutri_groq_key';
 
 export function getGeminiKey(): string | null {
-  return localStorage.getItem(LOCAL_KEY);
+  // 兼容旧 key 名称
+  return localStorage.getItem(LOCAL_KEY)
+    ?? localStorage.getItem('nutri_gemini_key')
+    ?? localStorage.getItem('nutri_anthropic_key');
 }
 
 export function saveGeminiKey(key: string) {
@@ -18,6 +21,8 @@ export function saveGeminiKey(key: string) {
 
 export function clearGeminiKey() {
   localStorage.removeItem(LOCAL_KEY);
+  localStorage.removeItem('nutri_gemini_key');
+  localStorage.removeItem('nutri_anthropic_key');
 }
 
 const PROMPT = `你是一个专业的营养成分表识别助手。
@@ -38,30 +43,35 @@ const PROMPT = `你是一个专业的营养成分表识别助手。
 export async function analyzeNutritionLabel(imageBase64: string): Promise<ExtractedNutrition> {
   const apiKey = getGeminiKey();
   if (!apiKey) {
-    throw new Error('请先填入 Gemini API Key');
+    throw new Error('请先填入 Groq API Key');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
     body: JSON.stringify({
-      contents: [{
-        parts: [
-          {
-            inline_data: {
-              mime_type: 'image/jpeg',
-              data: imageBase64,
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      max_tokens: 512,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/jpeg;base64,${imageBase64}`,
+              },
             },
-          },
-          { text: PROMPT },
-        ],
-      }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        maxOutputTokens: 512,
-      },
+            {
+              type: 'text',
+              text: PROMPT,
+            },
+          ],
+        },
+      ],
     }),
   });
 
@@ -72,7 +82,7 @@ export async function analyzeNutritionLabel(imageBase64: string): Promise<Extrac
   }
 
   const data = await response.json();
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  const text: string = data.choices?.[0]?.message?.content ?? '';
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('API 返回格式异常');
