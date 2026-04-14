@@ -1434,6 +1434,108 @@ export const FOOD_DATABASE: FoodItem[] = [
     servingSizes: [{ label: '1杯(约150g)', grams: 150 }],
     source: 'builtin', tags: ['低GI', '高蛋白', '高纤维'],
   },
+
+  {
+    id: 'soy-013', name: '黑豆(干)', nameEn: 'Black Soybean (Dried)',
+    aliases: ['黑豆', '乌豆', '冬豆'],
+    category: 'soy',
+    per100g: { calories: 381, protein: 36.0, carbs: 33.6, fat: 15.9, fiber: 10.2, potassium: 1377, calcium: 224, iron: 7.0 },
+    gi: 30, giLevel: 'low',
+    servingSizes: [
+      { label: '1勺(30g)', grams: 30 },
+      { label: '1杯(100g)', grams: 100 },
+    ],
+    source: 'builtin', tags: ['低GI', '高蛋白', '高纤维', '养生'],
+  },
+
+  {
+    id: 'grain-037', name: '黑米(干)', nameEn: 'Black Rice (Dry)',
+    aliases: ['黑米', '紫黑米', '血糯米'],
+    category: 'grain',
+    per100g: { calories: 341, protein: 9.4, carbs: 72.2, fat: 2.5, fiber: 3.9, potassium: 256, calcium: 12, iron: 1.6 },
+    gi: 42, giLevel: 'low',
+    servingSizes: [
+      { label: '1勺(30g)', grams: 30 },
+      { label: '1杯(100g)', grams: 100 },
+    ],
+    source: 'builtin', tags: ['低GI', '养生'],
+  },
+
+  {
+    id: 'seed-001', name: '黑芝麻', nameEn: 'Black Sesame Seeds',
+    aliases: ['黑脂麻', '胡麻'],
+    category: 'nut',
+    per100g: { calories: 559, protein: 19.1, carbs: 24.0, fat: 46.1, fiber: 14.0, calcium: 780, iron: 22.7, potassium: 358 },
+    gi: 35, giLevel: 'low',
+    servingSizes: [
+      { label: '1勺(5g)', grams: 5 },
+      { label: '1大勺(15g)', grams: 15 },
+    ],
+    source: 'builtin', tags: ['高钙', '养生'],
+  },
+
+  {
+    id: 'seed-002', name: '白芝麻', nameEn: 'White Sesame Seeds',
+    aliases: ['芝麻', '脂麻'],
+    category: 'nut',
+    per100g: { calories: 517, protein: 18.4, carbs: 22.7, fat: 43.9, fiber: 9.8, calcium: 620, iron: 14.9 },
+    gi: 35, giLevel: 'low',
+    servingSizes: [
+      { label: '1勺(5g)', grams: 5 },
+      { label: '1大勺(15g)', grams: 15 },
+    ],
+    source: 'builtin', tags: ['高钙'],
+  },
+
+  {
+    id: 'berry-001', name: '枸杞(干)', nameEn: 'Dried Goji Berries',
+    aliases: ['枸杞子', '枸杞', '宁夏枸杞', 'wolfberry', 'goji'],
+    category: 'fruit',
+    per100g: { calories: 258, protein: 13.9, carbs: 64.1, fat: 1.5, fiber: 16.9, vitaminC: 48, calcium: 60, iron: 5.4 },
+    gi: 29, giLevel: 'low',
+    servingSizes: [
+      { label: '1小把(10g)', grams: 10 },
+      { label: '1勺(20g)', grams: 20 },
+    ],
+    source: 'builtin', tags: ['低GI', '养生', '高纤维'],
+  },
+
+  {
+    id: 'berry-002', name: '红枣(鲜)', nameEn: 'Fresh Red Dates (Jujube)',
+    aliases: ['鲜枣', '大枣', '红枣'],
+    category: 'fruit',
+    per100g: { calories: 122, protein: 1.1, carbs: 30.5, fat: 0.3, fiber: 1.9, vitaminC: 243, potassium: 375 },
+    gi: 42, giLevel: 'low',
+    servingSizes: [
+      { label: '1颗(约10g)', grams: 10 },
+      { label: '3颗(约30g)', grams: 30 },
+      { label: '5颗(约50g)', grams: 50 },
+    ],
+    source: 'builtin', tags: ['低GI', '养生'],
+  },
+
+  {
+    id: 'grain-035', name: '小麦胚芽', nameEn: 'Wheat Germ',
+    aliases: ['胚芽', '麦芽'],
+    category: 'grain',
+    per100g: { calories: 382, protein: 23.2, carbs: 51.8, fat: 9.7, fiber: 13.2, potassium: 947, calcium: 39, iron: 6.3 },
+    gi: 45, giLevel: 'low',
+    servingSizes: [{ label: '1勺(15g)', grams: 15 }],
+    source: 'builtin', tags: ['高蛋白', '高纤维'],
+  },
+
+  {
+    id: 'grain-036', name: '燕麦(干/生)', nameEn: 'Oats (Raw/Dry)',
+    aliases: ['生燕麦', '燕麦粒', '纯燕麦', '大燕麦片'],
+    category: 'grain',
+    per100g: { calories: 389, protein: 16.9, carbs: 66.3, fat: 6.9, fiber: 10.6, potassium: 429, calcium: 54, iron: 4.7 },
+    gi: 55, giLevel: 'low',
+    servingSizes: [
+      { label: '1份(40g)', grams: 40 },
+      { label: '1杯(80g)', grams: 80 },
+    ],
+    source: 'builtin', tags: ['低GI', '高纤维', '高蛋白'],
+  },
   {
     id: 'soy-012', name: '鹰嘴豆(煮熟)', nameEn: 'Chickpea (Cooked)',
     aliases: ['鸡心豆'],

@@ -168,41 +168,56 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
 
           {/* 无结果 */}
           {noResults && (
-            <div className="p-6 text-center">
-              <div className="text-3xl mb-3">🔍</div>
-              <div className="text-gray-600 font-medium">没有找到「{query}」</div>
-              {onlineError ? (
-                <div className="text-amber-500 text-sm mt-1 mb-3">{onlineError}</div>
-              ) : (
-                <div className="text-gray-400 text-sm mt-1 mb-3">本地和联网搜索都未找到</div>
-              )}
-              {onlineError?.includes('失败') && (
-                <button
-                  onClick={() => {
-                    setOnlineSearched(false);
-                    setOnlineError(null);
-                    setSearchState('searching_online');
-                    searchOpenFoodFacts(query)
-                      .then(online => { setResults(online); setOnlineResults(online); setOnlineSearched(true); setSearchState('done'); if (!online.length) setOnlineError('联网搜索无结果'); })
-                      .catch(() => { setOnlineError('联网搜索失败，请稍后再试'); setSearchState('done'); });
-                  }}
-                  className="w-full py-2.5 mb-2 text-sm text-blue-500 border border-blue-200 rounded-xl hover:border-blue-400 transition-colors"
-                >
-                  重试联网搜索
-                </button>
-              )}
-              <div className="space-y-2">
+            <div className="p-5 space-y-3">
+              <div className="text-center py-3">
+                <div className="text-3xl mb-2">🔍</div>
+                <div className="text-gray-600 font-medium">没有找到「{query}」</div>
+                <div className="text-gray-400 text-xs mt-1">
+                  {onlineError?.includes('失败') ? '联网搜索失败' : '本地和联网都未找到'}
+                </div>
+              </div>
+
+              {/* 主推：拍照识别 */}
+              <button
+                onClick={() => setView('scanner')}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <span>📷</span> 拍照识别包装营养标签
+              </button>
+
+              {/* 重试联网 */}
+              <button
+                onClick={() => {
+                  setOnlineSearched(false);
+                  setOnlineError(null);
+                  setSearchState('searching_online');
+                  searchOpenFoodFacts(query)
+                    .then(online => {
+                      setResults(online);
+                      setOnlineResults(online);
+                      setOnlineSearched(true);
+                      setSearchState('done');
+                      if (!online.length) setOnlineError('联网搜索无结果');
+                    })
+                    .catch(() => { setOnlineError('联网搜索失败，请稍后再试'); setSearchState('done'); });
+                }}
+                className="w-full py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <span>🌐</span> 重新联网搜索
+              </button>
+
+              <div className="flex gap-2">
                 <button
                   onClick={() => setView('recipe')}
-                  className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+                  className="flex-1 py-2.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl text-sm font-medium transition-colors"
                 >
-                  🧪 创建自定义食物（组合食材）
+                  🧪 组合食材
                 </button>
                 <button
                   onClick={() => setView('manual')}
-                  className="w-full py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors"
                 >
-                  手动录入营养数据
+                  手动录入
                 </button>
               </div>
             </div>
