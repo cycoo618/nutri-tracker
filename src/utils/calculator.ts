@@ -2,9 +2,13 @@
 // 通用计算工具
 // ============================================
 
-/** 获取今天的日期字符串 YYYY-MM-DD */
+/** 获取今天的日期字符串 YYYY-MM-DD（使用用户本地时区） */
 export function getTodayString(): string {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /** 格式化日期为中文 */
