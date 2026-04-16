@@ -22,17 +22,18 @@ interface AddFoodModalProps {
 type InputMode = 'serving' | 'grams';
 
 export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, onClose }: AddFoodModalProps) {
-  // 合并：食物自带份量 + 推断份量（去重）
+  // 用户自定义食物：只用用户明确设置的份量，不做推断（避免豆浆等用豆子克数录入的食物被错误换算成 ml）
+  // 内置 / 联网食物：合并自带份量 + 推断份量
   const builtinServings = food.servingSizes ?? [];
-  const inferred = inferServingSizes(food);
+  const inferred = food.source === 'user_added' ? [] : inferServingSizes(food);
   const mergedServings = [
     ...builtinServings,
     ...inferred.filter(s => !builtinServings.some(b => Math.abs(b.grams - s.grams) < 5)),
   ];
-  const hasServings = mergedServings.length > 0; // always true now
+  const hasServings = mergedServings.length > 0;
 
-  // 默认模式：有 quickGrams 时用克重，否则用份量
-  const defaultMode: InputMode = quickGrams ? 'grams' : 'serving';
+  // 默认模式：有 quickGrams 时用克重；自定义食物且无份量时也默认克重；否则用份量
+  const defaultMode: InputMode = (quickGrams || (food.source === 'user_added' && !hasServings)) ? 'grams' : 'serving';
   const [mode, setMode] = useState<InputMode>(defaultMode);
 
   // 份量模式状态
