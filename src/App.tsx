@@ -73,6 +73,7 @@ export default function App() {
         recentFoods={foodLog.recentFoods}
         syncStatus={foodLog.syncStatus}
         syncError={foodLog.syncError}
+        onForceSync={foodLog.forceSync}
         onDateChange={foodLog.setCurrentDate}
         onAddFood={foodLog.addFood}
         onRemoveFood={foodLog.removeFood}

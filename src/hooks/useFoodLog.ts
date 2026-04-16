@@ -192,6 +192,38 @@ export function useFoodLog(userId: string | undefined) {
     return getDailyLogs(userId, startDate, endDate);
   }, [userId]);
 
+  /**
+   * 手动同步：
+   * 1. 把本地当前数据上传到 Firestore（本设备 → 云端）
+   * 2. 再从 Firestore 拉取最新（云端 → 本设备）
+   * 如果 Firestore 里已有更新数据（如另一台设备写的），以 Firestore 为准
+   */
+  const forceSync = useCallback(async () => {
+    if (!userId) return;
+    setSyncStatus('syncing');
+    setSyncError(null);
+    try {
+      // Step 1: 把本地数据推到 Firestore（如果本地有数据的话）
+      if (dailyLog) {
+        await saveDailyLog(dailyLog);
+      }
+      // Step 2: 从 Firestore 拉取最新，覆盖本地
+      const serverLog = await getDailyLog(userId, currentDate);
+      if (serverLog) {
+        setDailyLog(serverLog);
+        saveToLocal(userId, currentDate, serverLog);
+      } else if (!dailyLog) {
+        setDailyLog(createEmptyDailyLog(userId, currentDate));
+      }
+      setSyncStatus('synced');
+      setSyncError(null);
+    } catch (err) {
+      setSyncStatus('error');
+      const msg = err instanceof Error ? err.message : String(err);
+      setSyncError(msg.includes('超时') ? 'Firestore 连接超时，请检查网络' : msg.slice(0, 80));
+    }
+  }, [userId, dailyLog, currentDate]);
+
   return {
     currentDate,
     setCurrentDate,
@@ -199,6 +231,7 @@ export function useFoodLog(userId: string | undefined) {
     loading,
     syncStatus,
     syncError,
+    forceSync,
     addFood,
     removeFood,
     recentFoods,

@@ -27,6 +27,7 @@ interface DashboardPageProps {
   recentFoods: RecentFoodEntry[];
   syncStatus: SyncStatus;
   syncError: string | null;
+  onForceSync: () => Promise<void>;
   onDateChange: (date: string) => void;
   onAddFood: (food: FoodItem, grams: number, displayUnit: string) => void;
   onRemoveFood: (itemId: string) => void;
@@ -51,6 +52,7 @@ export function DashboardPage({
   recentFoods,
   syncStatus,
   syncError,
+  onForceSync,
   onDateChange,
   onAddFood,
   onRemoveFood,
@@ -103,15 +105,22 @@ export function DashboardPage({
               </span>
             )}
             {syncStatus === 'synced' && (
-              <span className="text-xs text-green-500 flex items-center gap-1">☁️ 已同步</span>
-            )}
-            {syncStatus === 'error' && (
-              <span
-                className="text-xs text-red-400 flex items-center gap-1 cursor-pointer"
-                title={syncError ?? '同步失败'}
+              <button
+                onClick={onForceSync}
+                className="text-xs text-green-500 flex items-center gap-1 hover:text-green-600 transition-colors"
+                title="点击手动同步"
               >
-                ⚠️ 未同步
-              </span>
+                ☁️ 已同步
+              </button>
+            )}
+            {(syncStatus === 'error' || syncStatus === 'idle') && (
+              <button
+                onClick={onForceSync}
+                className="text-xs text-red-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                title={syncError ?? '点击重新同步'}
+              >
+                {syncStatus === 'error' ? '⚠️ 重新同步' : '🔄 同步'}
+              </button>
             )}
             <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
               登出
@@ -121,9 +130,17 @@ export function DashboardPage({
         {/* 同步错误详情横幅 */}
         {syncStatus === 'error' && syncError && (
           <div className="max-w-lg mx-auto px-4 pb-2">
-            <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-xs text-red-600">
-              <strong>云端同步失败：</strong>{syncError}
-              <div className="text-red-400 mt-0.5">数据已保存在本设备。请检查 Firebase Firestore 规则，或刷新页面重试。</div>
+            <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-xs text-red-600 flex items-start justify-between gap-3">
+              <div>
+                <div><strong>云端同步失败：</strong>{syncError}</div>
+                <div className="text-red-400 mt-0.5">数据已保存在本设备，跨设备暂不可见。</div>
+              </div>
+              <button
+                onClick={onForceSync}
+                className="shrink-0 bg-red-100 hover:bg-red-200 text-red-600 px-2.5 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap"
+              >
+                重试
+              </button>
             </div>
           </div>
         )}
