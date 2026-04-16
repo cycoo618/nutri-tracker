@@ -1,47 +1,111 @@
 // ============================================
-// 我的食材库 — 管理自定义食物
+// 我的食材库 — 管理自定义食物（含 Firestore 同步）
 // 支持：扫码录入包装袋、组合食材、删除、添加到今日记录
 // ============================================
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { FoodItem } from '../../types/food';
-import { getAllCustomFoods, deleteCustomFood, recordToFoodItem } from '../../utils/customFoods';
+import {
+  getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods,
+} from '../../utils/customFoods';
 import type { CustomFoodRecord } from '../../utils/customFoods';
+import { getUserFoods, saveUserFood, deleteUserFood } from '../../services/firestore';
+import type { DocumentData } from 'firebase/firestore';
 import { formatNumber } from '../../utils/calculator';
 import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
 import { RecipeBuilder } from '../food-log/RecipeBuilder';
 
 interface FoodPantryPageProps {
   onClose: () => void;
+  userId?: string;
   /** 可选：添加到今日饮食日志 */
   onAddToLog?: (food: FoodItem) => void;
 }
 
 type SubView = 'list' | 'scanner' | 'recipe';
+type CloudStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
-export function FoodPantryPage({ onClose, onAddToLog }: FoodPantryPageProps) {
+export function FoodPantryPage({ onClose, userId, onAddToLog }: FoodPantryPageProps) {
   const [subView, setSubView] = useState<SubView>('list');
   const [records, setRecords] = useState<CustomFoodRecord[]>(() => getAllCustomFoods());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [cloudStatus, setCloudStatus] = useState<CloudStatus>('idle');
 
   const refresh = useCallback(() => {
     setRecords(getAllCustomFoods());
   }, []);
 
-  const handleSaved = (food: FoodItem) => {
+  // ── 打开时从 Firestore 拉取并合并 ─────────────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+    setCloudStatus('syncing');
+    getUserFoods(userId)
+      .then(data => {
+        if (data.length > 0) {
+          mergeCustomFoods(data as CustomFoodRecord[]);
+          setRecords(getAllCustomFoods());
+        }
+        setCloudStatus('synced');
+      })
+      .catch(() => {
+        // 拉取失败不影响本地数据
+        setCloudStatus('error');
+      });
+  }, [userId]);
+
+  // ── 推送单条到 Firestore ──────────────────────────────────────────
+  const pushOne = useCallback(async (record: CustomFoodRecord) => {
+    if (!userId) return;
+    setCloudStatus('syncing');
+    try {
+      await saveUserFood(userId, record as unknown as DocumentData);
+      setCloudStatus('synced');
+    } catch {
+      setCloudStatus('error');
+    }
+  }, [userId]);
+
+  // ── 回调：保存后刷新 + 推 Firestore ──────────────────────────────
+  const handleSaved = useCallback((food: FoodItem) => {
     refresh();
     setSubView('list');
-    // 短暂高亮新增的食物
     setAddedId(food.id);
     setTimeout(() => setAddedId(null), 2000);
-  };
 
-  const handleDelete = (id: string) => {
+    // 找到刚保存的 record 推到云端
+    const allRecords = getAllCustomFoods();
+    const saved = allRecords.find(r => r.id === food.id);
+    if (saved) pushOne(saved);
+  }, [refresh, pushOne]);
+
+  // ── 删除 ─────────────────────────────────────────────────────────
+  const handleDelete = useCallback((id: string) => {
     deleteCustomFood(id);
     refresh();
     setDeleteConfirm(null);
-  };
+    if (userId) {
+      deleteUserFood(userId, id).catch(console.warn);
+    }
+  }, [userId, refresh]);
+
+  // ── 手动重新同步 ──────────────────────────────────────────────────
+  const handleForceSync = useCallback(async () => {
+    if (!userId) return;
+    setCloudStatus('syncing');
+    try {
+      // 1. 把本地所有 push 上去
+      const all = getAllCustomFoods();
+      await Promise.all(all.map(r => saveUserFood(userId, r as unknown as DocumentData)));
+      // 2. 再 pull 合并
+      const data = await getUserFoods(userId);
+      if (data.length > 0) mergeCustomFoods(data as CustomFoodRecord[]);
+      setRecords(getAllCustomFoods());
+      setCloudStatus('synced');
+    } catch {
+      setCloudStatus('error');
+    }
+  }, [userId]);
 
   const handleAddToLog = (record: CustomFoodRecord) => {
     if (!onAddToLog) return;
@@ -81,7 +145,28 @@ export function FoodPantryPage({ onClose, onAddToLog }: FoodPantryPageProps) {
             ← 返回
           </button>
           <h1 className="flex-1 text-center font-semibold text-gray-900">我的食材库</h1>
-          <span className="text-xs text-gray-400 shrink-0">{records.length} 种</span>
+          {/* 云同步状态 */}
+          <button
+            onClick={handleForceSync}
+            disabled={cloudStatus === 'syncing' || !userId}
+            className="shrink-0 flex items-center gap-1 text-xs transition-colors disabled:cursor-default"
+          >
+            {cloudStatus === 'syncing' && (
+              <span className="text-gray-400 flex items-center gap-1">
+                <span className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin inline-block" />
+                同步中
+              </span>
+            )}
+            {cloudStatus === 'synced' && (
+              <span className="text-green-500">☁️ 已同步</span>
+            )}
+            {cloudStatus === 'error' && (
+              <span className="text-red-400">⚠️ 重试</span>
+            )}
+            {cloudStatus === 'idle' && (
+              <span className="text-gray-400">{records.length} 种</span>
+            )}
+          </button>
         </div>
       </header>
 
@@ -136,8 +221,13 @@ export function FoodPantryPage({ onClose, onAddToLog }: FoodPantryPageProps) {
                               ✓ 已保存
                             </span>
                           )}
+                          {record.pantrySource === 'scanned' && (
+                            <span className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0">📷 扫码</span>
+                          )}
+                          {record.pantrySource === 'recipe' && (
+                            <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">🧪 自制</span>
+                          )}
                         </div>
-                        {/* 份量标签 */}
                         {record.servingSizes.length > 0 && (
                           <div className="text-xs text-gray-400 mt-0.5">
                             {record.servingSizes[0].label}
@@ -179,7 +269,7 @@ export function FoodPantryPage({ onClose, onAddToLog }: FoodPantryPageProps) {
                     </div>
                     <div className="text-xs text-gray-400 mb-3 text-center">以上数据均为每100g</div>
 
-                    {/* 食材明细（有配料才显示） */}
+                    {/* 食材明细 */}
                     {record.ingredients.length > 0 && (
                       <div className="bg-gray-50 rounded-xl p-2.5 mb-3">
                         <div className="text-xs text-gray-400 mb-1.5">配料</div>

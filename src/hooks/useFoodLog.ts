@@ -7,7 +7,10 @@ import type { DailyLog, MealType, MealItem } from '../types/log';
 import { createEmptyDailyLog } from '../types/log';
 import type { FoodItem } from '../types/food';
 import { scaleNutrition, sumNutrition } from '../types/food';
-import { getDailyLog, saveDailyLog, getDailyLogs } from '../services/firestore';
+import { getDailyLog, saveDailyLog, getDailyLogs, getUserFoods, saveUserFood } from '../services/firestore';
+import { getAllCustomFoods, mergeCustomFoods } from '../utils/customFoods';
+import type { CustomFoodRecord } from '../utils/customFoods';
+import type { DocumentData } from 'firebase/firestore';
 import { getTodayString, generateId } from '../utils/calculator';
 import { recordFoodUsage, getRecentFoods } from '../utils/recentFoods';
 import type { RecentFoodEntry } from '../utils/recentFoods';
@@ -203,17 +206,29 @@ export function useFoodLog(userId: string | undefined) {
     setSyncStatus('syncing');
     setSyncError(null);
     try {
-      // Step 1: 把本地数据推到 Firestore（如果本地有数据的话）
+      // Step 1: 把本地饮食记录推到 Firestore
       if (dailyLog) {
         await saveDailyLog(dailyLog);
       }
-      // Step 2: 从 Firestore 拉取最新，覆盖本地
+      // Step 2: 从 Firestore 拉取最新饮食记录
       const serverLog = await getDailyLog(userId, currentDate);
       if (serverLog) {
         setDailyLog(serverLog);
         saveToLocal(userId, currentDate, serverLog);
       } else if (!dailyLog) {
         setDailyLog(createEmptyDailyLog(userId, currentDate));
+      }
+      // Step 3: 把本地食材库推到 Firestore
+      const localFoods = getAllCustomFoods();
+      if (localFoods.length > 0) {
+        await Promise.all(
+          localFoods.map(f => saveUserFood(userId, f as unknown as DocumentData))
+        );
+      }
+      // Step 4: 从 Firestore 拉取食材库并合并
+      const serverFoods = await getUserFoods(userId);
+      if (serverFoods.length > 0) {
+        mergeCustomFoods(serverFoods as CustomFoodRecord[]);
       }
       setSyncStatus('synced');
       setSyncError(null);

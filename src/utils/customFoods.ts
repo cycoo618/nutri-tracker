@@ -114,6 +114,26 @@ export function getAllCustomFoods(): CustomFoodRecord[] {
   return load();
 }
 
+/**
+ * 合并远端食材到本地 localStorage（以 updatedAt 较新的为准）
+ * 用于 Firestore pull 回来后的合并
+ */
+export function mergeCustomFoods(remoteRecords: CustomFoodRecord[]): void {
+  const local = load();
+  const map = new Map<string, CustomFoodRecord>();
+  // 先放本地，再用远端覆盖（远端更新时间更新则覆盖，否则保留本地）
+  for (const r of local) map.set(r.id, r);
+  for (const r of remoteRecords) {
+    const existing = map.get(r.id);
+    if (!existing || r.updatedAt >= existing.updatedAt) {
+      map.set(r.id, r);
+    }
+  }
+  save(Array.from(map.values()).sort(
+    (a, b) => b.createdAt.localeCompare(a.createdAt)
+  ));
+}
+
 export function getCustomFoodItems(): FoodItem[] {
   return load().map(recordToFoodItem);
 }

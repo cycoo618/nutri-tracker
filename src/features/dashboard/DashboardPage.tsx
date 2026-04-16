@@ -345,6 +345,7 @@ export function DashboardPage({
       {showPantry && (
         <FoodPantryPage
           onClose={() => setShowPantry(false)}
+          userId={profile.uid}
           onAddToLog={(food) => {
             setSelectedFood(food);
             setQuickEntry(null);

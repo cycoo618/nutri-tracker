@@ -106,6 +106,11 @@ export async function getUserFoods(userId: string) {
 }
 
 export async function saveUserFood(userId: string, food: DocumentData): Promise<void> {
-  const docId = `${userId}_${food.id}`;
-  await withTimeout(setDoc(doc(db, USER_FOODS_COLLECTION, docId), { ...food, userId }));
+  const docId = `${userId}_${food['id']}`;
+  await withTimeout(setDoc(doc(db, USER_FOODS_COLLECTION, docId), stripUndefined({ ...food, userId }) as DocumentData));
+}
+
+export async function deleteUserFood(userId: string, foodId: string): Promise<void> {
+  const docId = `${userId}_${foodId}`;
+  await withTimeout(deleteDoc(doc(db, USER_FOODS_COLLECTION, docId)));
 }
