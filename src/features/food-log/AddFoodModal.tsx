@@ -63,7 +63,7 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl overflow-y-auto" style={{ maxHeight: 'var(--vvh, 90vh)' }}>
 
         {/* Header */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">

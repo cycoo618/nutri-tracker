@@ -133,7 +133,7 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 85vh)' }}>
 
         {/* 搜索框 */}
         <div className="p-4 border-b border-gray-100">

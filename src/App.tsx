@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useFoodLog } from './hooks/useFoodLog';
 import { useNutrition } from './hooks/useNutrition';
+import { useKeyboardScroll } from './hooks/useKeyboardScroll';
 import { initFoodDatabase } from './services/food-lookup';
 import { LoginPage } from './features/auth/LoginPage';
 import { OnboardingPage } from './features/onboarding/OnboardingPage';
@@ -19,6 +20,7 @@ export default function App() {
   const auth = useAuth();
   const foodLog = useFoodLog(auth.profile?.uid);
   const nutritionStatus = useNutrition(auth.profile, foodLog.dailyLog);
+  useKeyboardScroll(); // 全局：键盘弹出时自动滚动聚焦输入框到可见区域
 
   useEffect(() => {
     initFoodDatabase().then(() => setDbReady(true));

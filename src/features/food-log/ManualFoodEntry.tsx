@@ -59,7 +59,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 90vh)' }}>
 
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
           <button onClick={onBack} className="text-sm text-gray-400 hover:text-gray-600">← 返回</button>
