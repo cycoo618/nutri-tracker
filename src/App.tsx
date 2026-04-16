@@ -71,6 +71,8 @@ export default function App() {
         nutritionStatus={nutritionStatus}
         currentDate={foodLog.currentDate}
         recentFoods={foodLog.recentFoods}
+        syncStatus={foodLog.syncStatus}
+        syncError={foodLog.syncError}
         onDateChange={foodLog.setCurrentDate}
         onAddFood={foodLog.addFood}
         onRemoveFood={foodLog.removeFood}

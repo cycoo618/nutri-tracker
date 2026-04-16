@@ -41,10 +41,14 @@ function loadFromLocal(userId: string, date: string): DailyLog | null {
   }
 }
 
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
 export function useFoodLog(userId: string | undefined) {
   const [currentDate, setCurrentDate] = useState(getTodayString());
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
   const [loading, setLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [recentFoods, setRecentFoods] = useState<RecentFoodEntry[]>(() => getRecentFoods());
 
   // 加载当天记录：先读 localStorage（即时显示），再从 Firestore 同步
@@ -61,6 +65,8 @@ export function useFoodLog(userId: string | undefined) {
     }
 
     // 2. 后台从 Firestore 拉取最新数据（可能比本地更新，如跨设备）
+    setSyncStatus('syncing');
+    setSyncError(null);
     getDailyLog(userId, currentDate)
       .then(log => {
         if (log) {
@@ -70,13 +76,18 @@ export function useFoodLog(userId: string | undefined) {
         } else if (!cached) {
           // Firestore 没数据 + 本地也没缓存 → 创建空白
           setDailyLog(createEmptyDailyLog(userId, currentDate));
-          // 不把空白写入 localStorage，等用户真正添加食物再写
         }
         // Firestore 没数据 但 缓存有 → 保持缓存（已经 setDailyLog 过了）
+        setSyncStatus('synced');
       })
-      .catch(() => {
+      .catch((err) => {
         // Firestore 失败 → 继续用本地缓存（已显示）；没缓存时用空白
         if (!cached) setDailyLog(createEmptyDailyLog(userId, currentDate));
+        setSyncStatus('error');
+        const msg = err instanceof Error ? err.message : String(err);
+        // 超时提示精简一下
+        setSyncError(msg.includes('超时') ? 'Firestore 连接超时，数据可能未同步' : msg.slice(0, 80));
+        console.warn('Firestore load failed:', err);
       })
       .finally(() => setLoading(false));
   }, [userId, currentDate]);
@@ -137,7 +148,15 @@ export function useFoodLog(userId: string | undefined) {
 
     // 先写 localStorage（同步，即时持久化），再写 Firestore（异步）
     saveToLocal(userId, currentDate, finalLog);
-    saveDailyLog(finalLog).catch(err => console.warn('Firestore save failed:', err));
+    setSyncStatus('syncing');
+    saveDailyLog(finalLog)
+      .then(() => { setSyncStatus('synced'); setSyncError(null); })
+      .catch(err => {
+        setSyncStatus('error');
+        const msg = err instanceof Error ? err.message : String(err);
+        setSyncError(msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80));
+        console.warn('Firestore save failed:', err);
+      });
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
   /** 移除食物 — 按 itemId 搜索所有餐次，无需指定餐次 */
@@ -156,7 +175,15 @@ export function useFoodLog(userId: string | undefined) {
     setDailyLog(finalLog);
 
     if (userId) saveToLocal(userId, currentDate, finalLog);
-    saveDailyLog(finalLog).catch(err => console.warn('Firestore save failed:', err));
+    setSyncStatus('syncing');
+    saveDailyLog(finalLog)
+      .then(() => { setSyncStatus('synced'); setSyncError(null); })
+      .catch(err => {
+        setSyncStatus('error');
+        const msg = err instanceof Error ? err.message : String(err);
+        setSyncError(msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80));
+        console.warn('Firestore save failed:', err);
+      });
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
   /** 获取日期范围内的记录（用于周/月分析） */
@@ -170,6 +197,8 @@ export function useFoodLog(userId: string | undefined) {
     setCurrentDate,
     dailyLog,
     loading,
+    syncStatus,
+    syncError,
     addFood,
     removeFood,
     recentFoods,

@@ -9,6 +9,7 @@ import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog } from '../../types/log';
 import type { FoodItem } from '../../types/food';
 import type { NutritionStatus } from '../../hooks/useNutrition';
+import type { SyncStatus } from '../../hooks/useFoodLog';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { MacroCard } from '../../components/ui/MacroCard';
@@ -24,6 +25,8 @@ interface DashboardPageProps {
   nutritionStatus: NutritionStatus | null;
   currentDate: string;
   recentFoods: RecentFoodEntry[];
+  syncStatus: SyncStatus;
+  syncError: string | null;
   onDateChange: (date: string) => void;
   onAddFood: (food: FoodItem, grams: number, displayUnit: string) => void;
   onRemoveFood: (itemId: string) => void;
@@ -46,6 +49,8 @@ export function DashboardPage({
   nutritionStatus,
   currentDate,
   recentFoods,
+  syncStatus,
+  syncError,
   onDateChange,
   onAddFood,
   onRemoveFood,
@@ -89,10 +94,39 @@ export function DashboardPage({
               {GOAL_LABELS[profile.goal]}
             </span>
           </div>
-          <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
-            登出
-          </button>
+          <div className="flex items-center gap-3">
+            {/* 同步状态指示器 */}
+            {syncStatus === 'syncing' && (
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <span className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin inline-block" />
+                同步中
+              </span>
+            )}
+            {syncStatus === 'synced' && (
+              <span className="text-xs text-green-500 flex items-center gap-1">☁️ 已同步</span>
+            )}
+            {syncStatus === 'error' && (
+              <span
+                className="text-xs text-red-400 flex items-center gap-1 cursor-pointer"
+                title={syncError ?? '同步失败'}
+              >
+                ⚠️ 未同步
+              </span>
+            )}
+            <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
+              登出
+            </button>
+          </div>
         </div>
+        {/* 同步错误详情横幅 */}
+        {syncStatus === 'error' && syncError && (
+          <div className="max-w-lg mx-auto px-4 pb-2">
+            <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-xs text-red-600">
+              <strong>云端同步失败：</strong>{syncError}
+              <div className="text-red-400 mt-0.5">数据已保存在本设备。请检查 Firebase Firestore 规则，或刷新页面重试。</div>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-lg mx-auto px-4 pb-32">
