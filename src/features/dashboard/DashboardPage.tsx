@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, startTransition } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog } from '../../types/log';
@@ -360,10 +360,13 @@ export function DashboardPage({
         <FoodSearch
           recentFoods={recentFoods}
           onSelect={(food) => {
+            // 先显示 AddFoodModal（高优先级），再用 startTransition 延迟卸载 FoodSearch
+            // 这样 AddFoodModal 先渲染出来，FoodSearch 在后台安静消失，避免两步卡顿
             selectFood(food);
-            setShowSearch(false);
-            setQuickEntry(null);
-            // body 仍然锁住，因为 AddFoodModal 马上要开
+            startTransition(() => {
+              setShowSearch(false);
+              setQuickEntry(null);
+            });
           }}
           onClose={closeSearch}
         />
