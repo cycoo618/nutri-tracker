@@ -14,13 +14,16 @@ export function useKeyboardScroll() {
       // --vvh = 可见区域高度（键盘弹出后缩小），供 CSS 使用
       document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
 
-      // 键盘弹出时滚动聚焦元素到中间
+      // 只有当输入框真的在可见区域下方时才滚动，且只滚最少的距离
       setTimeout(() => {
         const el = document.activeElement as HTMLElement | null;
         if (!el) return;
         if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > vv.height) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 150);
     };
 
     // 初始化
