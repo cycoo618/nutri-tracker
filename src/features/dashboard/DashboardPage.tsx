@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog } from '../../types/log';
@@ -62,6 +62,18 @@ export function DashboardPage({
   const [showPantry, setShowPantry] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
+
+  // 弹窗打开时锁住 body 滚动（iOS Safari 会在 input focus 时滚动底层页面）
+  const anyModalOpen = showSearch || showPantry || !!selectedFood;
+  useEffect(() => {
+    if (!anyModalOpen) return;
+    const y = window.scrollY;
+    document.body.style.cssText = `position:fixed;top:-${y}px;width:100%;overflow:hidden`;
+    return () => {
+      document.body.style.cssText = '';
+      window.scrollTo(0, y);
+    };
+  }, [anyModalOpen]);
 
   const ns = nutritionStatus;
 
