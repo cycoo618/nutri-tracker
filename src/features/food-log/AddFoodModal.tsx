@@ -3,7 +3,7 @@
 // 顶部拨动开关：按份量 ↔ 按克重，两种模式完全平等
 // ============================================
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { FoodItem, NutritionData } from '../../types/food';
 import { scaleNutrition } from '../../types/food';
 import { GIBadge } from '../../components/ui/GIBadge';
@@ -23,13 +23,15 @@ type InputMode = 'serving' | 'grams';
 
 export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, onClose }: AddFoodModalProps) {
   // 用户自定义食物：只用用户明确设置的份量，不做推断（避免豆浆等用豆子克数录入的食物被错误换算成 ml）
-  // 内置 / 联网食物：合并自带份量 + 推断份量
-  const builtinServings = food.servingSizes ?? [];
-  const inferred = food.source === 'user_added' ? [] : inferServingSizes(food);
-  const mergedServings = [
-    ...builtinServings,
-    ...inferred.filter(s => !builtinServings.some(b => Math.abs(b.grams - s.grams) < 5)),
-  ];
+  // 内置 / 联网食物：合并自带份量 + 推断份量（useMemo 避免每次渲染重新计算）
+  const mergedServings = useMemo(() => {
+    const builtinServings = food.servingSizes ?? [];
+    const inferred = food.source === 'user_added' ? [] : inferServingSizes(food);
+    return [
+      ...builtinServings,
+      ...inferred.filter(s => !builtinServings.some(b => Math.abs(b.grams - s.grams) < 5)),
+    ];
+  }, [food]);
   const hasServings = mergedServings.length > 0;
 
   // 默认模式：有 quickGrams 时用克重；自定义食物且无份量时也默认克重；否则用份量

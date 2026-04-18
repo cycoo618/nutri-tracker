@@ -34,8 +34,14 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 只在首次打开时聚焦，不在子视图切回来时重新 focus（否则会触发 iOS 滚动）
+  const didFocus = useRef(false);
   useEffect(() => {
-    if (view === 'search') inputRef.current?.focus();
+    if (view === 'search' && !didFocus.current) {
+      didFocus.current = true;
+      // 稍微延迟，等模态框完全渲染后再聚焦，避免触发 iOS 页面滚动
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
   }, [view]);
 
   // 搜索：自定义食物 + 内置数据库，无结果时联网
@@ -81,7 +87,7 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
         setOnlineSearched(true);
         setSearchState('done');
       }
-    }, 400);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [query, view]);
