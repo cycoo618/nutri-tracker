@@ -65,8 +65,8 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
 
   return (
     <div
-      className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
-      style={{ height: 'var(--vvh, 100vh)' }}
+      className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
       onClick={onClose}
     >
       <div

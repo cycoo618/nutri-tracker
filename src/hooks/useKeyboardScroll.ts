@@ -11,13 +11,15 @@ export function useKeyboardScroll() {
     if (!vv) return;
 
     const update = () => {
-      // --vvh = 可见区域高度（键盘弹出后缩小），供 CSS 使用
-      // 所有弹窗已使用 height: var(--vvh) 自动缩至键盘上方，无需额外 scrollIntoView
+      // --vvh = 可见区域高度（键盘弹出后缩小）
+      // --vvt = 可见区域顶部偏移（iOS 自动滚动时 > 0，弹窗需要随之下移）
       document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
+      document.documentElement.style.setProperty('--vvt', `${vv.offsetTop}px`);
     };
 
     // 初始化
     document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
+    document.documentElement.style.setProperty('--vvt', `${vv.offsetTop}px`);
 
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);

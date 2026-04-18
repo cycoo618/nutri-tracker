@@ -170,7 +170,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
   // ── Render ───────────────────────────────
 
   return (
-    <div className="fixed inset-x-0 top-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" style={{ height: 'var(--vvh, 100vh)' }}>
+    <div className="fixed inset-x-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}>
       <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }}>
 
         {/* Header */}
