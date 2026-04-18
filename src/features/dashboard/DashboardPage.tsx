@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog } from '../../types/log';
@@ -63,17 +63,27 @@ export function DashboardPage({
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
 
-  // 弹窗打开时锁住 body 滚动（iOS Safari 会在 input focus 时滚动底层页面）
-  const anyModalOpen = showSearch || showPantry || !!selectedFood;
-  useEffect(() => {
-    if (!anyModalOpen) return;
-    const y = window.scrollY;
-    document.body.style.cssText = `position:fixed;top:-${y}px;width:100%;overflow:hidden`;
-    return () => {
-      document.body.style.cssText = '';
-      window.scrollTo(0, y);
-    };
-  }, [anyModalOpen]);
+  // iOS Safari 会在 fixed 弹窗内的 input 获取焦点时滚动底层页面。
+  // 解法：在点击事件里同步锁住 body（在模态框渲染前），关闭时恢复。
+  const savedScrollY = useRef(0);
+  const lockCount = useRef(0);
+
+  const lockBody = () => {
+    if (lockCount.current++ > 0) return; // 已经锁了
+    savedScrollY.current = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${savedScrollY.current}px`;
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+  };
+  const unlockBody = () => {
+    if (--lockCount.current > 0) return; // 还有其它弹窗开着
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    document.body.style.overflow = '';
+    window.scrollTo(0, savedScrollY.current);
+  };
 
   const ns = nutritionStatus;
 
@@ -90,10 +100,18 @@ export function DashboardPage({
         .sort((a, b) => (a.loggedAt || '').localeCompare(b.loggedAt || ''))
     : [];
 
+  const openSearch = () => { lockBody(); setShowSearch(true); };
+  const closeSearch = () => { setShowSearch(false); unlockBody(); };
+  const openPantry = () => { lockBody(); setShowPantry(true); };
+  const closePantry = () => { setShowPantry(false); unlockBody(); };
+  const selectFood = (food: FoodItem) => { setSelectedFood(food); };
+  const clearFood = () => { setSelectedFood(null); setQuickEntry(null); unlockBody(); };
+
   const handleQuickAdd = (entry: RecentFoodEntry) => {
     setQuickEntry(entry);
     setSelectedFood(entry.food);
     setShowSearch(false);
+    // body 已锁，从 search → addModal 不需要重新 lock/unlock
   };
 
   return (
@@ -260,7 +278,7 @@ export function DashboardPage({
                 </span>
               )}
               <button
-                onClick={() => setShowSearch(true)}
+                onClick={openSearch}
                 className="w-7 h-7 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-lg hover:bg-green-200 transition-colors"
               >
                 +
@@ -271,7 +289,7 @@ export function DashboardPage({
           {allItems.length === 0 ? (
             <div className="px-4 pb-4">
               <button
-                onClick={() => setShowSearch(true)}
+                onClick={openSearch}
                 className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors"
               >
                 + 记录今天吃了什么
@@ -322,7 +340,7 @@ export function DashboardPage({
           {/* 中间 + 按钮 */}
           <div className="flex flex-col items-center justify-end pb-3 px-4">
             <button
-              onClick={() => setShowSearch(true)}
+              onClick={openSearch}
               className="w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 active:scale-95 transition-all -translate-y-3"
             >
               +
@@ -331,7 +349,7 @@ export function DashboardPage({
 
           {/* 食材库 tab */}
           <button
-            onClick={() => setShowPantry(true)}
+            onClick={openPantry}
             className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-gray-400 hover:text-green-600 transition-colors"
           >
             <span className="text-xl">📦</span>
@@ -345,23 +363,25 @@ export function DashboardPage({
         <FoodSearch
           recentFoods={recentFoods}
           onSelect={(food) => {
-            setSelectedFood(food);
-            setQuickEntry(null);
+            selectFood(food);
             setShowSearch(false);
+            setQuickEntry(null);
+            // body 仍然锁住，因为 AddFoodModal 马上要开
           }}
-          onClose={() => setShowSearch(false)}
+          onClose={closeSearch}
         />
       )}
 
       {/* Food Pantry */}
       {showPantry && (
         <FoodPantryPage
-          onClose={() => setShowPantry(false)}
+          onClose={closePantry}
           userId={profile.uid}
           onAddToLog={(food) => {
-            setSelectedFood(food);
+            selectFood(food);
             setQuickEntry(null);
             setShowPantry(false);
+            // body 仍然锁住，AddFoodModal 继续保持锁
           }}
         />
       )}
@@ -374,18 +394,15 @@ export function DashboardPage({
           quickUnit={quickEntry?.lastUnit}
           onConfirm={(food, grams, displayUnit) => {
             onAddFood(food, grams, displayUnit);
-            setSelectedFood(null);
-            setQuickEntry(null);
+            clearFood();
           }}
           onBack={() => {
             setSelectedFood(null);
             setQuickEntry(null);
             setShowSearch(true);
+            // body 继续锁，FoodSearch 重新打开
           }}
-          onClose={() => {
-            setSelectedFood(null);
-            setQuickEntry(null);
-          }}
+          onClose={clearFood}
         />
       )}
     </div>
