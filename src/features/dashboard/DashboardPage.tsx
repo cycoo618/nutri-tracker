@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog } from '../../types/log';
@@ -63,27 +63,35 @@ export function DashboardPage({
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
 
-  // iOS Safari 会在 fixed 弹窗内的 input 获取焦点时滚动底层页面。
-  // 解法：在点击事件里同步锁住 body（在模态框渲染前），关闭时恢复。
-  const savedScrollY = useRef(0);
-  const lockCount = useRef(0);
+  const anyModalOpen = showSearch || showPantry || !!selectedFood;
 
-  const lockBody = () => {
-    if (lockCount.current++ > 0) return; // 已经锁了
-    savedScrollY.current = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${savedScrollY.current}px`;
-    document.body.style.width = '100%';
-    document.body.style.overflow = 'hidden';
-  };
-  const unlockBody = () => {
-    if (--lockCount.current > 0) return; // 还有其它弹窗开着
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.width = '';
-    document.body.style.overflow = '';
-    window.scrollTo(0, savedScrollY.current);
-  };
+  // iOS Safari 在 fixed 弹窗内 input 获取焦点时会滚动底层页面。
+  // 用 non-passive touchmove 监听器阻止背景滚动，同时允许弹窗内部滚动。
+  useEffect(() => {
+    if (!anyModalOpen) return;
+
+    const prevent = (e: TouchEvent) => {
+      // 如果触摸目标在可滚动容器内，放行
+      let el = e.target as Element | null;
+      while (el && el !== document.documentElement) {
+        const s = window.getComputedStyle(el);
+        if (s.overflow.includes('scroll') || s.overflow.includes('auto') ||
+            s.overflowY.includes('scroll') || s.overflowY.includes('auto')) {
+          return;
+        }
+        el = el.parentElement;
+      }
+      e.preventDefault();
+    };
+
+    document.addEventListener('touchmove', prevent, { passive: false });
+    return () => document.removeEventListener('touchmove', prevent);
+  }, [anyModalOpen]);
+
+  // 简单的 lockBody/unlockBody（不再用 position:fixed，避免视觉跳动）
+  const lockCount = useRef(0);
+  const lockBody = () => { lockCount.current++; };
+  const unlockBody = () => { lockCount.current = Math.max(0, lockCount.current - 1); };
 
   const ns = nutritionStatus;
 
