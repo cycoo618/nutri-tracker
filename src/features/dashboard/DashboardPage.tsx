@@ -356,6 +356,12 @@ export function DashboardPage({
         </div>
       </nav>
 
+      {/* 全局白色底层：模态框打开时铺满整个布局视口（含键盘下方、浏览器工具栏区域），
+          防止 iOS Safari 半透明工具栏（frosted glass）透出主页彩色卡片 */}
+      {anyModalOpen && (
+        <div className="fixed inset-0 bg-white" style={{ zIndex: 38 }} />
+      )}
+
       {/* Search Modal */}
       {showSearch && (
         <FoodSearch
