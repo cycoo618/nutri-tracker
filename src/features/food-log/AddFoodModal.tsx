@@ -164,6 +164,7 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
                   type="number"
                   value={grams}
                   onChange={e => setGrams(e.target.value)}
+                  onFocus={e => e.target.select()}
                   autoFocus
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="输入克数"

@@ -57,6 +57,7 @@ function GramInput({
           inputMode="decimal"
           value={text}
           onChange={e => setText(e.target.value)}
+          onFocus={e => e.target.select()}
           onBlur={() => commit(text)}
           onKeyDown={e => e.key === 'Enter' && commit(text)}
           className="w-20 py-2.5 pl-3 pr-1 text-sm font-semibold focus:outline-none rounded-l-xl bg-transparent"
