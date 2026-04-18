@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useRef, useEffect, startTransition } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog } from '../../types/log';
@@ -312,9 +312,10 @@ export function DashboardPage({
                       <span className="text-sm text-gray-600">{item.calories} kcal</span>
                       <button
                         onClick={() => onRemoveFood(item.id)}
-                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
+                        className="text-gray-300 hover:text-red-500 active:text-red-600 text-lg leading-none transition-colors"
+                        aria-label="删除"
                       >
-                        删除
+                        ×
                       </button>
                     </div>
                   </div>
@@ -360,13 +361,11 @@ export function DashboardPage({
         <FoodSearch
           recentFoods={recentFoods}
           onSelect={(food) => {
-            // 先显示 AddFoodModal（高优先级），再用 startTransition 延迟卸载 FoodSearch
-            // 这样 AddFoodModal 先渲染出来，FoodSearch 在后台安静消失，避免两步卡顿
+            // 同步批量更新：FoodSearch 和 AddFoodModal 在同一帧切换，
+            // 避免 startTransition 导致的多步布局抖动
+            setShowSearch(false);
+            setQuickEntry(null);
             selectFood(food);
-            startTransition(() => {
-              setShowSearch(false);
-              setQuickEntry(null);
-            });
           }}
           onClose={closeSearch}
         />

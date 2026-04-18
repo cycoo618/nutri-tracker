@@ -146,8 +146,16 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
   const hasLocalResults = results.length > 0 && !onlineSearched;
 
   return (
-    <div className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ height: 'var(--vvh, 100vh)' }}>
-      <div className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 85vh)' }}>
+    <div
+      className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+      style={{ height: 'var(--vvh, 100vh)' }}
+      onClick={onClose}
+    >
+      <div
+        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
+        style={{ maxHeight: 'var(--vvh, 85vh)' }}
+        onClick={e => e.stopPropagation()}
+      >
 
         {/* 搜索框 */}
         <div className="p-4 border-b border-gray-100">

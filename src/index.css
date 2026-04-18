@@ -27,18 +27,12 @@ input[type='number'] {
 
 /* 弹窗入场动画 */
 @keyframes slideUpModal {
-  from {
-    transform: translateY(16px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(14px); }
+  to   { transform: translateY(0); }
 }
 
 .modal-enter {
-  animation: slideUpModal 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: slideUpModal 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* 自定义滚动条 */

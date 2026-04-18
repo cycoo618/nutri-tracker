@@ -64,8 +64,16 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
     setServingQty(q => Math.max(0.5, Math.round((q + delta) * 2) / 2));
 
   return (
-    <div className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ height: 'var(--vvh, 100vh)' }}>
-      <div className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl overflow-y-auto" style={{ maxHeight: 'var(--vvh, 90vh)' }}>
+    <div
+      className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+      style={{ height: 'var(--vvh, 100vh)' }}
+      onClick={onClose}
+    >
+      <div
+        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl overflow-y-auto"
+        style={{ maxHeight: 'var(--vvh, 90vh)' }}
+        onClick={e => e.stopPropagation()}
+      >
 
         {/* Header */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
