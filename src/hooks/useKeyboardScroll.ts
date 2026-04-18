@@ -12,18 +12,8 @@ export function useKeyboardScroll() {
 
     const update = () => {
       // --vvh = 可见区域高度（键盘弹出后缩小），供 CSS 使用
+      // 所有弹窗已使用 height: var(--vvh) 自动缩至键盘上方，无需额外 scrollIntoView
       document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
-
-      // 只有当输入框真的在可见区域下方时才滚动，且只滚最少的距离
-      setTimeout(() => {
-        const el = document.activeElement as HTMLElement | null;
-        if (!el) return;
-        if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom > vv.height) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }, 150);
     };
 
     // 初始化
