@@ -58,7 +58,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ height: 'var(--vvh, 100vh)' }}>
       <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 90vh)' }}>
 
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">

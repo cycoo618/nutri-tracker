@@ -57,7 +57,7 @@ function GramInput({
           inputMode="decimal"
           value={text}
           onChange={e => setText(e.target.value)}
-          onFocus={e => e.target.select()}
+          onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
           onBlur={() => commit(text)}
           onKeyDown={e => e.key === 'Enter' && commit(text)}
           className="w-20 py-2.5 pl-3 pr-1 text-sm font-semibold focus:outline-none rounded-l-xl bg-transparent"
@@ -185,7 +185,7 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ height: 'var(--vvh, 100vh)' }}>
       <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }}>
 
         {/* Header */}

@@ -62,7 +62,7 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
     setServingQty(q => Math.max(0.5, Math.round((q + delta) * 2) / 2));
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-x-0 top-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ height: 'var(--vvh, 100vh)' }}>
       <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl overflow-y-auto" style={{ maxHeight: 'var(--vvh, 90vh)' }}>
 
         {/* Header */}
@@ -164,7 +164,7 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
                   type="number"
                   value={grams}
                   onChange={e => setGrams(e.target.value)}
-                  onFocus={e => e.target.select()}
+                  onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
                   autoFocus
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="输入克数"

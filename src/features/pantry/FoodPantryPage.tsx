@@ -133,7 +133,7 @@ export function FoodPantryPage({ onClose, userId, onAddToLog }: FoodPantryPagePr
 
   // ── 主列表 ──────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-gray-50 z-40 flex flex-col">
+    <div className="fixed inset-x-0 top-0 bg-gray-50 z-40 flex flex-col" style={{ height: 'var(--vvh, 100vh)' }}>
 
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10 shrink-0">
