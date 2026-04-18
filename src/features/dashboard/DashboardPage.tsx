@@ -17,6 +17,7 @@ import { GIBadge } from '../../components/ui/GIBadge';
 import { FoodSearch } from '../food-log/FoodSearch';
 import { AddFoodModal } from '../food-log/AddFoodModal';
 import { FoodPantryPage } from '../pantry/FoodPantryPage';
+import { FamilyPage } from '../family/FamilyPage';
 import { formatDateCN, formatNumber } from '../../utils/calculator';
 
 interface DashboardPageProps {
@@ -60,10 +61,12 @@ export function DashboardPage({
 }: DashboardPageProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [showPantry, setShowPantry] = useState(false);
+  const [showFamily, setShowFamily] = useState(false);
+  const [familyId, setFamilyId] = useState<string | undefined>(profile.familyId);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
 
-  const anyModalOpen = showSearch || showPantry || !!selectedFood;
+  const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood;
 
   // iOS Safari 在 fixed 弹窗内 input 聚焦时会程序性地 scrollTo()，
   // touchmove 拦截不住。解法：弹窗打开时记住 scrollY，
@@ -101,6 +104,9 @@ export function DashboardPage({
   const closeSearch = () => { setShowSearch(false); unlockBody(); };
   const openPantry = () => { lockBody(); setShowPantry(true); };
   const closePantry = () => { setShowPantry(false); unlockBody(); };
+  const openFamily = () => { lockBody(); setShowFamily(true); };
+  const closeFamily = () => { setShowFamily(false); unlockBody(); };
+  const handleFamilyChange = (fid: string | undefined) => { setFamilyId(fid); };
   const selectFood = (food: FoodItem) => { setSelectedFood(food); };
   const clearFood = () => { setSelectedFood(null); setQuickEntry(null); unlockBody(); };
 
@@ -149,6 +155,13 @@ export function DashboardPage({
                 {syncStatus === 'error' ? '⚠️ 重新同步' : '🔄 同步'}
               </button>
             )}
+            <button
+              onClick={openFamily}
+              className="text-sm text-gray-400 hover:text-green-600 transition-colors"
+              title="家庭共享"
+            >
+              👨‍👩‍👧
+            </button>
             <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
               登出
             </button>
@@ -353,6 +366,15 @@ export function DashboardPage({
             <span className="text-xl">📦</span>
             <span className="text-xs font-medium">食材库</span>
           </button>
+
+          {/* 家庭 tab */}
+          <button
+            onClick={openFamily}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${familyId ? 'text-green-600' : 'text-gray-400 hover:text-green-600'}`}
+          >
+            <span className="text-xl">👨‍👩‍👧</span>
+            <span className="text-xs font-medium">家庭</span>
+          </button>
         </div>
       </nav>
 
@@ -366,6 +388,8 @@ export function DashboardPage({
       {showSearch && (
         <FoodSearch
           recentFoods={recentFoods}
+          userId={profile.uid}
+          familyId={familyId}
           onSelect={(food) => {
             // 同步批量更新：FoodSearch 和 AddFoodModal 在同一帧切换，
             // 避免 startTransition 导致的多步布局抖动
@@ -382,12 +406,24 @@ export function DashboardPage({
         <FoodPantryPage
           onClose={closePantry}
           userId={profile.uid}
+          familyId={familyId}
           onAddToLog={(food) => {
             selectFood(food);
             setQuickEntry(null);
             setShowPantry(false);
             // body 仍然锁住，AddFoodModal 继续保持锁
           }}
+        />
+      )}
+
+      {/* Family Page */}
+      {showFamily && (
+        <FamilyPage
+          userId={profile.uid}
+          userName={profile.displayName}
+          familyId={familyId}
+          onFamilyChange={handleFamilyChange}
+          onClose={closeFamily}
         />
       )}
 

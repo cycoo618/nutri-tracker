@@ -9,7 +9,7 @@ import {
   getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods,
 } from '../../utils/customFoods';
 import type { CustomFoodRecord } from '../../utils/customFoods';
-import { getUserFoods, saveUserFood, deleteUserFood } from '../../services/firestore';
+import { getUserFoods, saveUserFood, deleteUserFood, getFamily, getFamilyMemberFoods } from '../../services/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { formatNumber } from '../../utils/calculator';
 import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
@@ -18,6 +18,7 @@ import { RecipeBuilder } from '../food-log/RecipeBuilder';
 interface FoodPantryPageProps {
   onClose: () => void;
   userId?: string;
+  familyId?: string;
   /** 可选：添加到今日饮食日志 */
   onAddToLog?: (food: FoodItem) => void;
 }
@@ -25,9 +26,10 @@ interface FoodPantryPageProps {
 type SubView = 'list' | 'scanner' | 'recipe';
 type CloudStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
-export function FoodPantryPage({ onClose, userId, onAddToLog }: FoodPantryPageProps) {
+export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPantryPageProps) {
   const [subView, setSubView] = useState<SubView>('list');
   const [records, setRecords] = useState<CustomFoodRecord[]>(() => getAllCustomFoods());
+  const [familyRecords, setFamilyRecords] = useState<CustomFoodRecord[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>('idle');
@@ -53,6 +55,26 @@ export function FoodPantryPage({ onClose, userId, onAddToLog }: FoodPantryPagePr
         setCloudStatus('error');
       });
   }, [userId]);
+
+  // ── 加载家庭成员食物 ────────────────────────────────────────────
+  useEffect(() => {
+    if (!familyId || !userId) {
+      setFamilyRecords([]);
+      return;
+    }
+    getFamily(familyId)
+      .then(family => {
+        if (!family) return [];
+        const memberUids = family.members.map(m => m.uid);
+        return getFamilyMemberFoods(memberUids, userId);
+      })
+      .then(rawFoods => {
+        setFamilyRecords(rawFoods as CustomFoodRecord[]);
+      })
+      .catch(() => {
+        setFamilyRecords([]);
+      });
+  }, [familyId, userId]);
 
   // ── 推送单条到 Firestore ──────────────────────────────────────────
   const pushOne = useCallback(async (record: CustomFoodRecord) => {
@@ -299,6 +321,57 @@ export function FoodPantryPage({ onClose, userId, onAddToLog }: FoodPantryPagePr
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* ── 家庭食物 ─────────────────────────────────────────────── */}
+        {familyRecords.length > 0 && (
+          <div className="pt-4">
+            <div className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+              <span>👨‍👩‍👧</span> 家庭食物
+              <span className="text-xs text-gray-400 font-normal">（只读，可添加到今日）</span>
+            </div>
+            <div className="space-y-3">
+              {familyRecords.map((record, idx) => (
+                <div
+                  key={record.id || idx}
+                  className="bg-white rounded-2xl border border-green-100 shadow-sm"
+                >
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-gray-900">{record.name}</span>
+                          <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full shrink-0">
+                            👨‍👩‍👧 家庭
+                          </span>
+                        </div>
+                        {record.servingSizes?.length > 0 && (
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {record.servingSizes[0].label}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-center mb-3">
+                      <NutriBadge label="热量" value={`${record.per100g.calories}`} unit="kcal" color="amber" />
+                      <NutriBadge label="蛋白" value={formatNumber(record.per100g.protein)} unit="g" color="blue" />
+                      <NutriBadge label="碳水" value={formatNumber(record.per100g.carbs)} unit="g" color="orange" />
+                      <NutriBadge label="脂肪" value={formatNumber(record.per100g.fat)} unit="g" color="red" />
+                    </div>
+                    <div className="text-xs text-gray-400 mb-3 text-center">以上数据均为每100g</div>
+                    {onAddToLog && (
+                      <button
+                        onClick={() => onAddToLog(recordToFoodItem(record))}
+                        className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium rounded-xl transition-colors"
+                      >
+                        ＋ 添加到今日饮食
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

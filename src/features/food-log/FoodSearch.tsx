@@ -8,7 +8,9 @@ import { useState, useEffect, useRef } from 'react';
 import type { FoodItem } from '../../types/food';
 import { FOOD_CATEGORY_LABELS } from '../../types/food';
 import { searchBuiltinFoods, searchOpenFoodFacts } from '../../services/food-lookup';
-import { searchCustomFoods } from '../../utils/customFoods';
+import { searchCustomFoods, recordToFoodItem } from '../../utils/customFoods';
+import type { CustomFoodRecord } from '../../utils/customFoods';
+import { getFamily, getFamilyMemberFoods } from '../../services/firestore';
 import { GIBadge } from '../../components/ui/GIBadge';
 import { ManualFoodEntry } from './ManualFoodEntry';
 import { RecipeBuilder } from './RecipeBuilder';
@@ -17,6 +19,8 @@ import type { RecentFoodEntry } from '../../utils/recentFoods';
 
 interface FoodSearchProps {
   recentFoods?: RecentFoodEntry[];
+  userId?: string;
+  familyId?: string;
   onSelect: (food: FoodItem) => void;
   onClose: () => void;
 }
@@ -24,10 +28,11 @@ interface FoodSearchProps {
 type SearchState = 'idle' | 'searching_online' | 'done';
 type View = 'search' | 'manual' | 'recipe' | 'scanner';
 
-export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchProps) {
+export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClose }: FoodSearchProps) {
   const [view, setView] = useState<View>('search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>([]);
+  const [familyResults, setFamilyResults] = useState<FoodItem[]>([]);
   const [onlineResults, setOnlineResults] = useState<FoodItem[]>([]);
   const [searchState, setSearchState] = useState<SearchState>('idle');
   const [onlineSearched, setOnlineSearched] = useState(false);
@@ -52,6 +57,7 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
     if (isComposing.current) return;
     if (!query.trim()) {
       setResults([]);
+      setFamilyResults([]);
       setOnlineResults([]);
       setSearchState('idle');
       setOnlineSearched(false);
@@ -73,8 +79,42 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
       setOnlineError(null);
       setOnlineSearched(false);
       setSearchState('done');
+
+      // 同时加载家庭成员食物（异步，不阻塞本地结果展示）
+      if (familyId && userId) {
+        const q = query.trim().toLowerCase();
+        getFamily(familyId)
+          .then(family => {
+            if (!family) return [];
+            const memberUids = family.members.map(m => m.uid);
+            return getFamilyMemberFoods(memberUids, userId);
+          })
+          .then(rawFoods => {
+            const q2 = q;
+            const filtered = rawFoods.filter(f =>
+              typeof f['name'] === 'string' && (f['name'] as string).toLowerCase().includes(q2)
+            );
+            const foodItems: FoodItem[] = filtered.map(f => {
+              const item = recordToFoodItem(f as CustomFoodRecord);
+              return {
+                ...item,
+                tags: [...(item.tags ?? []), '家庭'],
+              };
+            });
+            // 去重（排除本地已有的）
+            const localIds = new Set(localResults.map(r => r.id));
+            setFamilyResults(foodItems.filter(fi => !localIds.has(fi.id)));
+          })
+          .catch(() => {
+            setFamilyResults([]);
+          });
+      } else {
+        setFamilyResults([]);
+      }
       return;
     }
+
+    setFamilyResults([]);
 
     // ── 本地无结果 → debounce 后联网 ──────────────────────────────
     setResults([]);
@@ -252,32 +292,18 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
           {results.length > 0 && (
             <div className="p-2">
               {results.map((food, i) => (
-                <button
-                  key={food.id || i}
-                  onClick={() => onSelect(food)}
-                  className="w-full text-left p-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-gray-900 truncate">{food.name}</span>
-                      {food.source === 'user_added' && (
-                        <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded shrink-0">
-                          {food.tags?.includes('扫码') ? '📷 扫码' : food.tags?.includes('手动') ? '手动' : '自制'}
-                        </span>
-                      )}
-                      {food.brand && (
-                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">{food.brand}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                      <span>{FOOD_CATEGORY_LABELS[food.category]}</span>
-                      <span>{food.per100g.calories} kcal/100g</span>
-                      <span>蛋白 {food.per100g.protein}g</span>
-                    </div>
-                  </div>
-                  <GIBadge gi={food.gi} />
-                </button>
+                <FoodResultItem key={food.id || i} food={food} onSelect={onSelect} />
               ))}
+
+              {/* 家庭成员食物 */}
+              {familyResults.length > 0 && (
+                <>
+                  <div className="px-2 pt-3 pb-1 text-xs font-medium text-gray-400">家庭食物</div>
+                  {familyResults.map((food, i) => (
+                    <FoodResultItem key={`family_${food.id || i}`} food={food} onSelect={onSelect} isFamily />
+                  ))}
+                </>
+              )}
             </div>
           )}
 
@@ -366,5 +392,47 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
         </div>
       </div>
     </div>
+  );
+}
+
+function FoodResultItem({
+  food,
+  onSelect,
+  isFamily = false,
+}: {
+  food: FoodItem;
+  onSelect: (food: FoodItem) => void;
+  isFamily?: boolean;
+}) {
+  return (
+    <button
+      onClick={() => onSelect(food)}
+      className="w-full text-left p-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3"
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-gray-900 truncate">{food.name}</span>
+          {isFamily && (
+            <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded shrink-0">
+              👨‍👩‍👧 家庭
+            </span>
+          )}
+          {!isFamily && food.source === 'user_added' && (
+            <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded shrink-0">
+              {food.tags?.includes('扫码') ? '📷 扫码' : food.tags?.includes('手动') ? '手动' : '自制'}
+            </span>
+          )}
+          {food.brand && (
+            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">{food.brand}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+          <span>{FOOD_CATEGORY_LABELS[food.category]}</span>
+          <span>{food.per100g.calories} kcal/100g</span>
+          <span>蛋白 {food.per100g.protein}g</span>
+        </div>
+      </div>
+      <GIBadge gi={food.gi} />
+    </button>
   );
 }

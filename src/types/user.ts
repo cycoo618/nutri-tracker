@@ -67,6 +67,8 @@ export interface UserProfile {
   healthSync: HealthSyncSettings;
   // --- 付费功能参数 ---
   premiumEnabled: boolean;
+  // --- 家庭共享 ---
+  familyId?: string;
   // --- 时间戳 ---
   createdAt: string;
   updatedAt: string;
