@@ -21,7 +21,7 @@ interface FoodSearchProps {
   onClose: () => void;
 }
 
-type SearchState = 'idle' | 'searching_builtin' | 'searching_online' | 'done';
+type SearchState = 'idle' | 'searching_online' | 'done';
 type View = 'search' | 'manual' | 'recipe' | 'scanner';
 
 export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchProps) {
@@ -46,7 +46,7 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
     }
   }, [view]);
 
-  // 搜索：自定义食物 + 内置数据库，无结果时联网
+  // 搜索：本地结果立即显示；只有本地无结果时才 debounce 联网
   useEffect(() => {
     if (view !== 'search') return;
     if (isComposing.current) return;
@@ -58,39 +58,44 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
       return;
     }
 
-    setOnlineSearched(false);
+    // ── 本地搜索：立即同步执行，零延迟 ────────────────────────────
+    const custom = searchCustomFoods(query);
+    const builtin = searchBuiltinFoods(query);
+    const localResults = [
+      ...custom,
+      ...builtin.filter(b => !custom.some(c => c.id === b.id)),
+    ];
+
+    if (localResults.length > 0) {
+      // 有本地结果 → 直接展示，不联网，重置联网状态
+      setResults(localResults);
+      setOnlineResults([]);
+      setOnlineError(null);
+      setOnlineSearched(false);
+      setSearchState('done');
+      return;
+    }
+
+    // ── 本地无结果 → debounce 后联网 ──────────────────────────────
+    setResults([]);
     setOnlineResults([]);
     setOnlineError(null);
-    setSearchState('searching_builtin');
+    setOnlineSearched(false);
+    setSearchState('searching_online');
 
     const timer = setTimeout(async () => {
-      // 自定义食物优先
-      const custom = searchCustomFoods(query);
-      const builtin = searchBuiltinFoods(query);
-      const localResults = [
-        ...custom,
-        ...builtin.filter(b => !custom.some(c => c.id === b.id)),
-      ];
-
-      if (localResults.length > 0) {
-        setResults(localResults);
-        setSearchState('done');
-      } else {
-        setResults([]);
-        setSearchState('searching_online');
-        try {
-          const online = await searchOpenFoodFacts(query);
-          setResults(online);
-          setOnlineResults(online);
-          if (online.length === 0) setOnlineError('联网搜索无结果');
-        } catch (err) {
-          console.warn('Online search failed:', err);
-          setOnlineError('联网搜索失败，请稍后再试');
-        }
-        setOnlineSearched(true);
-        setSearchState('done');
+      try {
+        const online = await searchOpenFoodFacts(query);
+        setResults(online);
+        setOnlineResults(online);
+        if (online.length === 0) setOnlineError('联网搜索无结果');
+      } catch (err) {
+        console.warn('Online search failed:', err);
+        setOnlineError('联网搜索失败，请稍后再试');
       }
-    }, 150);
+      setOnlineSearched(true);
+      setSearchState('done');
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [query, view]);
@@ -177,9 +182,6 @@ export function FoodSearch({ recentFoods = [], onSelect, onClose }: FoodSearchPr
         {/* 结果列表 */}
         <div className="flex-1 overflow-y-auto">
 
-          {searchState === 'searching_builtin' && (
-            <div className="text-center py-10 text-gray-400 text-sm">搜索中…</div>
-          )}
 
           {/* 无结果 */}
           {noResults && (
