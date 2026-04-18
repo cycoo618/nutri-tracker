@@ -65,30 +65,19 @@ export function DashboardPage({
 
   const anyModalOpen = showSearch || showPantry || !!selectedFood;
 
-  // iOS Safari 在 fixed 弹窗内 input 获取焦点时会滚动底层页面。
-  // 用 non-passive touchmove 监听器阻止背景滚动，同时允许弹窗内部滚动。
+  // iOS Safari 在 fixed 弹窗内 input 聚焦时会程序性地 scrollTo()，
+  // touchmove 拦截不住。解法：弹窗打开时记住 scrollY，
+  // 只要 window 发生任何滚动就立即滚回去。
   useEffect(() => {
     if (!anyModalOpen) return;
-
-    const prevent = (e: TouchEvent) => {
-      // 如果触摸目标在可滚动容器内，放行
-      let el = e.target as Element | null;
-      while (el && el !== document.documentElement) {
-        const s = window.getComputedStyle(el);
-        if (s.overflow.includes('scroll') || s.overflow.includes('auto') ||
-            s.overflowY.includes('scroll') || s.overflowY.includes('auto')) {
-          return;
-        }
-        el = el.parentElement;
-      }
-      e.preventDefault();
+    const savedY = window.scrollY;
+    const resetScroll = () => {
+      if (window.scrollY !== savedY) window.scrollTo(0, savedY);
     };
-
-    document.addEventListener('touchmove', prevent, { passive: false });
-    return () => document.removeEventListener('touchmove', prevent);
+    window.addEventListener('scroll', resetScroll, { passive: true });
+    return () => window.removeEventListener('scroll', resetScroll);
   }, [anyModalOpen]);
 
-  // 简单的 lockBody/unlockBody（不再用 position:fixed，避免视觉跳动）
   const lockCount = useRef(0);
   const lockBody = () => { lockCount.current++; };
   const unlockBody = () => { lockCount.current = Math.max(0, lockCount.current - 1); };
