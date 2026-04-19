@@ -230,11 +230,11 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
           {food.ingredients && food.ingredients.length > 0 && (
             <div className="bg-blue-50 rounded-xl p-4">
               <div className="text-sm font-medium text-blue-700 mb-2">食材组成</div>
-              <div className="space-y-1">
+              <div className="grid grid-cols-2 gap-y-1.5 gap-x-6">
                 {food.ingredients.map((ing, i) => (
                   <div key={i} className="flex justify-between items-baseline text-xs">
-                    <span className="text-gray-700">{ing.foodName}</span>
-                    <span className="text-gray-500 ml-2 shrink-0">{ing.grams}g</span>
+                    <span className="text-gray-700 truncate">{ing.foodName}</span>
+                    <span className="text-gray-500 ml-1 shrink-0">{ing.grams}g</span>
                   </div>
                 ))}
               </div>
