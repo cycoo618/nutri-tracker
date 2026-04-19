@@ -22,6 +22,8 @@ import { FoodPantryPage } from '../pantry/FoodPantryPage';
 import { FamilyPage } from '../family/FamilyPage';
 import { ProfileEditorModal } from '../profile/ProfileEditorModal';
 import { formatDateCN, formatNumber } from '../../utils/calculator';
+import { setFontSize, getFontSize } from '../../utils/fontSize';
+import type { FontSize } from '../../utils/fontSize';
 
 interface DashboardPageProps {
   profile: UserProfile;
@@ -234,6 +236,12 @@ export function DashboardPage({
   const [showFamily, setShowFamily] = useState(false);
   const [showMenu,   setShowMenu]   = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [fontSize, setFontSizeState] = useState<FontSize>(getFontSize());
+
+  const handleFontSize = (size: FontSize) => {
+    setFontSize(size);
+    setFontSizeState(size);
+  };
   const [detailItem, setDetailItem] = useState<MealItem | null>(null);
   const [familyId, setFamilyId] = useState<string | undefined>(profile.familyId);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
@@ -333,7 +341,7 @@ export function DashboardPage({
                 <>
                   {/* 点击背景关闭 */}
                   <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                  <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-50">
                     <button
                       onClick={() => { setShowMenu(false); setShowProfile(true); }}
                       className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
@@ -341,6 +349,26 @@ export function DashboardPage({
                       <span>📊</span>
                       <span>我的数据</span>
                     </button>
+                    <div className="h-px bg-gray-100 mx-3" />
+                    {/* 字体大小 */}
+                    <div className="px-4 py-2.5">
+                      <div className="text-xs text-gray-400 mb-1.5">字体大小</div>
+                      <div className="flex gap-1">
+                        {(['small', 'standard', 'large'] as FontSize[]).map((s, i) => (
+                          <button
+                            key={s}
+                            onClick={() => handleFontSize(s)}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              fontSize === s
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            }`}
+                          >
+                            {['小', '标准', '大'][i]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div className="h-px bg-gray-100 mx-3" />
                     <button
                       onClick={() => { setShowMenu(false); openFamily(); }}

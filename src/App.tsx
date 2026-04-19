@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
+import { initFontSize } from './utils/fontSize';
 import { useFoodLog } from './hooks/useFoodLog';
 import { useNutrition } from './hooks/useNutrition';
 import { useKeyboardScroll } from './hooks/useKeyboardScroll';
@@ -23,6 +24,7 @@ export default function App() {
   useKeyboardScroll(); // 全局：键盘弹出时自动滚动聚焦输入框到可见区域
 
   useEffect(() => {
+    initFontSize();
     initFoodDatabase().then(() => setDbReady(true));
   }, []);
 
