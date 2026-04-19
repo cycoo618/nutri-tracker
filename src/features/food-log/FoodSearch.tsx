@@ -218,7 +218,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       <div
         ref={cardRef}
         className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
-        style={{ maxHeight: 'var(--vvh, 90vh)' }}
+        style={{ maxHeight: 'calc(var(--vvh, 90vh) - 60px)' }}
         onClick={e => e.stopPropagation()}
         {...cardDragHandlers}
       >
@@ -269,24 +269,12 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
 
           {/* 无结果 */}
           {noResults && (
-            <div className="p-5 space-y-3">
-              <div className="text-center py-3">
-                <div className="text-3xl mb-2">🔍</div>
-                <div className="text-gray-600 font-medium">没有找到「{query}」</div>
-                <div className="text-gray-400 text-xs mt-1">
-                  {onlineError?.includes('失败') ? '联网搜索失败' : '本地和联网都未找到'}
-                </div>
+            <div className="px-4 pt-3 pb-2 space-y-2.5">
+              <div className="text-sm text-gray-400 text-center">
+                没有找到「{query}」{onlineError?.includes('失败') ? '（联网搜索失败）' : ''}
               </div>
 
-              {/* 主推：拍照识别 */}
-              <button
-                onClick={() => setView('scanner')}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <span>📷</span> 拍照识别包装营养标签
-              </button>
-
-              {/* AI 估算 */}
+              {/* AI 估算 — 紫色，排第一 */}
               {getGeminiKey() && (
                 <button
                   onClick={handleAiEstimate}
@@ -302,28 +290,34 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                 <div className="text-xs text-red-500 text-center">{aiError}</div>
               )}
 
-              {/* 重试联网 */}
+              {/* 拍照识别 — 蓝色，排第二 */}
               <button
-                onClick={() => {
-                  setOnlineSearched(false);
-                  setOnlineError(null);
-                  setSearchState('searching_online');
-                  searchOpenFoodFacts(query)
-                    .then(online => {
-                      setResults(online);
-                      setOnlineResults(online);
-                      setOnlineSearched(true);
-                      setSearchState('done');
-                      if (!online.length) setOnlineError('联网搜索无结果');
-                    })
-                    .catch(() => { setOnlineError('联网搜索失败，请稍后再试'); setSearchState('done'); });
-                }}
-                className="w-full py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                onClick={() => setView('scanner')}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
               >
-                <span>🌐</span> 重新联网搜索
+                <span>📷</span> 拍照识别包装营养标签
               </button>
 
               <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setOnlineSearched(false);
+                    setOnlineError(null);
+                    setSearchState('searching_online');
+                    searchOpenFoodFacts(query)
+                      .then(online => {
+                        setResults(online);
+                        setOnlineResults(online);
+                        setOnlineSearched(true);
+                        setSearchState('done');
+                        if (!online.length) setOnlineError('联网搜索无结果');
+                      })
+                      .catch(() => { setOnlineError('联网搜索失败，请稍后再试'); setSearchState('done'); });
+                  }}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <span>🌐</span> 重新联网
+                </button>
                 <button
                   onClick={() => setView('recipe')}
                   className="flex-1 py-2.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl text-sm font-medium transition-colors"
@@ -443,15 +437,19 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           )}
         </div>
 
-        {/* 底部返回按钮 — 拇指区，避免误触 Safari 后退 */}
-        <div className="shrink-0 px-4 py-3 border-t border-gray-100">
-          <button
-            onClick={onClose}
-            className="w-full py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 border border-gray-300 text-gray-600 font-medium transition-colors"
-          >
-            ↵ 返回
-          </button>
-        </div>
+      </div>
+
+      {/* 返回按钮 — 固定在物理屏幕最底部，键盘弹出时被遮住，收起时可见 */}
+      <div
+        className="fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-100 z-[51]"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="w-full max-w-lg mx-auto block py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 border border-gray-300 text-gray-600 font-medium transition-colors"
+        >
+          ↵ 返回
+        </button>
       </div>
     </div>
   );

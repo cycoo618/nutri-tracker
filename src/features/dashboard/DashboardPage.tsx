@@ -20,6 +20,7 @@ import { FoodSearch } from '../food-log/FoodSearch';
 import { AddFoodModal } from '../food-log/AddFoodModal';
 import { FoodPantryPage } from '../pantry/FoodPantryPage';
 import { FamilyPage } from '../family/FamilyPage';
+import { ProfileEditorModal } from '../profile/ProfileEditorModal';
 import { formatDateCN, formatNumber } from '../../utils/calculator';
 
 interface DashboardPageProps {
@@ -35,6 +36,7 @@ interface DashboardPageProps {
   onAddFood: (food: FoodItem, grams: number, displayUnit: string) => void;
   onRemoveFood: (itemId: string) => void;
   onLogout: () => void;
+  onProfileUpdate: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 /** 格式化 ISO 时间为 "HH:mm" */
@@ -225,11 +227,13 @@ export function DashboardPage({
   onAddFood,
   onRemoveFood,
   onLogout,
+  onProfileUpdate,
 }: DashboardPageProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [showPantry, setShowPantry] = useState(false);
   const [showFamily, setShowFamily] = useState(false);
   const [showMenu,   setShowMenu]   = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [detailItem, setDetailItem] = useState<MealItem | null>(null);
   const [familyId, setFamilyId] = useState<string | undefined>(profile.familyId);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
@@ -330,6 +334,14 @@ export function DashboardPage({
                   {/* 点击背景关闭 */}
                   <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
                   <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                    <button
+                      onClick={() => { setShowMenu(false); setShowProfile(true); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    >
+                      <span>📊</span>
+                      <span>我的数据</span>
+                    </button>
+                    <div className="h-px bg-gray-100 mx-3" />
                     <button
                       onClick={() => { setShowMenu(false); openFamily(); }}
                       className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
@@ -616,6 +628,14 @@ export function DashboardPage({
 
       {detailItem && (
         <NutritionDetailSheet item={detailItem} onClose={() => setDetailItem(null)} />
+      )}
+
+      {showProfile && (
+        <ProfileEditorModal
+          profile={profile}
+          onSave={onProfileUpdate}
+          onClose={() => setShowProfile(false)}
+        />
       )}
     </div>
   );

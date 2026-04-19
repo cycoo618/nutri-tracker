@@ -80,6 +80,7 @@ export default function App() {
         onAddFood={foodLog.addFood}
         onRemoveFood={foodLog.removeFood}
         onLogout={auth.logout}
+        onProfileUpdate={auth.updateProfile}
       />
     );
   }

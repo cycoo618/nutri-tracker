@@ -3,13 +3,14 @@
 // ============================================
 
 /** 目标类型 */
-export type GoalType = 'fat_loss' | 'muscle_gain' | 'healthy_eating';
+export type GoalType = 'fat_loss' | 'muscle_gain' | 'healthy_eating' | 'blood_sugar';
 
 /** 目标类型中文映射 */
 export const GOAL_LABELS: Record<GoalType, string> = {
   fat_loss: '减脂',
   muscle_gain: '增肌',
   healthy_eating: '健康饮食',
+  blood_sugar: '降血糖',
 };
 
 /** 目标类型描述 */
@@ -17,6 +18,7 @@ export const GOAL_DESCRIPTIONS: Record<GoalType, string> = {
   fat_loss: '温和热量缺口，避免暴饮暴食，可持续减脂',
   muscle_gain: '适当增加蛋白质和优质碳水，支撑肌肉生长',
   healthy_eating: '均衡饮食，关注抗炎、控糖等高级营养指标',
+  blood_sugar: '关注 GI 值，优先低GI食物，控制血糖波动',
 };
 
 /** 活动水平 */
