@@ -195,7 +195,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       <div
         ref={cardRef}
         className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col sm:max-h-[85vh]"
-        style={{ height: 'var(--vvh, 85vh)' }}
+        style={{ height: 'min(85vh, var(--vvh, 85vh))' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Drag handle */}

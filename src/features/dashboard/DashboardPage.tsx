@@ -237,18 +237,6 @@ export function DashboardPage({
 
   const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood;
 
-  // iOS Safari 在 fixed 弹窗内 input 聚焦时会程序性地 scrollTo()，
-  // touchmove 拦截不住。解法：弹窗打开时记住 scrollY，
-  // 只要 window 发生任何滚动就立即滚回去。
-  useEffect(() => {
-    if (!anyModalOpen) return;
-    const savedY = window.scrollY;
-    const resetScroll = () => {
-      if (window.scrollY !== savedY) window.scrollTo(0, savedY);
-    };
-    window.addEventListener('scroll', resetScroll, { passive: true });
-    return () => window.removeEventListener('scroll', resetScroll);
-  }, [anyModalOpen]);
 
   const lockCount = useRef(0);
   const lockBody = () => { lockCount.current++; };

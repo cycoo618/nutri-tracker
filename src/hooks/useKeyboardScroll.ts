@@ -11,13 +11,15 @@ export function useKeyboardScroll() {
     if (!vv) return;
 
     const update = () => {
-      // --vvh = 可见区域高度（键盘弹出后缩小）
-      // --vvt = 可见区域顶部偏移（iOS 自动滚动时 > 0，弹窗需要随之下移）
       document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
       document.documentElement.style.setProperty('--vvt', `${vv.offsetTop}px`);
+      // iOS scrolls the page when keyboard appears (offsetTop > 0).
+      // Reset it so fixed modals don't fly off screen.
+      if (vv.offsetTop > 0 && window.scrollY > 0) {
+        window.scrollTo(0, 0);
+      }
     };
 
-    // 初始化
     document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
     document.documentElement.style.setProperty('--vvt', `${vv.offsetTop}px`);
 
