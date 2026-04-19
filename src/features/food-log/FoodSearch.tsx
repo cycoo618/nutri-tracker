@@ -31,6 +31,7 @@ type View = 'search' | 'manual' | 'recipe' | 'scanner';
 export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClose }: FoodSearchProps) {
   const [view, setView] = useState<View>('search');
   const [query, setQuery] = useState('');
+  const [searchTrigger, setSearchTrigger] = useState(0);
   const [results, setResults] = useState<FoodItem[]>([]);
   const [familyResults, setFamilyResults] = useState<FoodItem[]>([]);
   const [onlineResults, setOnlineResults] = useState<FoodItem[]>([]);
@@ -38,7 +39,6 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
   const [onlineSearched, setOnlineSearched] = useState(false);
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  // 中文输入法（IME）合成中标志：合成期间不触发搜索，等 compositionEnd 再搜
   const isComposing = useRef(false);
 
   // 只在首次打开时聚焦，不在子视图切回来时重新 focus（否则会触发 iOS 滚动）
@@ -138,7 +138,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [query, view]);
+  }, [query, view, searchTrigger]);
 
   const handleOnlineSearch = async () => {
     if (onlineSearched) return;
@@ -204,12 +204,13 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               ref={inputRef}
               type="text"
               value={query}
-              onChange={e => { if (!isComposing.current) setQuery(e.target.value); }}
+              onChange={e => setQuery(e.target.value)}
               onCompositionStart={() => { isComposing.current = true; }}
               onCompositionEnd={e => {
                 isComposing.current = false;
-                // 合成结束后立即用最终文字触发搜索
                 setQuery((e.target as HTMLInputElement).value);
+                // 强制 useEffect 重跑，即使 query 值未变（IME 中间态已设置过相同值）
+                setSearchTrigger(t => t + 1);
               }}
               placeholder="搜索食物，如「黑豆浆」「espresso」…"
               className="flex-1 bg-gray-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
