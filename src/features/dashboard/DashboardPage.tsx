@@ -56,6 +56,24 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
     ...(n.sugar  != null ? [{ label: '糖',  value: n.sugar,  unit: 'g'  }] : []),
     ...(n.sodium != null ? [{ label: '钠',  value: n.sodium, unit: 'mg' }] : []),
   ];
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const startY = useRef(0);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const dy = e.touches[0].clientY - startY.current;
+    if (dy > 0 && sheetRef.current) {
+      sheetRef.current.style.transform = `translateY(${dy}px)`;
+    }
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const dy = e.changedTouches[0].clientY - startY.current;
+    if (sheetRef.current) sheetRef.current.style.transform = '';
+    if (dy > 80) onClose();
+  };
+
   return (
     <div
       className="fixed inset-x-0 bg-black/40 z-50 flex items-end"
@@ -63,8 +81,13 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
       onClick={onClose}
     >
       <div
+        ref={sheetRef}
         className="bg-white w-full max-w-lg mx-auto rounded-t-2xl pb-8 modal-enter"
+        style={{ transition: 'transform 0.2s ease', touchAction: 'none' }}
         onClick={e => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">

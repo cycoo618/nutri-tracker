@@ -41,13 +41,12 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
   const inputRef = useRef<HTMLInputElement>(null);
   const isComposing = useRef(false);
 
-  // 只在首次打开时聚焦，不在子视图切回来时重新 focus（否则会触发 iOS 滚动）
+  // 只在首次打开时聚焦，不在子视图切回来时重新 focus
   const didFocus = useRef(false);
   useEffect(() => {
     if (view === 'search' && !didFocus.current) {
       didFocus.current = true;
-      // 稍微延迟，等模态框完全渲染后再聚焦，避免触发 iOS 页面滚动
-      setTimeout(() => inputRef.current?.focus(), 50);
+      inputRef.current?.focus();
     }
   }, [view]);
 
@@ -203,6 +202,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
             <span className="text-gray-400 text-lg shrink-0">🔍</span>
             <input
               ref={inputRef}
+              autoFocus
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
@@ -392,13 +392,13 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           )}
         </div>
 
-        {/* 底部取消按钮 — 拇指区，避免误触 Safari 后退 */}
+        {/* 底部返回按钮 — 拇指区，避免误触 Safari 后退 */}
         <div className="shrink-0 px-4 py-3 border-t border-gray-100">
           <button
             onClick={onClose}
             className="w-full py-3.5 rounded-2xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-600 font-medium transition-colors"
           >
-            取消
+            返回
           </button>
         </div>
       </div>

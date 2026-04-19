@@ -134,12 +134,7 @@ export function FamilyPage({ userId, userName, familyId, onFamilyChange, onClose
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10 shrink-0">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={mode === 'home' ? onClose : () => { setMode('home'); setError(null); }}
-            className="text-gray-400 hover:text-gray-600 flex items-center gap-1 text-sm shrink-0"
-          >
-            ← {mode === 'home' ? '返回' : '取消'}
-          </button>
+          <div className="w-12 shrink-0" />
           <h1 className="flex-1 text-center font-semibold text-gray-900">
             {mode === 'create' ? '创建家庭' : mode === 'join' ? '加入家庭' : '家庭共享'}
           </h1>
@@ -351,6 +346,16 @@ export function FamilyPage({ userId, userName, familyId, onFamilyChange, onClose
             )}
           </>
         )}
+      </div>
+
+      {/* 底部返回按钮 */}
+      <div className="shrink-0 px-4 py-3 border-t border-gray-100 max-w-lg mx-auto w-full">
+        <button
+          onClick={mode === 'home' ? onClose : () => { setMode('home'); setError(null); }}
+          className="w-full py-3.5 rounded-2xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-600 font-medium transition-colors"
+        >
+          返回
+        </button>
       </div>
     </div>
   );

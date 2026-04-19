@@ -162,12 +162,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10 shrink-0">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 flex items-center gap-1 text-sm shrink-0"
-          >
-            ← 返回
-          </button>
+          <div className="w-14 shrink-0" />
           <h1 className="flex-1 text-center font-semibold text-gray-900">我的食材库</h1>
           {/* 云同步状态 */}
           <button
@@ -213,7 +208,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       </div>
 
       {/* 食物列表 */}
-      <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-4 pb-8">
+      <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-4 pb-4">
 
         {records.length === 0 ? (
           <div className="text-center py-16">
@@ -387,6 +382,16 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
             </div>
           </div>
         )}
+      </div>
+
+      {/* 底部返回按钮 */}
+      <div className="shrink-0 px-4 py-3 border-t border-gray-100 max-w-lg mx-auto w-full">
+        <button
+          onClick={onClose}
+          className="w-full py-3.5 rounded-2xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-600 font-medium transition-colors"
+        >
+          返回
+        </button>
       </div>
     </div>
   );
