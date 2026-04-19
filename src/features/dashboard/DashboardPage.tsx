@@ -45,14 +45,64 @@ function fmtTime(iso?: string): string {
   }
 }
 
+// ── 营养详情底部弹窗 ───────────────────────────────────────────────
+function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () => void }) {
+  const n = item.nutrition;
+  const rows: { label: string; value: number; unit: string }[] = [
+    { label: '蛋白质', value: n.protein,       unit: 'g'  },
+    { label: '碳水化合物', value: n.carbs,      unit: 'g'  },
+    { label: '脂肪',   value: n.fat,           unit: 'g'  },
+    { label: '膳食纤维', value: n.fiber,        unit: 'g'  },
+    ...(n.sugar  != null ? [{ label: '糖',  value: n.sugar,  unit: 'g'  }] : []),
+    ...(n.sodium != null ? [{ label: '钠',  value: n.sodium, unit: 'mg' }] : []),
+  ];
+  return (
+    <div
+      className="fixed inset-x-0 bg-black/40 z-50 flex items-end"
+      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl pb-8 modal-enter"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+        {/* Header */}
+        <div className="px-5 pt-2 pb-4 border-b border-gray-100">
+          <div className="font-semibold text-gray-900 text-base">{item.foodName}</div>
+          <div className="text-sm text-gray-400 mt-0.5">{item.unit}</div>
+        </div>
+        {/* Calories */}
+        <div className="flex items-baseline justify-center gap-1 py-5">
+          <span className="text-4xl font-bold text-green-600">{item.calories}</span>
+          <span className="text-sm text-gray-400">kcal</span>
+        </div>
+        {/* Macro grid */}
+        <div className="px-5 grid grid-cols-2 gap-2">
+          {rows.map(r => (
+            <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
+              <span className="text-sm text-gray-500">{r.label}</span>
+              <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{r.unit}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const DELETE_REVEAL = 80; // px — width of revealed delete button
 
 interface SwipeableRowProps {
   item: MealItem;
   onRemove: (id: string) => void;
+  onTap: (item: MealItem) => void;
 }
 
-function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
+function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
   const rowRef   = useRef<HTMLDivElement>(null);
   const startX   = useRef(0);
   const curX     = useRef(0);   // current translateX; negative = swiped left
@@ -95,7 +145,7 @@ function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
   const handleDeleteClick = () => { snapClose(); setConfirming(true); };
   const handleConfirm = () => onRemove(item.id);
   const handleCancel  = () => setConfirming(false);
-  const onRowClick    = () => { if (isOpen) snapClose(); };
+  const onRowClick    = () => { if (isOpen) { snapClose(); } else { onTap(item); } };
 
   const time = fmtTime(item.loggedAt);
 
@@ -170,11 +220,12 @@ export function DashboardPage({
   const [showPantry, setShowPantry] = useState(false);
   const [showFamily, setShowFamily] = useState(false);
   const [showMenu,   setShowMenu]   = useState(false);
+  const [detailItem, setDetailItem] = useState<MealItem | null>(null);
   const [familyId, setFamilyId] = useState<string | undefined>(profile.familyId);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
 
-  const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood;
+  const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood || !!detailItem;
 
   // iOS Safari 在 fixed 弹窗内 input 聚焦时会程序性地 scrollTo()，
   // touchmove 拦截不住。解法：弹窗打开时记住 scrollY，
@@ -446,6 +497,7 @@ export function DashboardPage({
                   key={item.id}
                   item={item}
                   onRemove={onRemoveFood}
+                  onTap={setDetailItem}
                 />
               ))}
             </div>
@@ -561,6 +613,10 @@ export function DashboardPage({
           }}
           onClose={clearFood}
         />
+      )}
+
+      {detailItem && (
+        <NutritionDetailSheet item={detailItem} onClose={() => setDetailItem(null)} />
       )}
     </div>
   );

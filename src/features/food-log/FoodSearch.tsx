@@ -204,7 +204,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               ref={inputRef}
               type="text"
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => { if (!isComposing.current) setQuery(e.target.value); }}
               onCompositionStart={() => { isComposing.current = true; }}
               onCompositionEnd={e => {
                 isComposing.current = false;

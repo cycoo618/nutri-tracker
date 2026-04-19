@@ -6,13 +6,14 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FoodItem } from '../../types/food';
 import { searchBuiltinFoods } from '../../services/food-lookup';
-import { searchCustomFoods, calcRecipeNutrition, saveCustomFood } from '../../utils/customFoods';
-import type { RecipeIngredient } from '../../utils/customFoods';
+import { searchCustomFoods, calcRecipeNutrition, saveCustomFood, updateCustomFood, recordToFoodItem } from '../../utils/customFoods';
+import type { RecipeIngredient, CustomFoodRecord } from '../../utils/customFoods';
 import { formatNumber } from '../../utils/calculator';
 
 interface RecipeBuilderProps {
   onClose: () => void;
   onSaved: (foodItem: FoodItem) => void;
+  existingRecord?: CustomFoodRecord;
 }
 
 // 快捷克数选项
@@ -87,10 +88,10 @@ function GramInput({
 }
 
 // ── 主组件 ─────────────────────────────────────────────────────────
-export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
-  const [name, setName] = useState('');
-  const [servingLabel, setServingLabel] = useState('');
-  const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
+export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilderProps) {
+  const [name, setName] = useState(existingRecord?.name ?? '');
+  const [servingLabel, setServingLabel] = useState(existingRecord?.servingSizes?.[0]?.label ?? '');
+  const [ingredients, setIngredients] = useState<RecipeIngredient[]>(existingRecord?.ingredients ?? []);
 
   const [ingQuery, setIngQuery] = useState('');
   const [ingResults, setIngResults] = useState<FoodItem[]>([]);
@@ -159,26 +160,23 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
     setError('');
 
     const defaultLabel = `1份 (${totalGrams}g)`;
-    const record = saveCustomFood({
+    const updates = {
       name: name.trim(),
-      pantrySource: 'recipe',
+      pantrySource: 'recipe' as const,
       ingredients,
       totalGrams,
       per100g,
-      servingSizes: [
-        { label: servingLabel.trim() || defaultLabel, grams: totalGrams },
-      ],
-    });
-
-    const foodItem = {
-      id: record.id,
-      name: record.name,
-      category: 'other' as const,
-      per100g: record.per100g,
-      servingSizes: record.servingSizes,
-      source: 'user_added' as const,
-      tags: ['自制'],
+      servingSizes: [{ label: servingLabel.trim() || defaultLabel, grams: totalGrams }],
     };
+
+    let foodItem: FoodItem;
+    if (existingRecord) {
+      updateCustomFood(existingRecord.id, updates);
+      foodItem = recordToFoodItem({ ...existingRecord, ...updates });
+    } else {
+      const record = saveCustomFood(updates);
+      foodItem = recordToFoodItem(record);
+    }
 
     setSaving(false);
     onSaved(foodItem);
@@ -191,7 +189,7 @@ export function RecipeBuilder({ onClose, onSaved }: RecipeBuilderProps) {
         {/* Header */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm">取消</button>
-          <h3 className="font-semibold text-gray-900">创建自定义食物</h3>
+          <h3 className="font-semibold text-gray-900">{existingRecord ? '编辑自制食物' : '创建自定义食物'}</h3>
           <button
             onClick={handleSave}
             disabled={saving || !name.trim() || ingredients.length === 0}

@@ -28,6 +28,7 @@ type CloudStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
 export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPantryPageProps) {
   const [subView, setSubView] = useState<SubView>('list');
+  const [editingRecipe, setEditingRecipe] = useState<CustomFoodRecord | null>(null);
   const [records, setRecords] = useState<CustomFoodRecord[]>(() => getAllCustomFoods());
   const [familyRecords, setFamilyRecords] = useState<CustomFoodRecord[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -147,8 +148,9 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
   if (subView === 'recipe') {
     return (
       <RecipeBuilder
-        onClose={() => setSubView('list')}
-        onSaved={handleSaved}
+        onClose={() => { setSubView('list'); setEditingRecipe(null); }}
+        onSaved={record => { setEditingRecipe(null); handleSaved(record); }}
+        existingRecord={editingRecipe ?? undefined}
       />
     );
   }
@@ -256,7 +258,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                           </div>
                         )}
                       </div>
-                      {/* 删除 */}
+                      {/* 编辑 + 删除 */}
                       {deleteConfirm === record.id ? (
                         <div className="flex items-center gap-2 shrink-0">
                           <button
@@ -273,12 +275,23 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => setDeleteConfirm(record.id)}
-                          className="text-gray-300 hover:text-red-400 text-lg leading-none shrink-0 transition-colors"
-                        >
-                          ×
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {record.pantrySource === 'recipe' && (
+                            <button
+                              onClick={() => { setEditingRecipe(record); setSubView('recipe'); }}
+                              className="text-gray-300 hover:text-blue-400 text-sm leading-none transition-colors"
+                              title="编辑配料"
+                            >
+                              ✏️
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setDeleteConfirm(record.id)}
+                            className="text-gray-300 hover:text-red-400 text-lg leading-none transition-colors"
+                          >
+                            ×
+                          </button>
+                        </div>
                       )}
                     </div>
 
