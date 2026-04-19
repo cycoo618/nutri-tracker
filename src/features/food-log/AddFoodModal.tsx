@@ -66,7 +66,7 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
   const changeQty = (delta: number) =>
     setServingQty(q => Math.max(0.5, Math.round((q + delta) * 2) / 2));
 
-  const { cardRef, dragHandlers } = useSwipeDown(onClose);
+  const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
   return (
     <div
@@ -79,6 +79,7 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
         className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
         style={{ maxHeight: 'var(--vvh, 90vh)' }}
         onClick={e => e.stopPropagation()}
+        {...cardDragHandlers}
       >
         {/* Drag handle */}
         <div

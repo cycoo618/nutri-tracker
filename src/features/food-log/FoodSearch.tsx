@@ -41,7 +41,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isComposing = useRef(false);
-  const { cardRef, dragHandlers } = useSwipeDown(onClose);
+  const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
   // 只在首次打开时聚焦，不在子视图切回来时重新 focus
   const didFocus = useRef(false);
@@ -194,9 +194,10 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
     >
       <div
         ref={cardRef}
-        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col sm:max-h-[85vh]"
-        style={{ height: 'min(85vh, var(--vvh, 85vh))' }}
+        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
+        style={{ maxHeight: 'var(--vvh, 90vh)' }}
         onClick={e => e.stopPropagation()}
+        {...cardDragHandlers}
       >
         {/* Drag handle */}
         <div
@@ -240,7 +241,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         </div>
 
         {/* 结果列表 */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="overflow-y-auto" style={{ maxHeight: 'calc(var(--vvh, 90vh) - 160px)' }}>
 
 
           {/* 无结果 */}

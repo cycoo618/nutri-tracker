@@ -32,7 +32,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
   const [servingLabel, setServingLabel] = useState('');
   const [servingGrams, setServingGrams] = useState('');
 
-  const { cardRef, dragHandlers } = useSwipeDown(onClose);
+  const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
   const isValid = name.trim() && Number(calories) > 0;
 
@@ -73,6 +73,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
         className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
         style={{ maxHeight: 'var(--vvh, 90vh)' }}
         onClick={e => e.stopPropagation()}
+        {...cardDragHandlers}
       >
         {/* Drag handle */}
         <div
