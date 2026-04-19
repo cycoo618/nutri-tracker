@@ -61,6 +61,10 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
 
   const onTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = 'none';
+      sheetRef.current.style.willChange = 'transform';
+    }
   };
   const onTouchMove = (e: React.TouchEvent) => {
     const dy = e.touches[0].clientY - startY.current;
@@ -70,8 +74,19 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
   };
   const onTouchEnd = (e: React.TouchEvent) => {
     const dy = e.changedTouches[0].clientY - startY.current;
-    if (sheetRef.current) sheetRef.current.style.transform = '';
-    if (dy > 80) onClose();
+    if (sheetRef.current) {
+      sheetRef.current.style.willChange = '';
+      if (dy > 80) {
+        sheetRef.current.style.transition = 'transform 0.22s ease';
+        sheetRef.current.style.transform = `translateY(100%)`;
+        setTimeout(onClose, 200);
+      } else {
+        sheetRef.current.style.transition = 'transform 0.25s ease';
+        sheetRef.current.style.transform = 'translateY(0)';
+      }
+    } else if (dy > 80) {
+      onClose();
+    }
   };
 
   return (
@@ -83,7 +98,7 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
       <div
         ref={sheetRef}
         className="bg-white w-full max-w-lg mx-auto rounded-t-2xl pb-8 modal-enter"
-        style={{ transition: 'transform 0.2s ease', touchAction: 'none' }}
+        style={{ touchAction: 'none' }}
         onClick={e => e.stopPropagation()}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}

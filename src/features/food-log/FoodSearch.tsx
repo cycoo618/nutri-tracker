@@ -398,7 +398,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
             onClick={onClose}
             className="w-full py-3.5 rounded-2xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-600 font-medium transition-colors"
           >
-            返回
+            ↵ 返回
           </button>
         </div>
       </div>
