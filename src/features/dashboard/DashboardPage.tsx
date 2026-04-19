@@ -430,7 +430,17 @@ export function DashboardPage({
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-20 safe-area-inset-bottom">
         <div className="max-w-lg mx-auto flex items-end h-16">
           {/* 今日 tab */}
-          <button className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-green-600">
+          <button
+            onClick={() => {
+              const today = new Date().toISOString().split('T')[0];
+              if (currentDate !== today) {
+                onDateChange(today);
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-green-600"
+          >
             <span className="text-xl">📊</span>
             <span className="text-xs font-medium">今日</span>
           </button>
