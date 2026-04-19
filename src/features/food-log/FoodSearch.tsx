@@ -73,49 +73,40 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       ...builtin.filter(b => !custom.some(c => c.id === b.id)),
     ];
 
+    // ── 家庭成员食物：始终异步加载，不依赖本地结果是否存在 ────────
+    if (familyId && userId) {
+      const q = query.trim().toLowerCase();
+      getFamily(familyId)
+        .then(family => {
+          if (!family) return [];
+          const memberUids = family.members.map(m => m.uid);
+          return getFamilyMemberFoods(memberUids, userId);
+        })
+        .then(rawFoods => {
+          const filtered = rawFoods.filter(f =>
+            typeof f['name'] === 'string' && (f['name'] as string).toLowerCase().includes(q)
+          );
+          const foodItems: FoodItem[] = filtered.map(f => {
+            const item = recordToFoodItem(f as CustomFoodRecord);
+            return { ...item, tags: [...(item.tags ?? []), '家庭'] };
+          });
+          const localIds = new Set(localResults.map(r => r.id));
+          setFamilyResults(foodItems.filter(fi => !localIds.has(fi.id)));
+        })
+        .catch(() => setFamilyResults([]));
+    } else {
+      setFamilyResults([]);
+    }
+
     if (localResults.length > 0) {
-      // 有本地结果 → 直接展示，不联网，重置联网状态
+      // 有本地结果 → 直接展示，不联网
       setResults(localResults);
       setOnlineResults([]);
       setOnlineError(null);
       setOnlineSearched(false);
       setSearchState('done');
-
-      // 同时加载家庭成员食物（异步，不阻塞本地结果展示）
-      if (familyId && userId) {
-        const q = query.trim().toLowerCase();
-        getFamily(familyId)
-          .then(family => {
-            if (!family) return [];
-            const memberUids = family.members.map(m => m.uid);
-            return getFamilyMemberFoods(memberUids, userId);
-          })
-          .then(rawFoods => {
-            const q2 = q;
-            const filtered = rawFoods.filter(f =>
-              typeof f['name'] === 'string' && (f['name'] as string).toLowerCase().includes(q2)
-            );
-            const foodItems: FoodItem[] = filtered.map(f => {
-              const item = recordToFoodItem(f as CustomFoodRecord);
-              return {
-                ...item,
-                tags: [...(item.tags ?? []), '家庭'],
-              };
-            });
-            // 去重（排除本地已有的）
-            const localIds = new Set(localResults.map(r => r.id));
-            setFamilyResults(foodItems.filter(fi => !localIds.has(fi.id)));
-          })
-          .catch(() => {
-            setFamilyResults([]);
-          });
-      } else {
-        setFamilyResults([]);
-      }
       return;
     }
-
-    setFamilyResults([]);
 
     // ── 本地无结果 → debounce 后联网 ──────────────────────────────
     setResults([]);

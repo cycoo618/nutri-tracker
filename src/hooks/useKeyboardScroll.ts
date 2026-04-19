@@ -13,9 +13,10 @@ export function useKeyboardScroll() {
     const update = () => {
       document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
       document.documentElement.style.setProperty('--vvt', `${vv.offsetTop}px`);
-      // iOS scrolls the page when keyboard appears (offsetTop > 0).
-      // Reset it so fixed modals don't fly off screen.
-      if (vv.offsetTop > 0 && window.scrollY > 0) {
+      // Use viewport height shrinkage as keyboard detector (more reliable than
+      // offsetTop which also fires during elastic scroll at page bottom).
+      const keyboardVisible = window.innerHeight - vv.height > 150;
+      if (keyboardVisible && window.scrollY > 0) {
         window.scrollTo(0, 0);
       }
     };
