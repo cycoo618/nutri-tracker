@@ -3,10 +3,10 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
-import type { DailyLog } from '../../types/log';
+import type { DailyLog, MealItem } from '../../types/log';
 import type { FoodItem } from '../../types/food';
 import type { NutritionStatus } from '../../hooks/useNutrition';
 import type { SyncStatus } from '../../hooks/useFoodLog';
@@ -45,37 +45,39 @@ function fmtTime(iso?: string): string {
   }
 }
 
-// ── 滑动删除行 ─────────────────────────────────────────────────────
-const DELETE_REVEAL = 80; // px
+const DELETE_REVEAL = 80; // px — width of revealed delete button
 
 interface SwipeableRowProps {
-  item: { id: string; foodName: string; loggedAt?: string; unit: string; calories: number; gi?: number };
+  item: MealItem;
   onRemove: (id: string) => void;
 }
 
 function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
-  const rowRef    = useRef<HTMLDivElement>(null);
-  const startX    = useRef(0);
-  const curX      = useRef(0);          // 当前 translateX（负值 = 向左）
-  const dragging  = useRef(false);
+  const rowRef   = useRef<HTMLDivElement>(null);
+  const startX   = useRef(0);
+  const curX     = useRef(0);   // current translateX; negative = swiped left
+  const dragging = useRef(false);
   const [isOpen,     setIsOpen]     = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  // 直接操作 DOM，不走 React re-render，保证 60fps
-  const applyX = useCallback((x: number, animate = false) => {
+  // Direct DOM mutation bypasses React re-render for 60fps drag
+  const applyX = (x: number, animate = false) => {
     if (!rowRef.current) return;
     rowRef.current.style.transition = animate ? 'transform 0.22s ease' : 'none';
     rowRef.current.style.transform  = `translateX(${x}px)`;
     curX.current = x;
-  }, []);
+  };
 
-  const snapOpen  = useCallback(() => { applyX(-DELETE_REVEAL, true); setIsOpen(true);  }, [applyX]);
-  const snapClose = useCallback(() => { applyX(0, true);              setIsOpen(false); }, [applyX]);
+  const snapOpen  = () => { applyX(-DELETE_REVEAL, true); setIsOpen(true);  };
+  const snapClose = () => { applyX(0, true);              setIsOpen(false); };
 
   const onTouchStart = (e: React.TouchEvent) => {
     dragging.current = true;
     startX.current   = e.touches[0].clientX - curX.current;
-    if (rowRef.current) rowRef.current.style.transition = 'none';
+    if (rowRef.current) {
+      rowRef.current.style.transition = 'none';
+      rowRef.current.style.willChange = 'transform';
+    }
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
@@ -86,19 +88,14 @@ function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
 
   const onTouchEnd = () => {
     dragging.current = false;
+    if (rowRef.current) rowRef.current.style.willChange = 'auto';
     curX.current < -DELETE_REVEAL / 2 ? snapOpen() : snapClose();
   };
 
-  const handleDeleteClick = () => {
-    snapClose();
-    setConfirming(true);
-  };
-
+  const handleDeleteClick = () => { snapClose(); setConfirming(true); };
   const handleConfirm = () => onRemove(item.id);
   const handleCancel  = () => setConfirming(false);
-
-  // 外部点击时收起
-  const onRowClick = () => { if (isOpen) snapClose(); };
+  const onRowClick    = () => { if (isOpen) snapClose(); };
 
   const time = fmtTime(item.loggedAt);
 
@@ -124,15 +121,11 @@ function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
 
   return (
     <div className="relative overflow-hidden">
-      {/* 背后的删除按钮 */}
-      <div className="absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-red-500">
-        <button
-          onClick={handleDeleteClick}
-          className="w-full h-full flex items-center justify-center text-white text-sm font-medium"
-        >删除</button>
-      </div>
+      <button
+        onClick={handleDeleteClick}
+        className="absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-red-500 text-white text-sm font-medium"
+      >删除</button>
 
-      {/* 滑动内容行 */}
       <div
         ref={rowRef}
         onTouchStart={onTouchStart}
@@ -140,13 +133,10 @@ function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
         onTouchEnd={onTouchEnd}
         onClick={onRowClick}
         className="flex items-center justify-between py-2.5 bg-white relative"
-        style={{ willChange: 'transform' }}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {time && (
-              <span className="text-xs text-gray-300 font-mono shrink-0">{time}</span>
-            )}
+            {time && <span className="text-xs text-gray-300 font-mono shrink-0">{time}</span>}
             <span className="text-sm font-medium text-gray-800 truncate">{item.foodName}</span>
             <GIBadge gi={item.gi} size="sm" />
           </div>
@@ -154,10 +144,8 @@ function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="text-sm text-gray-600">{item.calories} kcal</span>
-          {/* 左滑提示箭头，开启后隐藏 */}
-          {!isOpen && (
-            <span className="text-gray-200 text-xs select-none">←</span>
-          )}
+          {/* Reserve space so kcal doesn't shift when arrow hides */}
+          <span className={`text-gray-200 text-xs select-none ${isOpen ? 'invisible' : ''}`}>←</span>
         </div>
       </div>
     </div>
