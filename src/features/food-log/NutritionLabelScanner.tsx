@@ -6,7 +6,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
-import { getGeminiKey, saveGeminiKey } from '../../services/nutrition-vision';
+import { getGeminiKey, saveGeminiKey, isKeyFromEnv } from '../../services/nutrition-vision';
 
 // ── 外部分析函数的接口定义 ──────────────────
 
@@ -305,12 +305,14 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
               <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChange} />
               <input ref={fileInputRef}   type="file" accept="image/*" className="hidden" onChange={onFileChange} />
 
-              <button
-                onClick={() => setStep('setup')}
-                className="w-full mt-3 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                🔑 更换 Groq API Key
-              </button>
+              {!isKeyFromEnv() && (
+                <button
+                  onClick={() => setStep('setup')}
+                  className="w-full mt-3 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  🔑 更换 Groq API Key
+                </button>
+              )}
             </div>
           )}
 
@@ -424,12 +426,14 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
               <div className="text-4xl">😕</div>
               <p className="text-gray-700 font-medium">识别失败</p>
               <p className="text-sm text-gray-400">{errorMsg}</p>
-              <button
-                onClick={() => { setKeyInput(''); setStep('setup'); }}
-                className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-sm font-medium transition-colors"
-              >
-                🔑 更换 Groq API Key
-              </button>
+              {!isKeyFromEnv() && (
+                <button
+                  onClick={() => { setKeyInput(''); setStep('setup'); }}
+                  className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-sm font-medium transition-colors"
+                >
+                  🔑 更换 Groq API Key
+                </button>
+              )}
               <button
                 onClick={reset}
                 className="w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm text-gray-600 font-medium transition-colors"

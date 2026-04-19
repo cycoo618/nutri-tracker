@@ -9,10 +9,20 @@ import type { ExtractedNutrition } from '../features/food-log/NutritionLabelScan
 const LOCAL_KEY = 'nutri_groq_key';
 
 export function getGeminiKey(): string | null {
-  // 兼容旧 key 名称
   return localStorage.getItem(LOCAL_KEY)
     ?? localStorage.getItem('nutri_gemini_key')
-    ?? localStorage.getItem('nutri_anthropic_key');
+    ?? localStorage.getItem('nutri_anthropic_key')
+    // 若部署时注入了环境变量，所有用户自动使用该 key
+    ?? (import.meta.env.VITE_GROQ_API_KEY as string | undefined)
+    ?? null;
+}
+
+/** 判断当前 key 是否来自环境变量（用于隐藏"更换 key"入口） */
+export function isKeyFromEnv(): boolean {
+  const hasLocal = !!(localStorage.getItem(LOCAL_KEY)
+    ?? localStorage.getItem('nutri_gemini_key')
+    ?? localStorage.getItem('nutri_anthropic_key'));
+  return !hasLocal && !!(import.meta.env.VITE_GROQ_API_KEY as string | undefined);
 }
 
 export function saveGeminiKey(key: string) {
