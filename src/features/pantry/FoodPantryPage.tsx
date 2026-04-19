@@ -3,7 +3,7 @@
 // 支持：扫码录入包装袋、组合食材、删除、添加到今日记录
 // ============================================
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { FoodItem } from '../../types/food';
 import {
   getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods,
@@ -14,6 +14,88 @@ import type { DocumentData } from 'firebase/firestore';
 import { formatNumber } from '../../utils/calculator';
 import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
 import { RecipeBuilder } from '../food-log/RecipeBuilder';
+
+function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; onClose: () => void }) {
+  const n = record.per100g;
+  const rows = [
+    { label: '蛋白质',   value: n.protein,      unit: 'g'  },
+    { label: '碳水化合物', value: n.carbs,       unit: 'g'  },
+    { label: '脂肪',     value: n.fat,           unit: 'g'  },
+    { label: '膳食纤维', value: n.fiber,         unit: 'g'  },
+    ...(n.sugar        != null ? [{ label: '糖',      value: n.sugar,       unit: 'g'  }] : []),
+    ...(n.saturatedFat != null ? [{ label: '饱和脂肪', value: n.saturatedFat, unit: 'g' }] : []),
+    ...(n.sodium       != null ? [{ label: '钠',      value: n.sodium,      unit: 'mg' }] : []),
+    ...(n.omega3       != null ? [{ label: 'Omega-3', value: n.omega3,      unit: 'mg' }] : []),
+    ...(n.vitaminC     != null ? [{ label: '维生素C',  value: n.vitaminC,   unit: 'mg' }] : []),
+    ...(n.calcium      != null ? [{ label: '钙',      value: n.calcium,     unit: 'mg' }] : []),
+    ...(n.iron         != null ? [{ label: '铁',      value: n.iron,        unit: 'mg' }] : []),
+    ...(n.potassium    != null ? [{ label: '钾',      value: n.potassium,   unit: 'mg' }] : []),
+  ];
+
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const startY = useRef(0);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+    if (sheetRef.current) { sheetRef.current.style.transition = 'none'; sheetRef.current.style.willChange = 'transform'; }
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const dy = e.touches[0].clientY - startY.current;
+    if (dy > 0 && sheetRef.current) sheetRef.current.style.transform = `translateY(${dy}px)`;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const dy = e.changedTouches[0].clientY - startY.current;
+    if (sheetRef.current) {
+      sheetRef.current.style.willChange = '';
+      if (dy > 80) {
+        sheetRef.current.style.transition = 'transform 0.22s ease';
+        sheetRef.current.style.transform = 'translateY(100%)';
+        setTimeout(onClose, 200);
+      } else {
+        sheetRef.current.style.transition = 'transform 0.25s ease';
+        sheetRef.current.style.transform = 'translateY(0)';
+      }
+    } else if (dy > 80) { onClose(); }
+  };
+
+  return (
+    <div
+      className="fixed inset-x-0 bg-black/40 z-50 flex items-end"
+      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
+      onClick={onClose}
+    >
+      <div
+        ref={sheetRef}
+        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl pb-8 modal-enter overflow-y-auto max-h-[80vh]"
+        style={{ touchAction: 'none' }}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+        <div className="px-5 pt-2 pb-4 border-b border-gray-100">
+          <div className="font-semibold text-gray-900 text-base">{record.name}</div>
+          <div className="text-sm text-gray-400 mt-0.5">以下数据均为每100g</div>
+        </div>
+        <div className="flex items-baseline justify-center gap-1 py-5">
+          <span className="text-4xl font-bold text-green-600">{n.calories}</span>
+          <span className="text-sm text-gray-400">kcal / 100g</span>
+        </div>
+        <div className="px-5 grid grid-cols-2 gap-2 pb-4">
+          {rows.map(r => (
+            <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
+              <span className="text-sm text-gray-500">{r.label}</span>
+              <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{r.unit}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface FoodPantryPageProps {
   onClose: () => void;
@@ -29,6 +111,7 @@ type CloudStatus = 'idle' | 'syncing' | 'synced' | 'error';
 export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPantryPageProps) {
   const [subView, setSubView] = useState<SubView>('list');
   const [editingRecipe, setEditingRecipe] = useState<CustomFoodRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<CustomFoodRecord | null>(null);
   const [records, setRecords] = useState<CustomFoodRecord[]>(() => getAllCustomFoods());
   const [familyRecords, setFamilyRecords] = useState<CustomFoodRecord[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -235,7 +318,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
               return (
                 <div
                   key={record.id}
-                  className={`bg-white rounded-2xl border transition-all ${
+                  onClick={() => setSelectedRecord(record)}
+                  className={`bg-white rounded-2xl border transition-all cursor-pointer active:scale-[0.99] ${
                     isNew
                       ? 'border-green-300 shadow-md shadow-green-50'
                       : 'border-gray-100 shadow-sm'
@@ -267,7 +351,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                       </div>
                       {/* 编辑 + 删除 */}
                       {deleteConfirm === record.id ? (
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => setDeleteConfirm(null)}
                             className="text-xs text-gray-400 hover:text-gray-600"
@@ -282,7 +366,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                           {record.pantrySource === 'recipe' && (
                             <button
                               onClick={() => { setEditingRecipe(record); setSubView('recipe'); }}
@@ -331,7 +415,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                     {/* 添加到今日 */}
                     {onAddToLog && (
                       <button
-                        onClick={() => handleAddToLog(record)}
+                        onClick={e => { e.stopPropagation(); handleAddToLog(record); }}
                         className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium rounded-xl transition-colors"
                       >
                         ＋ 添加到今日饮食
@@ -356,7 +440,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
               {familyRecords.map((record, idx) => (
                 <div
                   key={record.id || idx}
-                  className="bg-white rounded-2xl border border-green-100 shadow-sm"
+                  onClick={() => setSelectedRecord(record)}
+                  className="bg-white rounded-2xl border border-green-100 shadow-sm cursor-pointer active:scale-[0.99] transition-transform"
                 >
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -383,7 +468,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                     <div className="text-xs text-gray-400 mb-3 text-center">以上数据均为每100g</div>
                     {onAddToLog && (
                       <button
-                        onClick={() => onAddToLog(recordToFoodItem(record))}
+                        onClick={e => { e.stopPropagation(); onAddToLog(recordToFoodItem(record)); }}
                         className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium rounded-xl transition-colors"
                       >
                         ＋ 添加到今日饮食
@@ -406,6 +491,10 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
           ↵ 返回
         </button>
       </div>
+
+      {selectedRecord && (
+        <PantryNutritionSheet record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+      )}
     </div>
   );
 }
