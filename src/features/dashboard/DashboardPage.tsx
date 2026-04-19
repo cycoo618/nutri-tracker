@@ -225,7 +225,7 @@ export function DashboardPage({
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
 
-  const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood || !!detailItem;
+  const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood;
 
   // iOS Safari 在 fixed 弹窗内 input 聚焦时会程序性地 scrollTo()，
   // touchmove 拦截不住。解法：弹窗打开时记住 scrollY，

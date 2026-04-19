@@ -198,8 +198,9 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       >
 
         {/* 搜索框 */}
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
+        <div className="px-4 pt-5 pb-3 border-b border-gray-100">
+          <div className="flex items-center gap-2 bg-gray-100 rounded-2xl px-4 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all">
+            <span className="text-gray-400 text-lg shrink-0">🔍</span>
             <input
               ref={inputRef}
               type="text"
@@ -209,15 +210,14 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               onCompositionEnd={e => {
                 isComposing.current = false;
                 setQuery((e.target as HTMLInputElement).value);
-                // 强制 useEffect 重跑，即使 query 值未变（IME 中间态已设置过相同值）
                 setSearchTrigger(t => t + 1);
               }}
-              placeholder="搜索食物，如「黑豆浆」「espresso」…"
-              className="flex-1 bg-gray-100 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+              placeholder="输入食物名称…"
+              className="flex-1 bg-transparent py-4 focus:outline-none text-base placeholder-gray-400"
             />
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm font-medium shrink-0">
-              取消
-            </button>
+            {query ? (
+              <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500 text-xl shrink-0">×</button>
+            ) : null}
           </div>
 
           {searchState === 'searching_online' && (
@@ -390,6 +390,16 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               )}
             </div>
           )}
+        </div>
+
+        {/* 底部取消按钮 — 拇指区，避免误触 Safari 后退 */}
+        <div className="shrink-0 px-4 py-3 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            className="w-full py-3.5 rounded-2xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-600 font-medium transition-colors"
+          >
+            取消
+          </button>
         </div>
       </div>
     </div>

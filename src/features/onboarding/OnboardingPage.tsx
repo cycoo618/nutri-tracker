@@ -198,6 +198,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
                     type="number"
                     value={field.value}
                     onChange={e => field.onChange(e.target.value)}
+                    onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
                     placeholder={field.placeholder}
                     className="w-full border border-gray-200 rounded-lg px-4 py-2.5 pr-12 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
@@ -217,6 +218,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
                   type="number"
                   value={bodyFat}
                   onChange={e => setBodyFat(e.target.value)}
+                  onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
                   placeholder="如 20（填写后使用更精准的公式）"
                   className="w-full border border-gray-200 rounded-lg px-4 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
@@ -309,6 +311,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
                   type="number"
                   value={manualCalories}
                   onChange={e => setManualCalories(e.target.value)}
+                  onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
                   placeholder={String(autoCalories)}
                   className="w-full border border-gray-200 rounded-lg px-4 py-2.5 pr-20 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
