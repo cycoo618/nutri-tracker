@@ -210,14 +210,26 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       {/* 食物列表 */}
       <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-4 pb-4">
 
-        {records.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-5xl mb-4">📦</div>
-            <div className="text-gray-600 font-medium mb-1">食材库是空的</div>
-            <div className="text-gray-400 text-sm">扫描包装袋或组合食材，保存到这里</div>
+        {/* ── 你的食材库 ───────────────────────────────────────────── */}
+        <div className="pt-2">
+          <div className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+            <span>🗄️</span>
+            你的食材库
+            {records.length === 0 && (
+              <span className="text-xs text-gray-300 font-normal">（空）</span>
+            )}
           </div>
-        ) : (
-          <div className="space-y-3 pt-2">
+
+          {records.length === 0 && familyRecords.length === 0 && (
+            <div className="text-center py-10">
+              <div className="text-5xl mb-4">📦</div>
+              <div className="text-gray-600 font-medium mb-1">食材库是空的</div>
+              <div className="text-gray-400 text-sm">扫描包装袋或组合食材，保存到这里</div>
+            </div>
+          )}
+
+          {records.length > 0 && (
+          <div className="space-y-3">
             {records.map(record => {
               const isNew = addedId === record.id;
               return (
@@ -330,13 +342,14 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
               );
             })}
           </div>
-        )}
+          )}
+        </div>
 
-        {/* ── 家庭食物 ─────────────────────────────────────────────── */}
+        {/* ── 家庭食材库 ───────────────────────────────────────────── */}
         {familyRecords.length > 0 && (
           <div className="pt-4">
             <div className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
-              <span>👨‍👩‍👧</span> 家庭食物
+              <span>👨‍👩‍👧</span> 家庭食材库
               <span className="text-xs text-gray-400 font-normal">（只读，可添加到今日）</span>
             </div>
             <div className="space-y-3">
