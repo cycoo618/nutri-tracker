@@ -28,6 +28,8 @@ export interface CustomFoodRecord {
   /** 每100g合并后的营养（用于 FoodItem.per100g） */
   per100g: NutritionData;
   servingSizes: ServingSize[];
+  /** 压缩后的标签图片（base64 dataURL，仅扫码录入时存在） */
+  imageDataUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

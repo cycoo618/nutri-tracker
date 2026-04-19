@@ -18,6 +18,13 @@ export interface ExtractedNutrition {
   fat: number;
   fiber: number;
   sodium: number;
+  sugar?: number;
+  saturatedFat?: number;
+  calcium?: number;
+  iron?: number;
+  potassium?: number;
+  vitaminC?: number;
+  omega3?: number;
   servingLabel?: string;
   servingGrams?: number;
 }
@@ -37,13 +44,38 @@ interface Field {
 }
 
 const NUTRIENT_FIELDS: Field[] = [
-  { key: 'calories',  label: '热量',    unit: 'kcal', type: 'number' },
-  { key: 'protein',   label: '蛋白质',  unit: 'g',    type: 'number' },
-  { key: 'carbs',     label: '碳水化合物', unit: 'g', type: 'number' },
-  { key: 'fat',       label: '脂肪',    unit: 'g',    type: 'number' },
-  { key: 'fiber',     label: '膳食纤维', unit: 'g',   type: 'number' },
-  { key: 'sodium',    label: '钠',      unit: 'mg',   type: 'number' },
+  { key: 'calories',     label: '热量',     unit: 'kcal', type: 'number' },
+  { key: 'protein',      label: '蛋白质',   unit: 'g',    type: 'number' },
+  { key: 'carbs',        label: '碳水化合物', unit: 'g', type: 'number' },
+  { key: 'fat',          label: '脂肪',     unit: 'g',    type: 'number' },
+  { key: 'fiber',        label: '膳食纤维', unit: 'g',    type: 'number' },
+  { key: 'sugar',        label: '糖',       unit: 'g',    type: 'number' },
+  { key: 'saturatedFat', label: '饱和脂肪', unit: 'g',    type: 'number' },
+  { key: 'sodium',       label: '钠',       unit: 'mg',   type: 'number' },
+  { key: 'calcium',      label: '钙',       unit: 'mg',   type: 'number' },
+  { key: 'iron',         label: '铁',       unit: 'mg',   type: 'number' },
+  { key: 'potassium',    label: '钾',       unit: 'mg',   type: 'number' },
+  { key: 'vitaminC',     label: '维生素C',  unit: 'mg',   type: 'number' },
 ];
+
+// 压缩图片到最大 400px 宽，JPEG 0.72，约 20-50KB
+function compressImage(dataUrl: string): Promise<string> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 400;
+      const scale = Math.min(1, MAX / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.72));
+    };
+    img.src = dataUrl;
+  });
+}
 
 // ── Props ───────────────────────────────────
 
@@ -58,6 +90,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
   const [step, setStep]               = useState<Step>(() => getGeminiKey() ? 'capture' : 'setup');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [compressedImage, setCompressedImage] = useState<string | null>(null);
   const [extracted, setExtracted]     = useState<ExtractedNutrition | null>(null);
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
@@ -77,13 +110,14 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
       const dataUrl = e.target?.result as string;
       setImagePreview(dataUrl);
 
-      // 提取 base64 部分（去掉 data:image/...;base64, 前缀）
       const base64 = dataUrl.split(',')[1];
       setImageBase64(base64);
       setStep('analyzing');
 
+      // 压缩缩略图和 AI 识别并行进行
+      compressImage(dataUrl).then(setCompressedImage);
+
       try {
-        // 动态 import 避免编译时绑定
         const { analyzeNutritionLabel: analyze } = await import('../../services/nutrition-vision');
         const result = await analyze(base64);
         setExtracted(result);
@@ -119,6 +153,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
     setStep('capture');
     setImageBase64(null);
     setImagePreview(null);
+    setCompressedImage(null);
     setExtracted(null);
     setErrorMsg(null);
   };
@@ -127,10 +162,17 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
 
   const updateField = (key: keyof ExtractedNutrition, value: string) => {
     if (!extracted) return;
-    setExtracted({
-      ...extracted,
-      [key]: key === 'name' || key === 'servingLabel' ? value : parseFloat(value) || 0,
-    });
+    const isText = key === 'name' || key === 'servingLabel';
+    const isRequired = ['calories','protein','carbs','fat','fiber','sodium'].includes(key as string);
+    let parsed: string | number | undefined;
+    if (isText) {
+      parsed = value;
+    } else if (value === '') {
+      parsed = isRequired ? 0 : undefined;
+    } else {
+      parsed = parseFloat(value) || 0;
+    }
+    setExtracted({ ...extracted, [key]: parsed });
   };
 
   // ── 保存到食物库 ─────────────────────────
@@ -142,20 +184,28 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
       const record = saveCustomFood({
         name: extracted.name || '扫描食物',
         pantrySource: 'scanned',
-        ingredients: [],  // 直接录入营养数据，无原料分解
+        ingredients: [],
         totalGrams: 100,
         per100g: {
-          calories: extracted.calories,
-          protein:  extracted.protein,
-          carbs:    extracted.carbs,
-          fat:      extracted.fat,
-          fiber:    extracted.fiber,
-          sodium:   extracted.sodium || undefined,
+          calories:     extracted.calories,
+          protein:      extracted.protein,
+          carbs:        extracted.carbs,
+          fat:          extracted.fat,
+          fiber:        extracted.fiber,
+          sodium:       extracted.sodium     || undefined,
+          sugar:        extracted.sugar      ?? undefined,
+          saturatedFat: extracted.saturatedFat ?? undefined,
+          calcium:      extracted.calcium    ?? undefined,
+          iron:         extracted.iron       ?? undefined,
+          potassium:    extracted.potassium  ?? undefined,
+          vitaminC:     extracted.vitaminC   ?? undefined,
+          omega3:       extracted.omega3     ?? undefined,
         },
         servingSizes:
           extracted.servingLabel && extracted.servingGrams
             ? [{ label: extracted.servingLabel, grams: extracted.servingGrams }]
             : [],
+        imageDataUrl: compressedImage ?? undefined,
       });
       const foodItem = recordToFoodItem(record);
       onSaved(foodItem);
@@ -310,21 +360,27 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-2">每 100g 营养数据</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {NUTRIENT_FIELDS.map(f => (
-                    <div key={f.key} className="bg-gray-50 rounded-xl p-3">
-                      <label className="text-xs text-gray-400 block mb-1">
-                        {f.label} <span className="text-gray-300">({f.unit})</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={extracted[f.key] as number}
-                        onChange={e => updateField(f.key, e.target.value)}
-                        className="w-full bg-transparent text-gray-800 font-semibold focus:outline-none text-sm"
-                        min="0"
-                        step="0.1"
-                      />
-                    </div>
-                  ))}
+                  {NUTRIENT_FIELDS.map(f => {
+                    const val = extracted[f.key];
+                    const isOptional = !['calories','protein','carbs','fat','fiber','sodium'].includes(f.key);
+                    return (
+                      <div key={f.key} className="bg-gray-50 rounded-xl p-3">
+                        <label className="text-xs text-gray-400 block mb-1">
+                          {f.label} <span className="text-gray-300">({f.unit})</span>
+                          {isOptional && val == null && <span className="text-gray-300 ml-1">—</span>}
+                        </label>
+                        <input
+                          type="number"
+                          value={val ?? ''}
+                          onChange={e => updateField(f.key, e.target.value)}
+                          placeholder={isOptional ? '未检测到' : '0'}
+                          className="w-full bg-transparent text-gray-800 font-semibold focus:outline-none text-sm placeholder-gray-300"
+                          min="0"
+                          step="0.1"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

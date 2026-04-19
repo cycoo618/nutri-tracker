@@ -26,7 +26,7 @@ export function clearGeminiKey() {
 }
 
 const PROMPT = `你是一个专业的营养成分表识别助手。
-请识别图片中食品包装上的营养成分表，提取数据并以 JSON 格式返回（均为每100g的数据）：
+请识别图片中食品包装上的营养成分表，提取所有能读取到的数据，以 JSON 格式返回（均为每100g的数据）：
 {
   "name": "食物名称（从包装上识别，若无法识别填'扫描食物'）",
   "calories": 数字（kcal，若标注kJ请除以4.184换算）,
@@ -34,7 +34,14 @@ const PROMPT = `你是一个专业的营养成分表识别助手。
   "carbs": 数字（g，即碳水化合物）,
   "fat": 数字（g）,
   "fiber": 数字（g，若无此项填0）,
-  "sodium": 数字（mg，若标注g请乘以1000）,
+  "sodium": 数字（mg，若标注g请乘以1000），
+  "sugar": 数字（g，糖，若有则填，否则省略此字段）,
+  "saturatedFat": 数字（g，饱和脂肪，若有则填，否则省略此字段）,
+  "calcium": 数字（mg，钙，若标注%NRV且无绝对值则省略，否则填mg数值），
+  "iron": 数字（mg，铁，同上）,
+  "potassium": 数字（mg，钾，同上）,
+  "vitaminC": 数字（mg，维生素C，同上）,
+  "omega3": 数字（mg，omega-3，若有则填，否则省略此字段）,
   "servingLabel": "参考份量描述，如'1袋'（若有，否则省略此字段）",
   "servingGrams": 数字（参考份量的克数，若有，否则省略此字段）
 }
@@ -90,15 +97,24 @@ export async function analyzeNutritionLabel(imageBase64: string): Promise<Extrac
   const parsed = JSON.parse(jsonMatch[0]);
   if (parsed.error) throw new Error(parsed.error);
 
+  const maybeNum = (v: unknown) => (v != null && v !== '' ? Number(v) : undefined);
+
   return {
-    name:         parsed.name           ?? '扫描食物',
-    calories:     Number(parsed.calories)    || 0,
-    protein:      Number(parsed.protein)     || 0,
-    carbs:        Number(parsed.carbs)       || 0,
-    fat:          Number(parsed.fat)         || 0,
-    fiber:        Number(parsed.fiber)       || 0,
-    sodium:       Number(parsed.sodium)      || 0,
-    servingLabel: parsed.servingLabel        || undefined,
+    name:         parsed.name        ?? '扫描食物',
+    calories:     Number(parsed.calories)  || 0,
+    protein:      Number(parsed.protein)   || 0,
+    carbs:        Number(parsed.carbs)     || 0,
+    fat:          Number(parsed.fat)       || 0,
+    fiber:        Number(parsed.fiber)     || 0,
+    sodium:       Number(parsed.sodium)    || 0,
+    sugar:        maybeNum(parsed.sugar),
+    saturatedFat: maybeNum(parsed.saturatedFat),
+    calcium:      maybeNum(parsed.calcium),
+    iron:         maybeNum(parsed.iron),
+    potassium:    maybeNum(parsed.potassium),
+    vitaminC:     maybeNum(parsed.vitaminC),
+    omega3:       maybeNum(parsed.omega3),
+    servingLabel: parsed.servingLabel || undefined,
     servingGrams: parsed.servingGrams ? Number(parsed.servingGrams) : undefined,
   };
 }

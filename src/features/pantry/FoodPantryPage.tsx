@@ -76,9 +76,18 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
-        <div className="px-5 pt-2 pb-4 border-b border-gray-100">
-          <div className="font-semibold text-gray-900 text-base">{record.name}</div>
-          <div className="text-sm text-gray-400 mt-0.5">以下数据均为每100g</div>
+        <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-gray-900 text-base">{record.name}</div>
+            <div className="text-sm text-gray-400 mt-0.5">以下数据均为每100g</div>
+          </div>
+          {record.imageDataUrl && (
+            <img
+              src={record.imageDataUrl}
+              alt="营养标签"
+              className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0"
+            />
+          )}
         </div>
         <div className="flex items-baseline justify-center gap-1 py-5">
           <span className="text-4xl font-bold text-green-600">{n.calories}</span>
