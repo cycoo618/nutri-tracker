@@ -4,6 +4,8 @@
 // ============================================
 
 import { useState, useRef, useEffect } from 'react';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
+import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog, MealItem } from '../../types/log';
@@ -56,38 +58,7 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
     ...(n.sugar  != null ? [{ label: '糖',  value: n.sugar,  unit: 'g'  }] : []),
     ...(n.sodium != null ? [{ label: '钠',  value: n.sodium, unit: 'mg' }] : []),
   ];
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const startY = useRef(0);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY;
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'none';
-      sheetRef.current.style.willChange = 'transform';
-    }
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    const dy = e.touches[0].clientY - startY.current;
-    if (dy > 0 && sheetRef.current) {
-      sheetRef.current.style.transform = `translateY(${dy}px)`;
-    }
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const dy = e.changedTouches[0].clientY - startY.current;
-    if (sheetRef.current) {
-      sheetRef.current.style.willChange = '';
-      if (dy > 80) {
-        sheetRef.current.style.transition = 'transform 0.22s ease';
-        sheetRef.current.style.transform = `translateY(100%)`;
-        setTimeout(onClose, 200);
-      } else {
-        sheetRef.current.style.transition = 'transform 0.25s ease';
-        sheetRef.current.style.transform = 'translateY(0)';
-      }
-    } else if (dy > 80) {
-      onClose();
-    }
-  };
+  const { cardRef, dragHandlers } = useSwipeDown(onClose);
 
   return (
     <div
@@ -96,16 +67,16 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
       onClick={onClose}
     >
       <div
-        ref={sheetRef}
-        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl pb-8 modal-enter"
-        style={{ touchAction: 'none' }}
+        ref={cardRef}
+        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl modal-enter flex flex-col"
         onClick={e => e.stopPropagation()}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        <div
+          className="flex justify-center pt-3 pb-1 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
         {/* Header */}
@@ -119,7 +90,7 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
           <span className="text-sm text-gray-400">kcal</span>
         </div>
         {/* Macro grid */}
-        <div className="px-5 grid grid-cols-2 gap-2">
+        <div className="px-5 grid grid-cols-2 gap-2 pb-2">
           {rows.map(r => (
             <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
               <span className="text-sm text-gray-500">{r.label}</span>
@@ -127,6 +98,7 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
             </div>
           ))}
         </div>
+        <BottomReturnButton onClick={onClose} />
       </div>
     </div>
   );

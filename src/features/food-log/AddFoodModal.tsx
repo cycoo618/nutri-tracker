@@ -9,6 +9,9 @@ import { scaleNutrition } from '../../types/food';
 import { GIBadge } from '../../components/ui/GIBadge';
 import { formatNumber } from '../../utils/calculator';
 import { inferServingSizes } from '../../utils/inferServingSizes';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
+import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
+import { autoSelect } from '../../utils/inputHelpers';
 
 interface AddFoodModalProps {
   food: FoodItem;
@@ -63,6 +66,8 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
   const changeQty = (delta: number) =>
     setServingQty(q => Math.max(0.5, Math.round((q + delta) * 2) / 2));
 
+  const { cardRef, dragHandlers } = useSwipeDown(onClose);
+
   return (
     <div
       className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
@@ -70,22 +75,27 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
       onClick={onClose}
     >
       <div
-        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl overflow-y-auto"
+        ref={cardRef}
+        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
         style={{ maxHeight: 'var(--vvh, 90vh)' }}
         onClick={e => e.stopPropagation()}
       >
-
-        {/* Header */}
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <button onClick={onBack} className="text-gray-400 hover:text-gray-600 text-sm">← 返回</button>
-          <div className="text-center flex-1 px-4">
-            <h3 className="font-semibold text-gray-900 text-sm leading-tight">{food.name}</h3>
-            {food.brand && <div className="text-xs text-gray-400">{food.brand}</div>}
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm">关闭</button>
+        {/* Drag handle */}
+        <div
+          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
 
-        <div className="p-4 space-y-4">
+        {/* Header */}
+        <div className="px-4 pb-3 shrink-0 border-b border-gray-100 text-center">
+          <h3 className="font-semibold text-gray-900 text-sm leading-tight">{food.name}</h3>
+          {food.brand && <div className="text-xs text-gray-400">{food.brand}</div>}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
           {/* ── 模式切换开关 ── */}
           <div className="flex items-center justify-center">
@@ -174,7 +184,7 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
                   type="number"
                   value={grams}
                   onChange={e => setGrams(e.target.value)}
-                  onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
+                  onFocus={autoSelect}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="输入克数"
                 />
@@ -240,6 +250,8 @@ export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, o
             添加 · {formatNumber(nutrition.calories)} kcal
           </button>
         </div>
+
+        <BottomReturnButton onClick={onBack} />
       </div>
     </div>
   );

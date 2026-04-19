@@ -3,7 +3,9 @@
 // 支持：扫码录入包装袋、组合食材、删除、添加到今日记录
 // ============================================
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
+import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { FoodItem } from '../../types/food';
 import {
   getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods,
@@ -32,31 +34,7 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
     ...(n.potassium    != null ? [{ label: '钾',      value: n.potassium,   unit: 'mg' }] : []),
   ];
 
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const startY = useRef(0);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY;
-    if (sheetRef.current) { sheetRef.current.style.transition = 'none'; sheetRef.current.style.willChange = 'transform'; }
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    const dy = e.touches[0].clientY - startY.current;
-    if (dy > 0 && sheetRef.current) sheetRef.current.style.transform = `translateY(${dy}px)`;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const dy = e.changedTouches[0].clientY - startY.current;
-    if (sheetRef.current) {
-      sheetRef.current.style.willChange = '';
-      if (dy > 80) {
-        sheetRef.current.style.transition = 'transform 0.22s ease';
-        sheetRef.current.style.transform = 'translateY(100%)';
-        setTimeout(onClose, 200);
-      } else {
-        sheetRef.current.style.transition = 'transform 0.25s ease';
-        sheetRef.current.style.transform = 'translateY(0)';
-      }
-    } else if (dy > 80) { onClose(); }
-  };
+  const { cardRef, dragHandlers } = useSwipeDown(onClose);
 
   return (
     <div
@@ -65,18 +43,18 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
       onClick={onClose}
     >
       <div
-        ref={sheetRef}
-        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl pb-8 modal-enter overflow-y-auto max-h-[80vh]"
-        style={{ touchAction: 'none' }}
+        ref={cardRef}
+        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl modal-enter flex flex-col overflow-y-auto max-h-[80vh]"
         onClick={e => e.stopPropagation()}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
-        <div className="flex justify-center pt-3 pb-1">
+        <div
+          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
-        <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start gap-3">
+        <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start gap-3 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-gray-900 text-base">{record.name}</div>
             <div className="text-sm text-gray-400 mt-0.5">以下数据均为每100g</div>
@@ -93,7 +71,7 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
           <span className="text-4xl font-bold text-green-600">{n.calories}</span>
           <span className="text-sm text-gray-400">kcal / 100g</span>
         </div>
-        <div className="px-5 grid grid-cols-2 gap-2 pb-4">
+        <div className="px-5 grid grid-cols-2 gap-2 pb-2">
           {rows.map(r => (
             <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
               <span className="text-sm text-gray-500">{r.label}</span>
@@ -101,6 +79,7 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
             </div>
           ))}
         </div>
+        <BottomReturnButton onClick={onClose} />
       </div>
     </div>
   );

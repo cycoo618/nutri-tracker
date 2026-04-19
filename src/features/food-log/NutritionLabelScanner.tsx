@@ -4,6 +4,9 @@
 // ============================================
 
 import { useState, useRef, useCallback } from 'react';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
+import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
+import { autoSelect } from '../../utils/inputHelpers';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
 import { getGeminiKey, saveGeminiKey, isKeyFromEnv } from '../../services/nutrition-vision';
@@ -98,6 +101,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
 
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const { cardRef, dragHandlers } = useSwipeDown(onClose);
 
 
   // ── 图片选择处理 ──────────────────────────
@@ -221,19 +225,21 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
 
   return (
     <div className="fixed inset-x-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}>
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }}>
+      <div ref={cardRef} className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }}>
+
+        {/* Drag handle */}
+        <div
+          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">📷</span>
-            <span className="font-semibold text-gray-800">扫描营养标签</span>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <div className="flex items-center justify-center px-4 pb-3 border-b border-gray-100 shrink-0">
+          <span className="text-xl mr-2">📷</span>
+          <span className="font-semibold text-gray-800">扫描营养标签</span>
         </div>
 
         {/* Body */}
@@ -375,6 +381,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                           type="number"
                           value={val ?? ''}
                           onChange={e => updateField(f.key, e.target.value)}
+                          onFocus={autoSelect}
                           placeholder={isOptional ? '未检测到' : '0'}
                           className="w-full bg-transparent text-gray-800 font-semibold focus:outline-none text-sm placeholder-gray-300"
                           min="0"
@@ -447,7 +454,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
 
         {/* Footer Buttons */}
         {step === 'confirm' && (
-          <div className="p-4 border-t border-gray-100 space-y-2 shrink-0">
+          <div className="px-4 pt-4 border-t border-gray-100 space-y-2 shrink-0">
             <button
               onClick={handleSave}
               disabled={saving}
@@ -468,6 +475,8 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
             </button>
           </div>
         )}
+
+        <BottomReturnButton onClick={onClose} />
       </div>
     </div>
   );

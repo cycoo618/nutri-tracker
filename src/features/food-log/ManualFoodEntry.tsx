@@ -7,6 +7,9 @@ import { useState } from 'react';
 import type { FoodItem, FoodCategory } from '../../types/food';
 import { FOOD_CATEGORY_LABELS } from '../../types/food';
 import { generateId } from '../../utils/calculator';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
+import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
+import { autoSelect } from '../../utils/inputHelpers';
 
 interface ManualFoodEntryProps {
   initialName?: string;
@@ -29,6 +32,8 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
   const [servingLabel, setServingLabel] = useState('');
   const [servingGrams, setServingGrams] = useState('');
 
+  const { cardRef, dragHandlers } = useSwipeDown(onClose);
+
   const isValid = name.trim() && Number(calories) > 0;
 
   const handleSubmit = () => {
@@ -40,10 +45,10 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
       category,
       per100g: {
         calories: Number(calories) || 0,
-        protein: Number(protein) || 0,
-        carbs: Number(carbs) || 0,
-        fat: Number(fat) || 0,
-        fiber: Number(fiber) || 0,
+        protein:  Number(protein)  || 0,
+        carbs:    Number(carbs)    || 0,
+        fat:      Number(fat)      || 0,
+        fiber:    Number(fiber)    || 0,
       },
       gi: giVal,
       giLevel: giVal !== undefined
@@ -58,13 +63,28 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
   };
 
   return (
-    <div className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}>
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 90vh)' }}>
+    <div
+      className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
+      onClick={onClose}
+    >
+      <div
+        ref={cardRef}
+        className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
+        style={{ maxHeight: 'var(--vvh, 90vh)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Drag handle */}
+        <div
+          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
 
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <button onClick={onBack} className="text-sm text-gray-400 hover:text-gray-600">← 返回</button>
-          <h3 className="font-semibold text-gray-900">手动录入食物</h3>
-          <button onClick={onClose} className="text-sm text-gray-400 hover:text-gray-600">关闭</button>
+        <div className="px-4 pb-2 shrink-0 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900 text-center">手动录入食物</h3>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -79,6 +99,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
+              onFocus={autoSelect}
               placeholder="如：%Arabica Kyoto Latte"
               className={INPUT_CLS}
             />
@@ -102,11 +123,11 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: '热量 *', value: calories, onChange: setCalories, unit: 'kcal', placeholder: '如 52' },
-              { label: '蛋白质', value: protein, onChange: setProtein, unit: 'g', placeholder: '如 3.2' },
-              { label: '碳水化合物', value: carbs, onChange: setCarbs, unit: 'g', placeholder: '如 4.8' },
-              { label: '脂肪', value: fat, onChange: setFat, unit: 'g', placeholder: '如 3.3' },
-              { label: '膳食纤维', value: fiber, onChange: setFiber, unit: 'g', placeholder: '如 0' },
-              { label: 'GI值（可选）', value: gi, onChange: setGi, unit: '', placeholder: '如 27' },
+              { label: '蛋白质', value: protein,  onChange: setProtein,  unit: 'g',    placeholder: '如 3.2' },
+              { label: '碳水化合物', value: carbs, onChange: setCarbs,  unit: 'g',    placeholder: '如 4.8' },
+              { label: '脂肪',   value: fat,       onChange: setFat,     unit: 'g',    placeholder: '如 3.3' },
+              { label: '膳食纤维', value: fiber,   onChange: setFiber,   unit: 'g',    placeholder: '如 0' },
+              { label: 'GI值（可选）', value: gi,  onChange: setGi,      unit: '',     placeholder: '如 27' },
             ].map(f => (
               <div key={f.label}>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
@@ -115,6 +136,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
                     type="number"
                     value={f.value}
                     onChange={e => f.onChange(e.target.value)}
+                    onFocus={autoSelect}
                     placeholder={f.placeholder}
                     className={`${INPUT_CLS} ${f.unit ? 'pr-10' : ''}`}
                   />
@@ -137,6 +159,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
                 type="text"
                 value={servingLabel}
                 onChange={e => setServingLabel(e.target.value)}
+                onFocus={autoSelect}
                 placeholder="如：1杯、1份"
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
@@ -145,6 +168,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
                   type="number"
                   value={servingGrams}
                   onChange={e => setServingGrams(e.target.value)}
+                  onFocus={autoSelect}
                   placeholder="350"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-6 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
@@ -161,6 +185,8 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
             下一步：确认用量
           </button>
         </div>
+
+        <BottomReturnButton onClick={onBack} />
       </div>
     </div>
   );

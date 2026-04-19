@@ -5,6 +5,7 @@
 // ============================================
 
 import { useState, useEffect, useRef } from 'react';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
 import type { FoodItem } from '../../types/food';
 import { FOOD_CATEGORY_LABELS } from '../../types/food';
 import { searchBuiltinFoods, searchOpenFoodFacts } from '../../services/food-lookup';
@@ -40,6 +41,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isComposing = useRef(false);
+  const { cardRef, dragHandlers } = useSwipeDown(onClose);
 
   // 只在首次打开时聚焦，不在子视图切回来时重新 focus
   const didFocus = useRef(false);
@@ -191,13 +193,22 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       onClick={onClose}
     >
       <div
+        ref={cardRef}
         className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col sm:max-h-[85vh]"
         style={{ height: 'var(--vvh, 85vh)' }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Drag handle */}
+        <div
+          className="flex justify-center pt-3 shrink-0 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
 
         {/* 搜索框 */}
-        <div className="px-4 pt-5 pb-3 border-b border-gray-100">
+        <div className="px-4 pt-3 pb-3 border-b border-gray-100">
           <div className="flex items-center gap-2 bg-gray-100 rounded-2xl px-4 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all">
             <span className="text-gray-400 text-lg shrink-0">🔍</span>
             <input

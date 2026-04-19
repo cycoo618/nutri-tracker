@@ -4,6 +4,9 @@
 // ============================================
 
 import { useState, useEffect, useRef } from 'react';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
+import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
+import { autoSelect } from '../../utils/inputHelpers';
 import type { FoodItem } from '../../types/food';
 import { searchBuiltinFoods } from '../../services/food-lookup';
 import { searchCustomFoods, calcRecipeNutrition, saveCustomFood, updateCustomFood, recordToFoodItem } from '../../utils/customFoods';
@@ -103,6 +106,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const { cardRef, dragHandlers } = useSwipeDown(onClose);
   const { per100g, totalGrams } = calcRecipeNutrition(ingredients);
   const totalCalories = Math.round(per100g.calories * totalGrams / 100);
 
@@ -184,11 +188,20 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
 
   return (
     <div className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}>
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }}>
+      <div ref={cardRef} className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }}>
+
+        {/* Drag handle */}
+        <div
+          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
 
         {/* Header */}
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm">取消</button>
+        <div className="px-4 pb-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+          <div className="w-8" />
           <h3 className="font-semibold text-gray-900">{existingRecord ? '编辑自制食物' : '创建自定义食物'}</h3>
           <button
             onClick={handleSave}
@@ -208,6 +221,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
+              onFocus={autoSelect}
               placeholder="例：手打黑豆浆"
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
             />
@@ -222,6 +236,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
               type="text"
               value={servingLabel}
               onChange={e => setServingLabel(e.target.value)}
+              onFocus={autoSelect}
               placeholder={`例：1杯 (${totalGrams || '?'}g)  · 1碗 · 1瓶`}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
             />
@@ -350,6 +365,8 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
 
           {error && <div className="text-sm text-red-500 text-center">{error}</div>}
         </div>
+
+        <BottomReturnButton onClick={onClose} />
       </div>
     </div>
   );
