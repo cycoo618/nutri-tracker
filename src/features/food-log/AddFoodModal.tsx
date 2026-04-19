@@ -12,6 +12,7 @@ import { inferServingSizes } from '../../utils/inferServingSizes';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
+import { getAllCustomFoods } from '../../utils/customFoods';
 
 interface AddFoodModalProps {
   food: FoodItem;
@@ -24,7 +25,17 @@ interface AddFoodModalProps {
 
 type InputMode = 'serving' | 'grams';
 
-export function AddFoodModal({ food, quickGrams, quickUnit, onConfirm, onBack, onClose }: AddFoodModalProps) {
+export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm, onBack, onClose }: AddFoodModalProps) {
+  // recentFoods stores FoodItem without ingredients; look up fresh from localStorage
+  const food = useMemo(() => {
+    if (foodProp.source !== 'user_added' || foodProp.ingredients) return foodProp;
+    const record = getAllCustomFoods().find(r => r.id === foodProp.id);
+    if (!record || !record.ingredients.length) return foodProp;
+    return {
+      ...foodProp,
+      ingredients: record.ingredients.map(i => ({ foodName: i.foodName, grams: i.grams })),
+    };
+  }, [foodProp]);
   // 用户自定义食物：只用用户明确设置的份量，不做推断（避免豆浆等用豆子克数录入的食物被错误换算成 ml）
   // 内置 / 联网食物：合并自带份量 + 推断份量（useMemo 避免每次渲染重新计算）
   const mergedServings = useMemo(() => {
