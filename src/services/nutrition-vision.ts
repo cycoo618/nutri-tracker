@@ -58,6 +58,48 @@ const PROMPT = `你是一个专业的营养成分表识别助手。
 }
 只返回 JSON，不要任何解释。若图片不是营养成分表，返回：{"error": "无法识别"}`;
 
+const TEXT_PROMPT = `你是一个专业的营养数据库。请根据食物名称估算每100g的营养成分（中国食物按中国食物成分表，进口/加工食品按典型配方估算）。
+返回JSON：{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}
+只返回JSON，不要任何解释。若完全无法估算返回：{"error":"无法估算"}`;
+
+export async function estimateFoodNutrition(foodName: string): Promise<ExtractedNutrition> {
+  const apiKey = getGeminiKey();
+  if (!apiKey) throw new Error('请先填入 Groq API Key');
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 200,
+      messages: [{ role: 'user', content: `${TEXT_PROMPT}\n\n食物名称：${foodName}` }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    const msg = (err as { error?: { message?: string } }).error?.message || `API 错误 ${response.status}`;
+    throw new Error(msg);
+  }
+
+  const data = await response.json();
+  const text: string = data.choices?.[0]?.message?.content ?? '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('API 返回格式异常');
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (parsed.error) throw new Error(parsed.error);
+
+  return {
+    name:     parsed.name     ?? foodName,
+    calories: Number(parsed.calories) || 0,
+    protein:  Number(parsed.protein)  || 0,
+    carbs:    Number(parsed.carbs)    || 0,
+    fat:      Number(parsed.fat)      || 0,
+    fiber:    Number(parsed.fiber)    || 0,
+    sodium:   Number(parsed.sodium)   || 0,
+  };
+}
+
 export async function analyzeNutritionLabel(imageBase64: string): Promise<ExtractedNutrition> {
   const apiKey = getGeminiKey();
   if (!apiKey) {

@@ -17,6 +17,7 @@ import { ManualFoodEntry } from './ManualFoodEntry';
 import { RecipeBuilder } from './RecipeBuilder';
 import { NutritionLabelScanner } from './NutritionLabelScanner';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
+import { estimateFoodNutrition, getGeminiKey } from '../../services/nutrition-vision';
 
 interface FoodSearchProps {
   recentFoods?: RecentFoodEntry[];
@@ -39,9 +40,40 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
   const [searchState, setSearchState] = useState<SearchState>('idle');
   const [onlineSearched, setOnlineSearched] = useState(false);
   const [onlineError, setOnlineError] = useState<string | null>(null);
+  const [aiState, setAiState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [aiError, setAiError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isComposing = useRef(false);
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
+
+  const handleAiEstimate = async () => {
+    if (!query.trim()) return;
+    setAiState('loading');
+    setAiError(null);
+    try {
+      const nutrition = await estimateFoodNutrition(query.trim());
+      const food: FoodItem = {
+        id: `ai_${Date.now()}`,
+        name: nutrition.name,
+        category: 'other',
+        source: 'ai_estimated',
+        per100g: {
+          calories: nutrition.calories,
+          protein: nutrition.protein,
+          carbs: nutrition.carbs,
+          fat: nutrition.fat,
+          fiber: nutrition.fiber,
+          sodium: nutrition.sodium,
+        },
+        tags: ['AI估算'],
+      };
+      setAiState('idle');
+      onSelect(food);
+    } catch (e) {
+      setAiState('error');
+      setAiError(e instanceof Error ? e.message : 'AI 估算失败');
+    }
+  };
 
   // 只在首次打开时聚焦，不在子视图切回来时重新 focus
   const didFocus = useRef(false);
@@ -253,6 +285,22 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               >
                 <span>📷</span> 拍照识别包装营养标签
               </button>
+
+              {/* AI 估算 */}
+              {getGeminiKey() && (
+                <button
+                  onClick={handleAiEstimate}
+                  disabled={aiState === 'loading'}
+                  className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  {aiState === 'loading'
+                    ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> AI 估算中…</>
+                    : <><span>🤖</span> AI 估算营养数据</>}
+                </button>
+              )}
+              {aiState === 'error' && aiError && (
+                <div className="text-xs text-red-500 text-center">{aiError}</div>
+              )}
 
               {/* 重试联网 */}
               <button

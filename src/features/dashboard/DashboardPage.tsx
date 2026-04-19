@@ -297,7 +297,8 @@ export function DashboardPage({
             {syncStatus === 'synced' && (
               <button
                 onClick={onForceSync}
-                className="text-xs text-green-500 flex items-center gap-1 hover:text-green-600 transition-colors"
+                className="text-green-500 flex items-center gap-1 hover:text-green-600 transition-colors"
+                style={{ fontSize: '0.8rem' }}
                 title="点击手动同步"
               >
                 ☁️ 已同步

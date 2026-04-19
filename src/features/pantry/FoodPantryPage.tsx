@@ -8,7 +8,7 @@ import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { FoodItem } from '../../types/food';
 import {
-  getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods,
+  getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods, updateCustomFood,
 } from '../../utils/customFoods';
 import type { CustomFoodRecord } from '../../utils/customFoods';
 import { getUserFoods, saveUserFood, deleteUserFood, getFamily, getFamilyMemberFoods } from '../../services/firestore';
@@ -103,6 +103,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
   const [records, setRecords] = useState<CustomFoodRecord[]>(() => getAllCustomFoods());
   const [familyRecords, setFamilyRecords] = useState<CustomFoodRecord[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [addedId, setAddedId] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>('idle');
 
@@ -183,6 +185,18 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     }
   }, [userId, refresh]);
 
+  const handleRename = useCallback(async (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    updateCustomFood(id, { name: newName.trim() });
+    refresh();
+    setRenamingId(null);
+    if (userId) {
+      const all = getAllCustomFoods();
+      const updated = all.find(r => r.id === id);
+      if (updated) pushOne(updated);
+    }
+  }, [userId, refresh, pushOne]);
+
   // ── 手动重新同步 ──────────────────────────────────────────────────
   const handleForceSync = useCallback(async () => {
     if (!userId) return;
@@ -248,7 +262,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
               </span>
             )}
             {cloudStatus === 'synced' && (
-              <span className="text-green-500">☁️ 已同步</span>
+              <span className="text-green-500" style={{ fontSize: '0.8rem' }}>☁️ 已同步</span>
             )}
             {cloudStatus === 'error' && (
               <span className="text-red-400">⚠️ 重试</span>
@@ -317,21 +331,36 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                     {/* 名称 + 新增标签 */}
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-gray-900">{record.name}</span>
-                          {isNew && (
-                            <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">
-                              ✓ 已保存
-                            </span>
-                          )}
-                          {record.pantrySource === 'scanned' && (
-                            <span className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0">📷 扫码</span>
-                          )}
-                          {record.pantrySource === 'recipe' && (
-                            <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">🧪 自制</span>
-                          )}
-                        </div>
-                        {record.servingSizes.length > 0 && (
+                        {renamingId === record.id ? (
+                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                            <input
+                              autoFocus
+                              value={renameValue}
+                              onChange={e => setRenameValue(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleRename(record.id, renameValue);
+                                if (e.key === 'Escape') setRenamingId(null);
+                              }}
+                              className="flex-1 text-sm font-semibold border-b border-green-400 focus:outline-none bg-transparent py-0.5"
+                            />
+                            <button onClick={() => handleRename(record.id, renameValue)} className="text-xs text-green-600 font-medium shrink-0">保存</button>
+                            <button onClick={() => setRenamingId(null)} className="text-xs text-gray-400 shrink-0">取消</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-gray-900">{record.name}</span>
+                            {isNew && (
+                              <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">✓ 已保存</span>
+                            )}
+                            {record.pantrySource === 'scanned' && (
+                              <span className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0">📷 扫码</span>
+                            )}
+                            {record.pantrySource === 'recipe' && (
+                              <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">🧪 自制</span>
+                            )}
+                          </div>
+                        )}
+                        {record.servingSizes.length > 0 && renamingId !== record.id && (
                           <div className="text-xs text-gray-400 mt-0.5">
                             {record.servingSizes[0].label}
                           </div>
@@ -340,38 +369,26 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                       {/* 编辑 + 删除 */}
                       {deleteConfirm === record.id ? (
                         <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="text-xs text-gray-400 hover:text-gray-600"
-                          >
-                            取消
-                          </button>
-                          <button
-                            onClick={() => handleDelete(record.id)}
-                            className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors"
-                          >
-                            确认删除
-                          </button>
+                          <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-400 hover:text-gray-600">取消</button>
+                          <button onClick={() => handleDelete(record.id)} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors">确认删除</button>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                      ) : renamingId !== record.id ? (
+                        <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                           {record.pantrySource === 'recipe' && (
                             <button
                               onClick={() => { setEditingRecipe(record); setSubView('recipe'); }}
                               className="text-gray-300 hover:text-blue-400 text-sm leading-none transition-colors"
                               title="编辑配料"
-                            >
-                              ✏️
-                            </button>
+                            >✏️</button>
                           )}
                           <button
-                            onClick={() => setDeleteConfirm(record.id)}
-                            className="text-gray-300 hover:text-red-400 text-lg leading-none transition-colors"
-                          >
-                            ×
-                          </button>
+                            onClick={() => { setRenamingId(record.id); setRenameValue(record.name); }}
+                            className="text-gray-300 hover:text-purple-400 text-xs leading-none transition-colors px-1"
+                            title="改名"
+                          >Aa</button>
+                          <button onClick={() => setDeleteConfirm(record.id)} className="text-gray-300 hover:text-red-400 text-lg leading-none transition-colors">×</button>
                         </div>
-                      )}
+                      ) : null}
                     </div>
 
                     {/* 营养数据 */}
