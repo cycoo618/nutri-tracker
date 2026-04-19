@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_LABELS } from '../../types/user';
 import type { DailyLog } from '../../types/log';
@@ -43,6 +43,125 @@ function fmtTime(iso?: string): string {
   } catch {
     return '';
   }
+}
+
+// ── 滑动删除行 ─────────────────────────────────────────────────────
+const DELETE_REVEAL = 80; // px
+
+interface SwipeableRowProps {
+  item: { id: string; foodName: string; loggedAt?: string; unit: string; calories: number; gi?: number };
+  onRemove: (id: string) => void;
+}
+
+function SwipeableRow({ item, onRemove }: SwipeableRowProps) {
+  const rowRef    = useRef<HTMLDivElement>(null);
+  const startX    = useRef(0);
+  const curX      = useRef(0);          // 当前 translateX（负值 = 向左）
+  const dragging  = useRef(false);
+  const [isOpen,     setIsOpen]     = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  // 直接操作 DOM，不走 React re-render，保证 60fps
+  const applyX = useCallback((x: number, animate = false) => {
+    if (!rowRef.current) return;
+    rowRef.current.style.transition = animate ? 'transform 0.22s ease' : 'none';
+    rowRef.current.style.transform  = `translateX(${x}px)`;
+    curX.current = x;
+  }, []);
+
+  const snapOpen  = useCallback(() => { applyX(-DELETE_REVEAL, true); setIsOpen(true);  }, [applyX]);
+  const snapClose = useCallback(() => { applyX(0, true);              setIsOpen(false); }, [applyX]);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    dragging.current = true;
+    startX.current   = e.touches[0].clientX - curX.current;
+    if (rowRef.current) rowRef.current.style.transition = 'none';
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!dragging.current) return;
+    const x = Math.max(-DELETE_REVEAL, Math.min(0, e.touches[0].clientX - startX.current));
+    applyX(x);
+  };
+
+  const onTouchEnd = () => {
+    dragging.current = false;
+    curX.current < -DELETE_REVEAL / 2 ? snapOpen() : snapClose();
+  };
+
+  const handleDeleteClick = () => {
+    snapClose();
+    setConfirming(true);
+  };
+
+  const handleConfirm = () => onRemove(item.id);
+  const handleCancel  = () => setConfirming(false);
+
+  // 外部点击时收起
+  const onRowClick = () => { if (isOpen) snapClose(); };
+
+  const time = fmtTime(item.loggedAt);
+
+  if (confirming) {
+    return (
+      <div className="flex items-center justify-between py-2.5 gap-3">
+        <span className="text-sm text-gray-500 truncate flex-1">
+          删除「<span className="font-medium text-gray-700">{item.foodName}</span>」？
+        </span>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={handleCancel}
+            className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 active:bg-gray-200 transition-colors"
+          >取消</button>
+          <button
+            onClick={handleConfirm}
+            className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white active:bg-red-600 transition-colors"
+          >确认删除</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* 背后的删除按钮 */}
+      <div className="absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-red-500">
+        <button
+          onClick={handleDeleteClick}
+          className="w-full h-full flex items-center justify-center text-white text-sm font-medium"
+        >删除</button>
+      </div>
+
+      {/* 滑动内容行 */}
+      <div
+        ref={rowRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onClick={onRowClick}
+        className="flex items-center justify-between py-2.5 bg-white relative"
+        style={{ willChange: 'transform' }}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {time && (
+              <span className="text-xs text-gray-300 font-mono shrink-0">{time}</span>
+            )}
+            <span className="text-sm font-medium text-gray-800 truncate">{item.foodName}</span>
+            <GIBadge gi={item.gi} size="sm" />
+          </div>
+          <span className="text-xs text-gray-400">{item.unit}</span>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-sm text-gray-600">{item.calories} kcal</span>
+          {/* 左滑提示箭头，开启后隐藏 */}
+          {!isOpen && (
+            <span className="text-gray-200 text-xs select-none">←</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function DashboardPage({
@@ -307,33 +426,13 @@ export function DashboardPage({
             </div>
           ) : (
             <div className="px-4 pb-3 divide-y divide-gray-50">
-              {allItems.map(item => {
-                const time = fmtTime(item.loggedAt);
-                return (
-                  <div key={item.id} className="flex items-center justify-between py-2.5 group">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {time && (
-                          <span className="text-xs text-gray-300 font-mono shrink-0">{time}</span>
-                        )}
-                        <span className="text-sm font-medium text-gray-800 truncate">{item.foodName}</span>
-                        <GIBadge gi={item.gi} size="sm" />
-                      </div>
-                      <span className="text-xs text-gray-400 ml-0">{item.unit}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-sm text-gray-600">{item.calories} kcal</span>
-                      <button
-                        onClick={() => onRemoveFood(item.id)}
-                        className="text-gray-300 hover:text-red-500 active:text-red-600 text-lg leading-none transition-colors"
-                        aria-label="删除"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {allItems.map(item => (
+                <SwipeableRow
+                  key={item.id}
+                  item={item}
+                  onRemove={onRemoveFood}
+                />
+              ))}
             </div>
           )}
         </div>
