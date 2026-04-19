@@ -93,6 +93,9 @@ export function recordToFoodItem(rec: CustomFoodRecord): FoodItem {
     servingSizes: rec.servingSizes,
     source: 'user_added',
     tags: [tag],
+    ingredients: rec.ingredients.length > 0
+      ? rec.ingredients.map(i => ({ foodName: i.foodName, grams: i.grams }))
+      : undefined,
   };
 }
 

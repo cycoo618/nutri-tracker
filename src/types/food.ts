@@ -86,6 +86,8 @@ export interface FoodItem {
   source: FoodSource;
   tags?: string[];              // 标签：如 "抗炎", "高蛋白", "全谷物"
   isAntiInflammatory?: boolean; // 是否抗炎食物
+  /** 组合食物的食材明细（仅 recipe 类型有值） */
+  ingredients?: { foodName: string; grams: number }[];
 }
 
 /** 计算 GI 等级 */
