@@ -169,6 +169,7 @@ export function DashboardPage({
   const [showSearch, setShowSearch] = useState(false);
   const [showPantry, setShowPantry] = useState(false);
   const [showFamily, setShowFamily] = useState(false);
+  const [showMenu,   setShowMenu]   = useState(false);
   const [familyId, setFamilyId] = useState<string | undefined>(profile.familyId);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
@@ -262,16 +263,42 @@ export function DashboardPage({
                 {syncStatus === 'error' ? '⚠️ 重新同步' : '🔄 同步'}
               </button>
             )}
-            <button
-              onClick={openFamily}
-              className="text-sm text-gray-400 hover:text-green-600 transition-colors"
-              title="家庭共享"
-            >
-              👨‍👩‍👧
-            </button>
-            <button onClick={onLogout} className="text-sm text-gray-400 hover:text-gray-600">
-              登出
-            </button>
+            {/* 汉堡菜单 */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(v => !v)}
+                className="w-8 h-8 flex flex-col items-center justify-center gap-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="菜单"
+              >
+                <span className="block w-4.5 h-0.5 bg-current rounded-full" />
+                <span className="block w-4.5 h-0.5 bg-current rounded-full" />
+                <span className="block w-4.5 h-0.5 bg-current rounded-full" />
+              </button>
+
+              {showMenu && (
+                <>
+                  {/* 点击背景关闭 */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                    <button
+                      onClick={() => { setShowMenu(false); openFamily(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    >
+                      <span>👨‍👩‍👧</span>
+                      <span>家庭共享</span>
+                    </button>
+                    <div className="h-px bg-gray-100 mx-3" />
+                    <button
+                      onClick={() => { setShowMenu(false); onLogout(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-500 hover:bg-red-50 active:bg-red-100 transition-colors"
+                    >
+                      <span>🚪</span>
+                      <span>登出</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
         {/* 同步错误详情横幅 */}
@@ -464,14 +491,6 @@ export function DashboardPage({
             <span className="text-xs font-medium">食材库</span>
           </button>
 
-          {/* 家庭 tab */}
-          <button
-            onClick={openFamily}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${familyId ? 'text-green-600' : 'text-gray-400 hover:text-green-600'}`}
-          >
-            <span className="text-xl">👨‍👩‍👧</span>
-            <span className="text-xs font-medium">家庭</span>
-          </button>
         </div>
       </nav>
 
