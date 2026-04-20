@@ -32,7 +32,7 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
       targetCalories: Number(targetCal) || profile.targetCalories,
       bodyMetrics: {
         ...(profile.bodyMetrics ?? { height: 170, age: 30, gender: 'female', activityLevel: 'moderate' }),
-        weight: Number(weight) || profile.bodyMetrics?.weight ?? 60,
+        weight: Number(weight) || (profile.bodyMetrics?.weight ?? 60),
         bodyFat: bodyFat ? Number(bodyFat) : undefined,
       },
     };

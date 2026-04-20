@@ -49,9 +49,19 @@ export const GOAL_CONFIGS: Record<GoalType, GoalConfig> = {
     proteinTarget: false,
     showGI: true,
     showAntiInflammatory: true,
-    premiumFeature: true,      // 未来设为付费
+    premiumFeature: true,
     calorieAdjustment: 0,
     macroRatio: { protein: 25, carbs: 45, fat: 30 },
+  },
+  blood_sugar: {
+    strictCalories: false,
+    showAdvancedNutrition: true,
+    proteinTarget: false,
+    showGI: true,
+    showAntiInflammatory: true,
+    premiumFeature: false,
+    calorieAdjustment: 0,
+    macroRatio: { protein: 25, carbs: 40, fat: 35 },
   },
 };
 
