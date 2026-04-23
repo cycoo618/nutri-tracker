@@ -18,6 +18,7 @@ import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
 import { RecipeBuilder } from '../food-log/RecipeBuilder';
 
 function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; onClose: () => void }) {
+  const [zoomImg, setZoomImg] = useState<string | null>(null);
   const n = record.per100g;
   const rows = [
     { label: '蛋白质',   value: n.protein,      unit: 'g'  },
@@ -63,7 +64,8 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
             <img
               src={record.imageDataUrl}
               alt="营养标签"
-              className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0"
+              onClick={() => setZoomImg(record.imageDataUrl!)}
+              className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0 cursor-zoom-in active:scale-95 transition-transform"
             />
           )}
         </div>
@@ -81,6 +83,16 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
         </div>
         <BottomReturnButton onClick={onClose} />
       </div>
+
+      {/* 图片放大 lightbox */}
+      {zoomImg && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center"
+          onClick={() => setZoomImg(null)}
+        >
+          <img src={zoomImg} alt="营养标签大图" className="max-w-full max-h-full object-contain rounded-xl" />
+        </div>
+      )}
     </div>
   );
 }
