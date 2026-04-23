@@ -24,6 +24,7 @@ import { ProfileEditorModal } from '../profile/ProfileEditorModal';
 import { formatDateCN, formatNumber } from '../../utils/calculator';
 import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
+import { useLocale } from '../../i18n/useLocale';
 
 interface DashboardPageProps {
   profile: UserProfile;
@@ -237,6 +238,7 @@ export function DashboardPage({
   const [showMenu,   setShowMenu]   = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [fontSize, setFontSizeState] = useState<FontSize>(getFontSize());
+  const { locale, changeLocale, t } = useLocale();
 
   const handleFontSize = (size: FontSize) => {
     setFontSize(size);
@@ -303,7 +305,7 @@ export function DashboardPage({
             {syncStatus === 'syncing' && (
               <span className="text-xs text-gray-400 flex items-center gap-1">
                 <span className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin inline-block" />
-                同步中
+                {t('syncing')}
               </span>
             )}
             {syncStatus === 'synced' && (
@@ -311,9 +313,9 @@ export function DashboardPage({
                 onClick={onForceSync}
                 className="text-green-500 flex items-center gap-1 hover:text-green-600 transition-colors"
                 style={{ fontSize: '0.8rem' }}
-                title="点击手动同步"
+                title={t('synced')}
               >
-                ☁️ 已同步
+                {t('synced')}
               </button>
             )}
             {(syncStatus === 'error' || syncStatus === 'idle') && (
@@ -347,24 +349,40 @@ export function DashboardPage({
                       className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                     >
                       <span>📊</span>
-                      <span>我的数据</span>
+                      <span>{t('myData')}</span>
                     </button>
                     <div className="h-px bg-gray-100 mx-3" />
                     {/* 字体大小 */}
                     <div className="px-4 py-2.5">
-                      <div className="text-xs text-gray-400 mb-1.5">字体大小</div>
+                      <div className="text-xs text-gray-400 mb-1.5">{t('fontSize')}</div>
                       <div className="flex gap-1">
                         {(['small', 'standard', 'large'] as FontSize[]).map((s, i) => (
                           <button
                             key={s}
                             onClick={() => handleFontSize(s)}
                             className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                              fontSize === s
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              fontSize === s ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                             }`}
                           >
-                            {['小', '标准', '大'][i]}
+                            {[t('fontSmall'), t('fontStandard'), t('fontLarge')][i]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="h-px bg-gray-100 mx-3" />
+                    {/* 语言切换 */}
+                    <div className="px-4 py-2.5">
+                      <div className="text-xs text-gray-400 mb-1.5">{t('language')}</div>
+                      <div className="flex gap-1">
+                        {(['zh', 'en'] as const).map(l => (
+                          <button
+                            key={l}
+                            onClick={() => changeLocale(l)}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              locale === l ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            }`}
+                          >
+                            {l === 'zh' ? '中文' : 'EN'}
                           </button>
                         ))}
                       </div>
@@ -375,7 +393,7 @@ export function DashboardPage({
                       className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                     >
                       <span>👨‍👩‍👧</span>
-                      <span>家庭共享</span>
+                      <span>{t('familyShare')}</span>
                     </button>
                     <div className="h-px bg-gray-100 mx-3" />
                     <button
@@ -383,7 +401,7 @@ export function DashboardPage({
                       className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-500 hover:bg-red-50 active:bg-red-100 transition-colors"
                     >
                       <span>🚪</span>
-                      <span>登出</span>
+                      <span>{t('logout')}</span>
                     </button>
                   </div>
                 </>
@@ -432,7 +450,7 @@ export function DashboardPage({
               </ProgressRing>
               <div className="space-y-2 text-sm">
                 <div>
-                  <span className="text-gray-500">剩余</span>
+                  <span className="text-gray-500">{t('remaining')}</span>
                   <div className={`text-lg font-bold ${ns.isOverCalorie ? 'text-red-500' : 'text-green-600'}`}>
                     {ns.isOverCalorie ? '+' : ''}{Math.abs(ns.remainingCalories)} kcal
                   </div>
@@ -449,21 +467,21 @@ export function DashboardPage({
         {ns && (
           <div className="grid grid-cols-3 gap-3 mb-4">
             <MacroCard
-              label="蛋白质"
+              label={t('protein')}
               consumed={ns.macros.protein.consumed}
               target={ns.macros.protein.target}
               percent={ns.macros.protein.percent}
               color="#3b82f6"
             />
             <MacroCard
-              label="碳水"
+              label={t('carbs')}
               consumed={ns.macros.carbs.consumed}
               target={ns.macros.carbs.target}
               percent={ns.macros.carbs.percent}
               color="#f59e0b"
             />
             <MacroCard
-              label="脂肪"
+              label={t('fat')}
               consumed={ns.macros.fat.consumed}
               target={ns.macros.fat.target}
               percent={ns.macros.fat.percent}

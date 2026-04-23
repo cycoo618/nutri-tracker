@@ -37,8 +37,9 @@ export function useNutrition(profile: UserProfile | null, dailyLog: DailyLog | n
     const goalConfig = GOAL_CONFIGS[profile.goal];
 
     // 计算目标卡路里
+    // 规则：存了非零值就用，否则才用公式自动计算
     let targetCalories = profile.targetCalories;
-    if (profile.targetCaloriesMode === 'auto' && profile.bodyMetrics) {
+    if ((!targetCalories || targetCalories <= 0) && profile.bodyMetrics) {
       targetCalories = calculateTargetCalories(profile.bodyMetrics, goalConfig.calorieAdjustment);
     }
 
