@@ -237,36 +237,45 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
 
         {/* 搜索框 */}
         <div className="px-4 pt-3 pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-2 bg-gray-100 rounded-2xl px-4 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all">
-            <span className="text-gray-400 text-lg shrink-0">🔍</span>
-            <input
-              ref={inputRef}
-              autoFocus
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onCompositionStart={() => { isComposing.current = true; }}
-              onCompositionEnd={e => {
-                isComposing.current = false;
-                setQuery((e.target as HTMLInputElement).value);
-                setSearchTrigger(t => t + 1);
-              }}
-              placeholder="输入食物名称…"
-              className="flex-1 bg-transparent py-4 focus:outline-none text-base placeholder-gray-400"
-            />
-            {query ? (
-              <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500 text-xl shrink-0">×</button>
-            ) : null}
-            {query.trim() && getGroqKey() && (
+          <div className="flex items-stretch gap-2">
+            {/* 搜索输入框 — 65% */}
+            <div
+              style={{ flex: '65 1 0' }}
+              className="flex items-center gap-2 bg-gray-100 rounded-2xl px-4 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all min-w-0"
+            >
+              <span className="text-gray-400 text-lg shrink-0">🔍</span>
+              <input
+                ref={inputRef}
+                autoFocus
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onCompositionStart={() => { isComposing.current = true; }}
+                onCompositionEnd={e => {
+                  isComposing.current = false;
+                  setQuery((e.target as HTMLInputElement).value);
+                  setSearchTrigger(t => t + 1);
+                }}
+                placeholder="输入食物名称…"
+                className="flex-1 min-w-0 bg-transparent py-4 focus:outline-none text-base placeholder-gray-400"
+              />
+              {query ? (
+                <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500 text-xl shrink-0">×</button>
+              ) : null}
+            </div>
+
+            {/* AI 估算按钮 — 35%，有 key 时常驻显示 */}
+            {getGroqKey() && (
               <button
+                style={{ flex: '35 0 0' }}
                 onClick={handleAiEstimate}
-                disabled={aiState === 'loading'}
+                disabled={aiState === 'loading' || !query.trim()}
                 title="AI 估算营养"
-                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-purple-100 hover:bg-purple-200 disabled:bg-purple-50 text-purple-600 transition-colors text-base"
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-purple-100 hover:bg-purple-200 disabled:opacity-40 disabled:cursor-not-allowed text-purple-700 font-semibold text-sm transition-colors"
               >
                 {aiState === 'loading'
-                  ? <span className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                  : '🤖'}
+                  ? <span className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  : <><span className="text-base leading-none">🤖</span><span>AI 估算</span></>}
               </button>
             )}
           </div>
