@@ -120,7 +120,7 @@ export function FamilyPage({ userId, userName, familyId, onFamilyChange, onClose
     navigator.clipboard.writeText(code).then(() => {
       setCodeCopied(true);
       setTimeout(() => setCodeCopied(false), 2000);
-    }).catch(() => {});
+    }).catch((e) => { console.warn('[FamilyPage] clipboard copy failed:', e); });
   };
 
   // ── 获取头像首字 ───────────────────────────────────────────────────

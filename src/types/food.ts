@@ -129,15 +129,17 @@ export function sumNutrition(items: NutritionData[]): NutritionData {
     carbs: acc.carbs + item.carbs,
     fat: acc.fat + item.fat,
     fiber: acc.fiber + item.fiber,
-    sugar: (acc.sugar ?? 0) + (item.sugar ?? 0) || undefined,
-    saturatedFat: (acc.saturatedFat ?? 0) + (item.saturatedFat ?? 0) || undefined,
-    sodium: (acc.sodium ?? 0) + (item.sodium ?? 0) || undefined,
-    omega3: (acc.omega3 ?? 0) + (item.omega3 ?? 0) || undefined,
-    vitaminC: (acc.vitaminC ?? 0) + (item.vitaminC ?? 0) || undefined,
-    calcium: (acc.calcium ?? 0) + (item.calcium ?? 0) || undefined,
-    iron: (acc.iron ?? 0) + (item.iron ?? 0) || undefined,
-    potassium: (acc.potassium ?? 0) + (item.potassium ?? 0) || undefined,
-    vitaminA: (acc.vitaminA ?? 0) + (item.vitaminA ?? 0) || undefined,
-    vitaminD: (acc.vitaminD ?? 0) + (item.vitaminD ?? 0) || undefined,
+    // 可选字段：至少有一个非 undefined 时才包含，值为两者之和（undefined 视为 0）
+    // 用展开对象而非 || undefined，避免"两个都是 0"时把有效 0 值错误丢弃
+    ...(acc.sugar        !== undefined || item.sugar        !== undefined ? { sugar:        (acc.sugar        ?? 0) + (item.sugar        ?? 0) } : {}),
+    ...(acc.saturatedFat !== undefined || item.saturatedFat !== undefined ? { saturatedFat: (acc.saturatedFat ?? 0) + (item.saturatedFat ?? 0) } : {}),
+    ...(acc.sodium       !== undefined || item.sodium       !== undefined ? { sodium:       (acc.sodium       ?? 0) + (item.sodium       ?? 0) } : {}),
+    ...(acc.omega3       !== undefined || item.omega3       !== undefined ? { omega3:       (acc.omega3       ?? 0) + (item.omega3       ?? 0) } : {}),
+    ...(acc.vitaminC     !== undefined || item.vitaminC     !== undefined ? { vitaminC:     (acc.vitaminC     ?? 0) + (item.vitaminC     ?? 0) } : {}),
+    ...(acc.calcium      !== undefined || item.calcium      !== undefined ? { calcium:      (acc.calcium      ?? 0) + (item.calcium      ?? 0) } : {}),
+    ...(acc.iron         !== undefined || item.iron         !== undefined ? { iron:         (acc.iron         ?? 0) + (item.iron         ?? 0) } : {}),
+    ...(acc.potassium    !== undefined || item.potassium    !== undefined ? { potassium:    (acc.potassium    ?? 0) + (item.potassium    ?? 0) } : {}),
+    ...(acc.vitaminA     !== undefined || item.vitaminA     !== undefined ? { vitaminA:     (acc.vitaminA     ?? 0) + (item.vitaminA     ?? 0) } : {}),
+    ...(acc.vitaminD     !== undefined || item.vitaminD     !== undefined ? { vitaminD:     (acc.vitaminD     ?? 0) + (item.vitaminD     ?? 0) } : {}),
   }), { ...EMPTY_NUTRITION });
 }

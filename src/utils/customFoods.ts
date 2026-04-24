@@ -112,7 +112,7 @@ function load(): CustomFoodRecord[] {
 function save(records: CustomFoodRecord[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  } catch {}
+  } catch (e) { console.warn('[customFoods] localStorage save failed:', e); }
 }
 
 export function getAllCustomFoods(): CustomFoodRecord[] {

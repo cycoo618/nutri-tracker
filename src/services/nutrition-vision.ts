@@ -8,10 +8,8 @@ import type { ExtractedNutrition } from '../features/food-log/NutritionLabelScan
 
 const LOCAL_KEY = 'nutri_groq_key';
 
-export function getGeminiKey(): string | null {
+export function getGroqKey(): string | null {
   return localStorage.getItem(LOCAL_KEY)
-    ?? localStorage.getItem('nutri_gemini_key')
-    ?? localStorage.getItem('nutri_anthropic_key')
     // 若部署时注入了环境变量，所有用户自动使用该 key
     ?? (import.meta.env.VITE_GROQ_API_KEY as string | undefined)
     ?? null;
@@ -19,20 +17,16 @@ export function getGeminiKey(): string | null {
 
 /** 判断当前 key 是否来自环境变量（用于隐藏"更换 key"入口） */
 export function isKeyFromEnv(): boolean {
-  const hasLocal = !!(localStorage.getItem(LOCAL_KEY)
-    ?? localStorage.getItem('nutri_gemini_key')
-    ?? localStorage.getItem('nutri_anthropic_key'));
-  return !hasLocal && !!(import.meta.env.VITE_GROQ_API_KEY as string | undefined);
+  return !localStorage.getItem(LOCAL_KEY)
+    && !!(import.meta.env.VITE_GROQ_API_KEY as string | undefined);
 }
 
-export function saveGeminiKey(key: string) {
+export function saveGroqKey(key: string) {
   localStorage.setItem(LOCAL_KEY, key.trim());
 }
 
-export function clearGeminiKey() {
+export function clearGroqKey() {
   localStorage.removeItem(LOCAL_KEY);
-  localStorage.removeItem('nutri_gemini_key');
-  localStorage.removeItem('nutri_anthropic_key');
 }
 
 const PROMPT = `你是一个专业的营养成分表识别助手。
@@ -208,7 +202,7 @@ async function estimateByServing(
 }
 
 export async function estimateFoodNutrition(foodName: string): Promise<ExtractedNutrition> {
-  const apiKey = getGeminiKey();
+  const apiKey = getGroqKey();
   if (!apiKey) throw new Error('请先填入 Groq API Key');
 
   // Step 1：LLM 按份量估算 → 我们换算 per-100g（比直接问 per-100g 准确）
@@ -237,7 +231,7 @@ export async function estimateFoodNutrition(foodName: string): Promise<Extracted
 }
 
 export async function analyzeNutritionLabel(imageBase64: string): Promise<ExtractedNutrition> {
-  const apiKey = getGeminiKey();
+  const apiKey = getGroqKey();
   if (!apiKey) {
     throw new Error('请先填入 Groq API Key');
   }

@@ -27,7 +27,7 @@ function load(): RecentFoodEntry[] {
 function save(entries: RecentFoodEntry[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch {}
+  } catch (e) { console.warn('[recentFoods] localStorage save failed:', e); }
 }
 
 /** 每次添加食物时调用，更新常用记录 */

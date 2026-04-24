@@ -21,7 +21,7 @@ import { AddFoodModal } from '../food-log/AddFoodModal';
 import { FoodPantryPage } from '../pantry/FoodPantryPage';
 import { FamilyPage } from '../family/FamilyPage';
 import { ProfileEditorModal } from '../profile/ProfileEditorModal';
-import { formatDateCN, formatNumber } from '../../utils/calculator';
+import { formatDateCN, formatNumber, getTodayString } from '../../utils/calculator';
 import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
@@ -584,7 +584,7 @@ export function DashboardPage({
           {/* 今日 tab */}
           <button
             onClick={() => {
-              const today = new Date().toISOString().split('T')[0];
+              const today = getTodayString();
               if (currentDate !== today) {
                 onDateChange(today);
               } else {

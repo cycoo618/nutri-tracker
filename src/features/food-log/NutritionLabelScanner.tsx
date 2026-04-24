@@ -9,7 +9,7 @@ import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
-import { getGeminiKey, saveGeminiKey, isKeyFromEnv } from '../../services/nutrition-vision';
+import { getGroqKey, saveGroqKey, isKeyFromEnv } from '../../services/nutrition-vision';
 
 // ── 外部分析函数的接口定义 ──────────────────
 
@@ -90,7 +90,7 @@ interface NutritionLabelScannerProps {
 // ── Component ───────────────────────────────
 
 export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScannerProps) {
-  const [step, setStep]               = useState<Step>(() => getGeminiKey() ? 'capture' : 'setup');
+  const [step, setStep]               = useState<Step>(() => getGroqKey() ? 'capture' : 'setup');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [compressedImage, setCompressedImage] = useState<string | null>(null);
@@ -146,7 +146,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
   const handleSaveKey = () => {
     const k = keyInput.trim();
     if (!k) return;
-    saveGeminiKey(k);
+    saveGroqKey(k);
     setKeyInput('');
     setStep('capture');
   };

@@ -17,7 +17,7 @@ import { ManualFoodEntry } from './ManualFoodEntry';
 import { RecipeBuilder } from './RecipeBuilder';
 import { NutritionLabelScanner } from './NutritionLabelScanner';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
-import { estimateFoodNutrition, getGeminiKey } from '../../services/nutrition-vision';
+import { estimateFoodNutrition, getGroqKey } from '../../services/nutrition-vision';
 
 interface FoodSearchProps {
   recentFoods?: RecentFoodEntry[];
@@ -176,7 +176,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       setOnlineResults(online);
       const existingIds = new Set(results.map(r => r.id));
       setResults([...results, ...online.filter(r => !existingIds.has(r.id))]);
-    } catch {}
+    } catch (e) { console.warn('[FoodSearch] online search failed:', e); }
     setOnlineSearched(true);
     setSearchState('done');
   };
@@ -257,7 +257,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
             {query ? (
               <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500 text-xl shrink-0">×</button>
             ) : null}
-            {query.trim() && getGeminiKey() && (
+            {query.trim() && getGroqKey() && (
               <button
                 onClick={handleAiEstimate}
                 disabled={aiState === 'loading'}
