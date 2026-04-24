@@ -149,77 +149,39 @@ async function searchOpenFoodFacts(query: string): Promise<ExtractedNutrition | 
 }
 
 /**
- * Tavily 网页搜索 → LLM 提取
- * 专为 AI 应用设计，返回干净的摘要文本，CORS 友好
- * 免费 1000 次/月，需 VITE_TAVILY_API_KEY
+ * Groq compound-beta — 内置网页搜索的模型，无需额外 key / 无 CORS 问题
+ * 会自动联网查询食物营养数据，再返回结构化 JSON
  */
-async function searchWithTavilyAndExtract(
+async function searchWithGroqCompound(
   foodName: string,
   groqKey: string,
 ): Promise<ExtractedNutrition | null> {
-  const tavilyKey = import.meta.env.VITE_TAVILY_API_KEY as string | undefined;
-  if (!tavilyKey) return null;
+  const prompt =
+    `Search the web for "${foodName}" nutrition facts. ` +
+    `Return ONLY a JSON object with per-100g values (convert from per-serving if needed): ` +
+    `{"name":"food name","calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sodium":number}. ` +
+    `No explanation, only JSON.`;
 
-  const query = `${foodName} nutrition facts calories protein fat carbs per 100g`;
-
-  let searchContent: string;
-  try {
-    const resp = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: tavilyKey,
-        query,
-        search_depth: 'basic',
-        max_results: 5,
-        include_answer: true,   // Tavily 会直接给一个 AI 摘要答案
-      }),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json() as {
-      answer?: string;
-      results?: Array<{ content: string }>;
-    };
-    // 优先用 Tavily 的 AI 直接回答；没有就拼接前几条结果摘要
-    searchContent =
-      data.answer ||
-      (data.results ?? []).map(r => r.content).join('\n\n').slice(0, 3000);
-  } catch {
-    return null;
-  }
-
-  if (!searchContent || searchContent.length < 30) return null;
-
-  const extractPrompt =
-    `从以下搜索结果中提取"${foodName}"的营养成分，换算为每100g的数值。\n` +
-    `如果数据是按份量给出（如整根热狗、整个汉堡），请先确认总克重再换算。\n\n` +
-    `搜索结果：\n${searchContent}\n\n` +
-    `返回JSON（每100g）：\n` +
-    `{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}\n` +
-    `只返回JSON。搜索结果中没有相关数据则返回：{"error":"未找到"}`;
-
-  const resp2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 200,
-      messages: [{ role: 'user', content: extractPrompt }],
+      model: 'compound-beta',
+      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
     }),
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(15000),
   });
 
-  if (!resp2.ok) return null;
+  if (!resp.ok) return null;
 
-  const data2 = await resp2.json();
-  const text: string = data2.choices?.[0]?.message?.content ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const data = await resp.json();
+  const text: string = data.choices?.[0]?.message?.content ?? '';
+  const jsonMatch = text.match(/\{[\s\S]*?\}/);
   if (!jsonMatch) return null;
 
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(jsonMatch[0]); } catch { return null; }
-  if (parsed.error) return null;
 
   const cal = Number(parsed.calories) || 0;
   if (cal < 1) return null;
@@ -245,11 +207,11 @@ export async function estimateFoodNutrition(foodName: string): Promise<Extracted
   const apiKey = getGeminiKey();
   if (!apiKey) throw new Error('请先填入 Groq API Key');
 
-  // Step 1：Tavily 网页搜索（搜真实营养数据库网页，最准确）
+  // Step 1：Groq compound-beta 内置网页搜索（无需额外 key，无 CORS 问题）
   try {
-    const tavilyResult = await searchWithTavilyAndExtract(foodName, apiKey);
-    if (tavilyResult && tavilyResult.calories > 10) return tavilyResult;
-  } catch { /* 网络错误 → 继续 */ }
+    const compoundResult = await searchWithGroqCompound(foodName, apiKey);
+    if (compoundResult && compoundResult.calories > 10) return compoundResult;
+  } catch { /* 失败 → 继续 */ }
 
   // Step 2：USDA FoodData Central（基础食材 + 美国品牌食品）
   const usdaKey = import.meta.env.VITE_USDA_API_KEY as string | undefined;
