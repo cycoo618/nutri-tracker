@@ -276,7 +276,8 @@ export function DashboardPage({
   const navigateDate = (offset: number) => {
     const d = new Date(currentDate + 'T00:00:00');
     d.setDate(d.getDate() + offset);
-    onDateChange(d.toISOString().split('T')[0]);
+    const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), da = String(d.getDate()).padStart(2,'0');
+    onDateChange(`${y}-${mo}-${da}`);
   };
 
   // 所有食物条目按 loggedAt 排序（旧数据无 loggedAt 时保留原顺序）

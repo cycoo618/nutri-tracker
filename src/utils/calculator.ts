@@ -2,13 +2,17 @@
 // 通用计算工具
 // ============================================
 
-/** 获取今天的日期字符串 YYYY-MM-DD（使用用户本地时区） */
-export function getTodayString(): string {
-  const d = new Date();
+/** 本地时区日期 → YYYY-MM-DD 字符串（避免 toISOString() 的 UTC 偏差） */
+function toLocalDateStr(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** 获取今天的日期字符串 YYYY-MM-DD（使用用户本地时区） */
+export function getTodayString(): string {
+  return toLocalDateStr(new Date());
 }
 
 /** 格式化日期为中文 */
@@ -28,7 +32,7 @@ export function getDateRange(days: number, endDate?: string): string[] {
   for (let i = 0; i < days; i++) {
     const d = new Date(end);
     d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(toLocalDateStr(d));
   }
   return dates;
 }
@@ -43,8 +47,8 @@ export function getCurrentWeekRange(): { start: string; end: string } {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return {
-    start: monday.toISOString().split('T')[0],
-    end: sunday.toISOString().split('T')[0],
+    start: toLocalDateStr(monday),
+    end:   toLocalDateStr(sunday),
   };
 }
 
@@ -54,8 +58,8 @@ export function getCurrentMonthRange(): { start: string; end: string } {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
+    start: toLocalDateStr(start),
+    end:   toLocalDateStr(end),
   };
 }
 

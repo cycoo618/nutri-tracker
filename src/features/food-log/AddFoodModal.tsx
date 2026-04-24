@@ -57,7 +57,8 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 
   // 份量模式状态
   const [selectedServing, setSelectedServing] = useState(0);
-  const [servingQty, setServingQty] = useState(1);
+  const [servingQtyStr, setServingQtyStr] = useState('1'); // 输入框字符串，支持任意小数
+  const servingQty = Math.max(0.01, Number(servingQtyStr) || 1);
 
   // 克重模式状态
   const [grams, setGrams] = useState(quickGrams ? String(quickGrams) : '100');
@@ -77,8 +78,10 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 
   const nutrition: NutritionData = scaleNutrition(food.per100g, actualGrams);
 
-  const changeQty = (delta: number) =>
-    setServingQty(q => Math.max(0.5, Math.round((q + delta) * 2) / 2));
+  const changeQty = (delta: number) => {
+    const next = Math.max(0.5, Math.round((servingQty + delta) * 2) / 2);
+    setServingQtyStr(String(next));
+  };
 
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
@@ -169,9 +172,21 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                   >
                     −
                   </button>
-                  <span className="w-12 text-center text-sm font-semibold text-gray-800">
-                    {servingQty % 1 === 0 ? servingQty : servingQty.toFixed(1)}
-                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.5"
+                    value={servingQtyStr}
+                    onChange={e => setServingQtyStr(e.target.value)}
+                    onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
+                    onBlur={e => {
+                      // 失焦时规范化：确保是合法正数
+                      const v = parseFloat(e.target.value);
+                      setServingQtyStr(isNaN(v) || v <= 0 ? '1' : String(v));
+                    }}
+                    className="w-14 h-10 text-center text-sm font-semibold text-gray-800 bg-transparent focus:outline-none"
+                  />
                   <button
                     onClick={() => changeQty(0.5)}
                     className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200 text-lg font-light transition-colors"
