@@ -149,44 +149,59 @@ async function searchOpenFoodFacts(query: string): Promise<ExtractedNutrition | 
 }
 
 /**
- * Jina AI 网页搜索 → LLM 提取
- * 免费、无需额外 API key、浏览器可直接调用
- * 会搜索真实营养网站（CalorieKing、MyFitnessPal 等），比纯 LLM 估算准确得多
+ * Tavily 网页搜索 → LLM 提取
+ * 专为 AI 应用设计，返回干净的摘要文本，CORS 友好
+ * 免费 1000 次/月，需 VITE_TAVILY_API_KEY
  */
-async function searchWithJinaAndExtract(
+async function searchWithTavilyAndExtract(
   foodName: string,
-  apiKey: string,
+  groqKey: string,
 ): Promise<ExtractedNutrition | null> {
-  // 中英文都搜，让 Jina 找到最相关的营养页面
-  const query = `${foodName} nutrition facts calories per 100g`;
-  const jinaUrl = `https://s.jina.ai/${encodeURIComponent(query)}`;
+  const tavilyKey = import.meta.env.VITE_TAVILY_API_KEY as string | undefined;
+  if (!tavilyKey) return null;
 
-  let searchText: string;
+  const query = `${foodName} nutrition facts calories protein fat carbs per 100g`;
+
+  let searchContent: string;
   try {
-    const resp = await fetch(jinaUrl, {
-      headers: { Accept: 'text/plain' },
+    const resp = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: tavilyKey,
+        query,
+        search_depth: 'basic',
+        max_results: 5,
+        include_answer: true,   // Tavily 会直接给一个 AI 摘要答案
+      }),
       signal: AbortSignal.timeout(8000),
     });
     if (!resp.ok) return null;
-    searchText = await resp.text();
+    const data = await resp.json() as {
+      answer?: string;
+      results?: Array<{ content: string }>;
+    };
+    // 优先用 Tavily 的 AI 直接回答；没有就拼接前几条结果摘要
+    searchContent =
+      data.answer ||
+      (data.results ?? []).map(r => r.content).join('\n\n').slice(0, 3000);
   } catch {
     return null;
   }
 
-  if (!searchText || searchText.length < 100) return null;
+  if (!searchContent || searchContent.length < 30) return null;
 
-  // 把搜索结果喂给 LLM，让它从真实数据里提取
   const extractPrompt =
-    `从以下网页搜索结果中提取"${foodName}"的营养成分，转换为每100g的数值。\n` +
-    `如果数据是按份量给出（如整根热狗、整个汉堡），先看总克重再换算成每100g。\n\n` +
-    `搜索结果：\n${searchText.slice(0, 3000)}\n\n` +
+    `从以下搜索结果中提取"${foodName}"的营养成分，换算为每100g的数值。\n` +
+    `如果数据是按份量给出（如整根热狗、整个汉堡），请先确认总克重再换算。\n\n` +
+    `搜索结果：\n${searchContent}\n\n` +
     `返回JSON（每100g）：\n` +
     `{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}\n` +
-    `只返回JSON。若搜索结果中没有相关数据返回：{"error":"未找到"}`;
+    `只返回JSON。搜索结果中没有相关数据则返回：{"error":"未找到"}`;
 
   const resp2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 200,
@@ -197,8 +212,8 @@ async function searchWithJinaAndExtract(
 
   if (!resp2.ok) return null;
 
-  const data = await resp2.json();
-  const text: string = data.choices?.[0]?.message?.content ?? '';
+  const data2 = await resp2.json();
+  const text: string = data2.choices?.[0]?.message?.content ?? '';
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
 
@@ -207,16 +222,16 @@ async function searchWithJinaAndExtract(
   if (parsed.error) return null;
 
   const cal = Number(parsed.calories) || 0;
-  if (cal < 1) return null; // 提取失败
+  if (cal < 1) return null;
 
   return {
-    name:     String(parsed.name     ?? foodName),
+    name:     String(parsed.name ?? foodName),
     calories: cal,
-    protein:  Number(parsed.protein)  || 0,
-    carbs:    Number(parsed.carbs)    || 0,
-    fat:      Number(parsed.fat)      || 0,
-    fiber:    Number(parsed.fiber)    || 0,
-    sodium:   Number(parsed.sodium)   || 0,
+    protein:  Number(parsed.protein) || 0,
+    carbs:    Number(parsed.carbs)   || 0,
+    fat:      Number(parsed.fat)     || 0,
+    fiber:    Number(parsed.fiber)   || 0,
+    sodium:   Number(parsed.sodium)  || 0,
   };
 }
 
@@ -230,10 +245,10 @@ export async function estimateFoodNutrition(foodName: string): Promise<Extracted
   const apiKey = getGeminiKey();
   if (!apiKey) throw new Error('请先填入 Groq API Key');
 
-  // Step 1：Jina AI 网页搜索（搜真实营养数据库网页，最准确）
+  // Step 1：Tavily 网页搜索（搜真实营养数据库网页，最准确）
   try {
-    const jinaResult = await searchWithJinaAndExtract(foodName, apiKey);
-    if (jinaResult && jinaResult.calories > 10) return jinaResult;
+    const tavilyResult = await searchWithTavilyAndExtract(foodName, apiKey);
+    if (tavilyResult && tavilyResult.calories > 10) return tavilyResult;
   } catch { /* 网络错误 → 继续 */ }
 
   // Step 2：USDA FoodData Central（基础食材 + 美国品牌食品）
