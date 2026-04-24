@@ -74,7 +74,7 @@ async function searchUSDA(query: string, usdaKey: string): Promise<ExtractedNutr
     `https://api.nal.usda.gov/fdc/v1/foods/search` +
     `?query=${encodeURIComponent(query)}` +
     `&api_key=${usdaKey}` +
-    `&pageSize=3` +
+    `&pageSize=5` +
     `&dataType=Foundation,SR%20Legacy,Branded`;
 
   const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
@@ -87,7 +87,12 @@ async function searchUSDA(query: string, usdaKey: string): Promise<ExtractedNutr
     }>;
   };
 
-  const food = data.foods?.[0];
+  // 选卡路里最高（且合理）的结果，避免取到残缺数据
+  const foods = (data.foods ?? []).filter(f => {
+    const cal = f.foodNutrients.find(n => n.nutrientId === USDA_NUTRIENT_IDS.calories)?.value ?? 0;
+    return cal > 10;
+  });
+  const food = foods[0];
   if (!food) return null;
 
   const getNutrient = (id: number) =>
@@ -104,11 +109,51 @@ async function searchUSDA(query: string, usdaKey: string): Promise<ExtractedNutr
   };
 }
 
+/**
+ * Open Food Facts — 免费、无需 API key、收录 300 万品牌食品
+ * 对西方品牌 / 超市商品（含 Costco 自有品牌）覆盖较好
+ */
+async function searchOpenFoodFacts(query: string): Promise<ExtractedNutrition | null> {
+  const url =
+    `https://world.openfoodfacts.org/cgi/search.pl` +
+    `?search_terms=${encodeURIComponent(query)}` +
+    `&json=1&page_size=5&sort_by=unique_scans_n`;
+
+  const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  if (!resp.ok) return null;
+
+  const data = await resp.json() as {
+    products?: Array<{
+      product_name?: string;
+      nutriments?: Record<string, number>;
+    }>;
+  };
+
+  // 找第一个有有效卡路里的产品
+  const product = (data.products ?? []).find(p => {
+    const cal = p.nutriments?.['energy-kcal_100g'] ?? 0;
+    return cal > 10;
+  });
+  if (!product || !product.nutriments) return null;
+
+  const n = product.nutriments;
+  return {
+    name:     product.product_name || query,
+    calories: n['energy-kcal_100g']      ?? 0,
+    protein:  n['proteins_100g']         ?? 0,
+    carbs:    n['carbohydrates_100g']    ?? 0,
+    fat:      n['fat_100g']              ?? 0,
+    fiber:    n['fiber_100g']            ?? 0,
+    sodium:   (n['sodium_100g'] ?? 0) * 1000, // Open Food Facts 钠单位是 g，转 mg
+  };
+}
+
 const TEXT_PROMPT = `你是一个专业的营养数据库助手。请根据食物名称给出每100g的营养成分。
 
 要求：
 - 中国食物按《中国食物成分表》标准值
 - 知名餐厅/品牌食品（如 Costco 热狗、麦当劳汉堡）请使用该品牌的公开营养数据，不要用通用估算
+- 返回的是每100g数值，如果这道食物按份出售（如整个汉堡），请先估算总克重再换算
 - 加工食品、快餐请尽量精确，给出典型产品的实际数值
 
 返回JSON（每100g数值）：
@@ -119,18 +164,24 @@ export async function estimateFoodNutrition(foodName: string): Promise<Extracted
   const apiKey = getGeminiKey();
   if (!apiKey) throw new Error('请先填入 Groq API Key');
 
-  // Step 1：先查 USDA FoodData Central（对西方食物 / 品牌食品效果好）
+  // Step 1：USDA FoodData Central（基础食材 + 美国品牌食品）
   const usdaKey = import.meta.env.VITE_USDA_API_KEY as string | undefined;
   if (usdaKey) {
     try {
       const usdaResult = await searchUSDA(foodName, usdaKey);
-      if (usdaResult && usdaResult.calories > 0) {
+      if (usdaResult && usdaResult.calories > 10) {
         return usdaResult;
       }
-    } catch {
-      // 超时或网络错误 → 降级到 LLM
-    }
+    } catch { /* 超时或网络错误 → 继续 */ }
   }
+
+  // Step 2：Open Food Facts（全球品牌商品，无需 API key）
+  try {
+    const offResult = await searchOpenFoodFacts(foodName);
+    if (offResult && offResult.calories > 10) {
+      return offResult;
+    }
+  } catch { /* 超时或网络错误 → 继续 */ }
 
   // Step 2：LLM 估算（中国食物 / USDA 未收录时使用）
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
