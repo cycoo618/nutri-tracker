@@ -149,68 +149,69 @@ async function searchOpenFoodFacts(query: string): Promise<ExtractedNutrition | 
 }
 
 /**
- * Groq compound-beta — 内置网页搜索的模型，无需额外 key / 无 CORS 问题
- * 会自动联网查询食物营养数据，再返回结构化 JSON
+ * 让 LLM 按份量回答（它更擅长这个），我们自己做 per-100g 换算
+ * 避免让模型心算"570kcal ÷ 235g × 100"这种容易出错的步骤
  */
-async function searchWithGroqCompound(
+async function estimateByServing(
   foodName: string,
   groqKey: string,
 ): Promise<ExtractedNutrition | null> {
   const prompt =
-    `Search the web for "${foodName}" nutrition facts. ` +
-    `Return ONLY a JSON object with per-100g values (convert from per-serving if needed): ` +
-    `{"name":"food name","calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sodium":number}. ` +
-    `No explanation, only JSON.`;
+    `You are a nutrition database. For the food: "${foodName}"\n\n` +
+    `Step 1: Identify the standard serving (restaurant items = one order; packaged = labeled serving).\n` +
+    `Step 2: Provide the nutrition for THAT serving.\n\n` +
+    `Return ONLY JSON:\n` +
+    `{"name":"food name","serving_g":weight_of_serving_in_grams,"kcal":total_calories,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"sodium_mg":number}\n` +
+    `Only JSON, no explanation. If unknown return {"error":"unknown"}.`;
 
   const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
     body: JSON.stringify({
-      model: 'compound-beta',
-      max_tokens: 300,
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 200,
       messages: [{ role: 'user', content: prompt }],
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!resp.ok) return null;
 
   const data = await resp.json();
   const text: string = data.choices?.[0]?.message?.content ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*?\}/);
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
 
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(jsonMatch[0]); } catch { return null; }
+  if (parsed.error) return null;
 
-  const cal = Number(parsed.calories) || 0;
-  if (cal < 1) return null;
+  const servingG = Number(parsed.serving_g) || 0;
+  const kcal     = Number(parsed.kcal)      || 0;
+  if (servingG < 1 || kcal < 1) return null;
+
+  // 换算成每 100g（我们做数学，不让 LLM 算）
+  const per100 = (v: number) => Math.round(v / servingG * 100 * 10) / 10;
 
   return {
     name:     String(parsed.name ?? foodName),
-    calories: cal,
-    protein:  Number(parsed.protein) || 0,
-    carbs:    Number(parsed.carbs)   || 0,
-    fat:      Number(parsed.fat)     || 0,
-    fiber:    Number(parsed.fiber)   || 0,
-    sodium:   Number(parsed.sodium)  || 0,
+    calories: per100(kcal),
+    protein:  per100(Number(parsed.protein_g) || 0),
+    carbs:    per100(Number(parsed.carbs_g)   || 0),
+    fat:      per100(Number(parsed.fat_g)     || 0),
+    fiber:    per100(Number(parsed.fiber_g)   || 0),
+    sodium:   per100(Number(parsed.sodium_mg) || 0),
   };
 }
-
-const FALLBACK_PROMPT =
-  `你是专业营养数据库。给出食物每100g营养成分（中国食物按食物成分表；` +
-  `餐厅/品牌食品按该品牌公开数据，按份售卖的食物换算成每100g）。\n` +
-  `返回JSON：{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}\n` +
-  `只返回JSON，不要解释。无法估算返回：{"error":"无法估算"}`;
 
 export async function estimateFoodNutrition(foodName: string): Promise<ExtractedNutrition> {
   const apiKey = getGeminiKey();
   if (!apiKey) throw new Error('请先填入 Groq API Key');
 
-  // Step 1：Groq compound-beta 内置网页搜索（无需额外 key，无 CORS 问题）
+  // Step 1：LLM 按份量估算 → 我们换算 per-100g（比直接问 per-100g 准确）
   try {
-    const compoundResult = await searchWithGroqCompound(foodName, apiKey);
-    if (compoundResult && compoundResult.calories > 10) return compoundResult;
+    const servingResult = await estimateByServing(foodName, apiKey);
+    if (servingResult && servingResult.calories > 10) return servingResult;
   } catch { /* 失败 → 继续 */ }
 
   // Step 2：USDA FoodData Central（基础食材 + 美国品牌食品）
@@ -228,39 +229,8 @@ export async function estimateFoodNutrition(foodName: string): Promise<Extracted
     if (offResult && offResult.calories > 10) return offResult;
   } catch { /* 超时 → 继续 */ }
 
-  // Step 4：LLM 纯估算（最后兜底）
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 200,
-      messages: [{ role: 'user', content: `${FALLBACK_PROMPT}\n\n食物名称：${foodName}` }],
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    const msg = (err as { error?: { message?: string } }).error?.message || `API 错误 ${response.status}`;
-    throw new Error(msg);
-  }
-
-  const data = await response.json();
-  const text: string = data.choices?.[0]?.message?.content ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('API 返回格式异常');
-  const parsed = JSON.parse(jsonMatch[0]);
-  if (parsed.error) throw new Error(parsed.error);
-
-  return {
-    name:     parsed.name     ?? foodName,
-    calories: Number(parsed.calories) || 0,
-    protein:  Number(parsed.protein)  || 0,
-    carbs:    Number(parsed.carbs)    || 0,
-    fat:      Number(parsed.fat)      || 0,
-    fiber:    Number(parsed.fiber)    || 0,
-    sodium:   Number(parsed.sodium)   || 0,
-  };
+  // Step 4：所有来源都失败，抛出错误让用户手动添加
+  throw new Error('无法获取该食物的营养数据，请手动添加');
 }
 
 export async function analyzeNutritionLabel(imageBase64: string): Promise<ExtractedNutrition> {
