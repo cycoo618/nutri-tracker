@@ -40,7 +40,10 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
   // 内置 / 联网食物：合并自带份量 + 推断份量（useMemo 避免每次渲染重新计算）
   const mergedServings = useMemo(() => {
     const builtinServings = food.servingSizes ?? [];
-    const inferred = food.source === 'user_added' ? [] : inferServingSizes(food);
+    // 食物已有明确份量（如荔枝的"5颗"）→ 不再附加推断份量，避免混入通用水果份量
+    const inferred = (food.source === 'user_added' || builtinServings.length > 0)
+      ? []
+      : inferServingSizes(food);
     return [
       ...builtinServings,
       ...inferred.filter(s => !builtinServings.some(b => Math.abs(b.grams - s.grams) < 5)),

@@ -58,14 +58,81 @@ const PROMPT = `你是一个专业的营养成分表识别助手。
 }
 只返回 JSON，不要任何解释。若图片不是营养成分表，返回：{"error": "无法识别"}`;
 
-const TEXT_PROMPT = `你是一个专业的营养数据库。请根据食物名称估算每100g的营养成分（中国食物按中国食物成分表，进口/加工食品按典型配方估算）。
-返回JSON：{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}
+// USDA 营养素 ID 映射（每 100g）
+const USDA_NUTRIENT_IDS = {
+  calories: 1008,  // Energy (kcal)
+  protein:  1003,  // Protein
+  carbs:    1005,  // Carbohydrate, by difference
+  fat:      1004,  // Total lipid (fat)
+  fiber:    1079,  // Fiber, total dietary
+  sodium:   1093,  // Sodium, Na
+} as const;
+
+/** 从 USDA FoodData Central 搜索并返回每 100g 营养数据，找不到时返回 null */
+async function searchUSDA(query: string, usdaKey: string): Promise<ExtractedNutrition | null> {
+  const url =
+    `https://api.nal.usda.gov/fdc/v1/foods/search` +
+    `?query=${encodeURIComponent(query)}` +
+    `&api_key=${usdaKey}` +
+    `&pageSize=3` +
+    `&dataType=Foundation,SR%20Legacy,Branded`;
+
+  const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  if (!resp.ok) return null;
+
+  const data = await resp.json() as {
+    foods?: Array<{
+      description: string;
+      foodNutrients: Array<{ nutrientId: number; value: number }>;
+    }>;
+  };
+
+  const food = data.foods?.[0];
+  if (!food) return null;
+
+  const getNutrient = (id: number) =>
+    food.foodNutrients.find(n => n.nutrientId === id)?.value ?? 0;
+
+  return {
+    name:     food.description,
+    calories: getNutrient(USDA_NUTRIENT_IDS.calories),
+    protein:  getNutrient(USDA_NUTRIENT_IDS.protein),
+    carbs:    getNutrient(USDA_NUTRIENT_IDS.carbs),
+    fat:      getNutrient(USDA_NUTRIENT_IDS.fat),
+    fiber:    getNutrient(USDA_NUTRIENT_IDS.fiber),
+    sodium:   getNutrient(USDA_NUTRIENT_IDS.sodium),
+  };
+}
+
+const TEXT_PROMPT = `你是一个专业的营养数据库助手。请根据食物名称给出每100g的营养成分。
+
+要求：
+- 中国食物按《中国食物成分表》标准值
+- 知名餐厅/品牌食品（如 Costco 热狗、麦当劳汉堡）请使用该品牌的公开营养数据，不要用通用估算
+- 加工食品、快餐请尽量精确，给出典型产品的实际数值
+
+返回JSON（每100g数值）：
+{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}
 只返回JSON，不要任何解释。若完全无法估算返回：{"error":"无法估算"}`;
 
 export async function estimateFoodNutrition(foodName: string): Promise<ExtractedNutrition> {
   const apiKey = getGeminiKey();
   if (!apiKey) throw new Error('请先填入 Groq API Key');
 
+  // Step 1：先查 USDA FoodData Central（对西方食物 / 品牌食品效果好）
+  const usdaKey = import.meta.env.VITE_USDA_API_KEY as string | undefined;
+  if (usdaKey) {
+    try {
+      const usdaResult = await searchUSDA(foodName, usdaKey);
+      if (usdaResult && usdaResult.calories > 0) {
+        return usdaResult;
+      }
+    } catch {
+      // 超时或网络错误 → 降级到 LLM
+    }
+  }
+
+  // Step 2：LLM 估算（中国食物 / USDA 未收录时使用）
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
