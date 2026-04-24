@@ -148,49 +148,117 @@ async function searchOpenFoodFacts(query: string): Promise<ExtractedNutrition | 
   };
 }
 
-const TEXT_PROMPT = `你是一个专业的营养数据库助手。请根据食物名称给出每100g的营养成分。
+/**
+ * Jina AI 网页搜索 → LLM 提取
+ * 免费、无需额外 API key、浏览器可直接调用
+ * 会搜索真实营养网站（CalorieKing、MyFitnessPal 等），比纯 LLM 估算准确得多
+ */
+async function searchWithJinaAndExtract(
+  foodName: string,
+  apiKey: string,
+): Promise<ExtractedNutrition | null> {
+  // 中英文都搜，让 Jina 找到最相关的营养页面
+  const query = `${foodName} nutrition facts calories per 100g`;
+  const jinaUrl = `https://s.jina.ai/${encodeURIComponent(query)}`;
 
-要求：
-- 中国食物按《中国食物成分表》标准值
-- 知名餐厅/品牌食品（如 Costco 热狗、麦当劳汉堡）请使用该品牌的公开营养数据，不要用通用估算
-- 返回的是每100g数值，如果这道食物按份出售（如整个汉堡），请先估算总克重再换算
-- 加工食品、快餐请尽量精确，给出典型产品的实际数值
+  let searchText: string;
+  try {
+    const resp = await fetch(jinaUrl, {
+      headers: { Accept: 'text/plain' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) return null;
+    searchText = await resp.text();
+  } catch {
+    return null;
+  }
 
-返回JSON（每100g数值）：
-{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}
-只返回JSON，不要任何解释。若完全无法估算返回：{"error":"无法估算"}`;
+  if (!searchText || searchText.length < 100) return null;
+
+  // 把搜索结果喂给 LLM，让它从真实数据里提取
+  const extractPrompt =
+    `从以下网页搜索结果中提取"${foodName}"的营养成分，转换为每100g的数值。\n` +
+    `如果数据是按份量给出（如整根热狗、整个汉堡），先看总克重再换算成每100g。\n\n` +
+    `搜索结果：\n${searchText.slice(0, 3000)}\n\n` +
+    `返回JSON（每100g）：\n` +
+    `{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}\n` +
+    `只返回JSON。若搜索结果中没有相关数据返回：{"error":"未找到"}`;
+
+  const resp2 = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 200,
+      messages: [{ role: 'user', content: extractPrompt }],
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!resp2.ok) return null;
+
+  const data = await resp2.json();
+  const text: string = data.choices?.[0]?.message?.content ?? '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(jsonMatch[0]); } catch { return null; }
+  if (parsed.error) return null;
+
+  const cal = Number(parsed.calories) || 0;
+  if (cal < 1) return null; // 提取失败
+
+  return {
+    name:     String(parsed.name     ?? foodName),
+    calories: cal,
+    protein:  Number(parsed.protein)  || 0,
+    carbs:    Number(parsed.carbs)    || 0,
+    fat:      Number(parsed.fat)      || 0,
+    fiber:    Number(parsed.fiber)    || 0,
+    sodium:   Number(parsed.sodium)   || 0,
+  };
+}
+
+const FALLBACK_PROMPT =
+  `你是专业营养数据库。给出食物每100g营养成分（中国食物按食物成分表；` +
+  `餐厅/品牌食品按该品牌公开数据，按份售卖的食物换算成每100g）。\n` +
+  `返回JSON：{"name":"食物名称","calories":数字,"protein":数字,"carbs":数字,"fat":数字,"fiber":数字,"sodium":数字}\n` +
+  `只返回JSON，不要解释。无法估算返回：{"error":"无法估算"}`;
 
 export async function estimateFoodNutrition(foodName: string): Promise<ExtractedNutrition> {
   const apiKey = getGeminiKey();
   if (!apiKey) throw new Error('请先填入 Groq API Key');
 
-  // Step 1：USDA FoodData Central（基础食材 + 美国品牌食品）
+  // Step 1：Jina AI 网页搜索（搜真实营养数据库网页，最准确）
+  try {
+    const jinaResult = await searchWithJinaAndExtract(foodName, apiKey);
+    if (jinaResult && jinaResult.calories > 10) return jinaResult;
+  } catch { /* 网络错误 → 继续 */ }
+
+  // Step 2：USDA FoodData Central（基础食材 + 美国品牌食品）
   const usdaKey = import.meta.env.VITE_USDA_API_KEY as string | undefined;
   if (usdaKey) {
     try {
       const usdaResult = await searchUSDA(foodName, usdaKey);
-      if (usdaResult && usdaResult.calories > 10) {
-        return usdaResult;
-      }
-    } catch { /* 超时或网络错误 → 继续 */ }
+      if (usdaResult && usdaResult.calories > 10) return usdaResult;
+    } catch { /* 超时 → 继续 */ }
   }
 
-  // Step 2：Open Food Facts（全球品牌商品，无需 API key）
+  // Step 3：Open Food Facts（全球品牌商品）
   try {
     const offResult = await searchOpenFoodFacts(foodName);
-    if (offResult && offResult.calories > 10) {
-      return offResult;
-    }
-  } catch { /* 超时或网络错误 → 继续 */ }
+    if (offResult && offResult.calories > 10) return offResult;
+  } catch { /* 超时 → 继续 */ }
 
-  // Step 2：LLM 估算（中国食物 / USDA 未收录时使用）
+  // Step 4：LLM 纯估算（最后兜底）
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 200,
-      messages: [{ role: 'user', content: `${TEXT_PROMPT}\n\n食物名称：${foodName}` }],
+      messages: [{ role: 'user', content: `${FALLBACK_PROMPT}\n\n食物名称：${foodName}` }],
     }),
   });
 
