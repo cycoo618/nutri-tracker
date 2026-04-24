@@ -189,6 +189,39 @@ export function useFoodLog(userId: string | undefined) {
       });
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
+  /** 修改已录入条目的计量 */
+  const updateFood = useCallback(async (
+    itemId: string,
+    grams: number,
+    displayUnit: string,
+    per100g: import('../types/food').NutritionData,
+  ) => {
+    if (!dailyLog) return;
+    const nutrition = scaleNutrition(per100g, grams);
+    const updatedLog = {
+      ...dailyLog,
+      meals: dailyLog.meals.map(m => ({
+        ...m,
+        items: m.items.map(i =>
+          i.id === itemId
+            ? { ...i, amount: grams, unit: displayUnit, nutrition, calories: Math.round(nutrition.calories) }
+            : i
+        ),
+      })),
+    };
+    const finalLog = recalculateTotal(updatedLog);
+    setDailyLog(finalLog);
+    if (userId) saveToLocal(userId, currentDate, finalLog);
+    setSyncStatus('syncing');
+    saveDailyLog(finalLog)
+      .then(() => { setSyncStatus('synced'); setSyncError(null); })
+      .catch(err => {
+        setSyncStatus('error');
+        const msg = err instanceof Error ? err.message : String(err);
+        setSyncError(msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80));
+      });
+  }, [dailyLog, userId, currentDate, recalculateTotal]);
+
   /** 获取日期范围内的记录（用于周/月分析） */
   const getLogsInRange = useCallback(async (startDate: string, endDate: string) => {
     if (!userId) return [];
@@ -249,6 +282,7 @@ export function useFoodLog(userId: string | undefined) {
     forceSync,
     addFood,
     removeFood,
+    updateFood,
     recentFoods,
     getLogsInRange,
   };

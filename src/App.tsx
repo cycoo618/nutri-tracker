@@ -81,6 +81,7 @@ export default function App() {
         onDateChange={foodLog.setCurrentDate}
         onAddFood={foodLog.addFood}
         onRemoveFood={foodLog.removeFood}
+        onUpdateFood={foodLog.updateFood}
         onLogout={auth.logout}
         onProfileUpdate={auth.updateProfile}
       />

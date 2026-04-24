@@ -38,6 +38,7 @@ interface DashboardPageProps {
   onDateChange: (date: string) => void;
   onAddFood: (food: FoodItem, grams: number, displayUnit: string) => void;
   onRemoveFood: (itemId: string) => void;
+  onUpdateFood: (itemId: string, grams: number, displayUnit: string, per100g: import('../../types/food').NutritionData) => void;
   onLogout: () => void;
   onProfileUpdate: (updates: Partial<UserProfile>) => Promise<void>;
 }
@@ -53,7 +54,11 @@ function fmtTime(iso?: string): string {
 }
 
 // ── 营养详情底部弹窗 ───────────────────────────────────────────────
-function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () => void }) {
+function NutritionDetailSheet({ item, onClose, onEdit }: {
+  item: MealItem;
+  onClose: () => void;
+  onEdit: (item: MealItem) => void;
+}) {
   const n = item.nutrition;
   const rows: { label: string; value: number; unit: string }[] = [
     { label: '蛋白质', value: n.protein,       unit: 'g'  },
@@ -85,9 +90,17 @@ function NutritionDetailSheet({ item, onClose }: { item: MealItem; onClose: () =
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
         {/* Header */}
-        <div className="px-5 pt-2 pb-4 border-b border-gray-100">
-          <div className="font-semibold text-gray-900 text-base">{item.foodName}</div>
-          <div className="text-sm text-gray-400 mt-0.5">{item.unit}</div>
+        <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start justify-between gap-3">
+          <div>
+            <div className="font-semibold text-gray-900 text-base">{item.foodName}</div>
+            <div className="text-sm text-gray-400 mt-0.5">{item.unit}</div>
+          </div>
+          <button
+            onClick={() => onEdit(item)}
+            className="shrink-0 text-xs text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors font-medium"
+          >
+            ✏️ 修改用量
+          </button>
         </div>
         {/* Calories */}
         <div className="flex items-baseline justify-center gap-1 py-5">
@@ -229,6 +242,7 @@ export function DashboardPage({
   onDateChange,
   onAddFood,
   onRemoveFood,
+  onUpdateFood,
   onLogout,
   onProfileUpdate,
 }: DashboardPageProps) {
@@ -245,6 +259,7 @@ export function DashboardPage({
     setFontSizeState(size);
   };
   const [detailItem, setDetailItem] = useState<MealItem | null>(null);
+  const [editingItem, setEditingItem] = useState<MealItem | null>(null);
   const [familyId, setFamilyId] = useState<string | undefined>(profile.familyId);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
@@ -672,9 +687,45 @@ export function DashboardPage({
         />
       )}
 
-      {detailItem && (
-        <NutritionDetailSheet item={detailItem} onClose={() => setDetailItem(null)} />
+      {detailItem && !editingItem && (
+        <NutritionDetailSheet
+          item={detailItem}
+          onClose={() => setDetailItem(null)}
+          onEdit={item => { setEditingItem(item); setDetailItem(null); }}
+        />
       )}
+
+      {/* 修改用量：重用 AddFoodModal，从已录数据反推 per100g */}
+      {editingItem && (() => {
+        const amt = editingItem.amount || 100;
+        const n   = editingItem.nutrition;
+        const f   = 100 / amt;
+        const per100g = {
+          calories: n.calories * f, protein: n.protein * f,
+          carbs: n.carbs * f, fat: n.fat * f, fiber: n.fiber * f,
+          sodium: n.sodium != null ? n.sodium * f : undefined,
+          sugar:  n.sugar  != null ? n.sugar  * f : undefined,
+        };
+        const food: FoodItem = {
+          id: editingItem.foodId ?? editingItem.id,
+          name: editingItem.foodName,
+          category: 'other', source: 'user_added',
+          per100g,
+        };
+        return (
+          <AddFoodModal
+            food={food}
+            quickGrams={amt}
+            quickUnit={editingItem.unit}
+            onConfirm={(_, grams, displayUnit) => {
+              onUpdateFood(editingItem.id, grams, displayUnit, per100g);
+              setEditingItem(null);
+            }}
+            onBack={() => setEditingItem(null)}
+            onClose={() => setEditingItem(null)}
+          />
+        );
+      })()}
 
       {showProfile && (
         <ProfileEditorModal

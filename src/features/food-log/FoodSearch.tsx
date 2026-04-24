@@ -253,6 +253,18 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
             {query ? (
               <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500 text-xl shrink-0">×</button>
             ) : null}
+            {query.trim() && getGeminiKey() && (
+              <button
+                onClick={handleAiEstimate}
+                disabled={aiState === 'loading'}
+                title="AI 估算营养"
+                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-purple-100 hover:bg-purple-200 disabled:bg-purple-50 text-purple-600 transition-colors text-base"
+              >
+                {aiState === 'loading'
+                  ? <span className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  : '🤖'}
+              </button>
+            )}
           </div>
 
           {searchState === 'searching_online' && (
@@ -274,23 +286,11 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                 没有找到「{query}」{onlineError?.includes('失败') ? '（联网搜索失败）' : ''}
               </div>
 
-              {/* AI 估算 — 紫色，排第一 */}
-              {getGeminiKey() && (
-                <button
-                  onClick={handleAiEstimate}
-                  disabled={aiState === 'loading'}
-                  className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  {aiState === 'loading'
-                    ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> AI 估算中…</>
-                    : <><span>🤖</span> AI 估算营养数据</>}
-                </button>
-              )}
               {aiState === 'error' && aiError && (
                 <div className="text-xs text-red-500 text-center">{aiError}</div>
               )}
 
-              {/* 拍照识别 — 蓝色，排第二 */}
+              {/* 拍照识别 — 蓝色，排第一 */}
               <button
                 onClick={() => setView('scanner')}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
@@ -368,18 +368,6 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           {/* 底部操作入口（有结果时） */}
           {results.length > 0 && (
             <div className="px-4 pb-4 pt-1 border-t border-gray-50 space-y-2">
-              {/* AI 估算行 */}
-              {getGeminiKey() && query.trim() && (
-                <button
-                  onClick={handleAiEstimate}
-                  disabled={aiState === 'loading'}
-                  className="w-full py-2.5 bg-purple-50 hover:bg-purple-100 disabled:bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  {aiState === 'loading'
-                    ? <><span className="w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" /> AI 估算中…</>
-                    : <><span>🤖</span> 结果不满意？用 AI 估算</>}
-                </button>
-              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setView('scanner')}
