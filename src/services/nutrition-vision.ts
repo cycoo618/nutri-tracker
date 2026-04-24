@@ -194,13 +194,16 @@ async function estimateByServing(
   const per100 = (v: number) => Math.round(v / servingG * 100 * 10) / 10;
 
   return {
-    name:     String(parsed.name ?? foodName),
-    calories: per100(kcal),
-    protein:  per100(Number(parsed.protein_g) || 0),
-    carbs:    per100(Number(parsed.carbs_g)   || 0),
-    fat:      per100(Number(parsed.fat_g)     || 0),
-    fiber:    per100(Number(parsed.fiber_g)   || 0),
-    sodium:   per100(Number(parsed.sodium_mg) || 0),
+    name:         String(parsed.name ?? foodName),
+    calories:     per100(kcal),
+    protein:      per100(Number(parsed.protein_g) || 0),
+    carbs:        per100(Number(parsed.carbs_g)   || 0),
+    fat:          per100(Number(parsed.fat_g)     || 0),
+    fiber:        per100(Number(parsed.fiber_g)   || 0),
+    sodium:       per100(Number(parsed.sodium_mg) || 0),
+    // 保留份量信息，让调用方可以直接加 serving size，用户不用想"多少克"
+    servingLabel: `1份 (${Math.round(servingG)}g)`,
+    servingGrams: servingG,
   };
 }
 

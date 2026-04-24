@@ -65,6 +65,10 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           fiber: nutrition.fiber,
           sodium: nutrition.sodium,
         },
+        // 如果 AI 返回了份量信息，加进来 → AddFoodModal 默认显示"1份"，不要求填克数
+        ...(nutrition.servingGrams && nutrition.servingGrams > 0
+          ? { servingSizes: [{ label: nutrition.servingLabel ?? `1份 (${Math.round(nutrition.servingGrams)}g)`, grams: nutrition.servingGrams }] }
+          : {}),
         tags: ['AI估算'],
       };
       setAiState('idle');
