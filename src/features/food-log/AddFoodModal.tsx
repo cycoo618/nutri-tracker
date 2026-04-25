@@ -86,6 +86,9 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
     setServingQtyStr(String(next));
   };
 
+  // 追踪输入框焦点状态：键盘弹开时隐藏返回按钮，确认按钮始终可见
+  const [inputFocused, setInputFocused] = useState(false);
+
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
   return (
@@ -182,8 +185,9 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                     step="0.5"
                     value={servingQtyStr}
                     onChange={e => setServingQtyStr(e.target.value)}
-                    onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
+                    onFocus={e => { setInputFocused(true); const t = e.target; setTimeout(() => t.select(), 50); }}
                     onBlur={e => {
+                      setInputFocused(false);
                       // 失焦时规范化：确保是合法正数
                       const v = parseFloat(e.target.value);
                       setServingQtyStr(isNaN(v) || v <= 0 ? '1' : String(v));
@@ -217,7 +221,8 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                   type="number"
                   value={grams}
                   onChange={e => setGrams(e.target.value)}
-                  onFocus={autoSelect}
+                  onFocus={e => { setInputFocused(true); autoSelect(e); }}
+                  onBlur={() => setInputFocused(false)}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder={t('gramsPlaceholder')}
                 />
@@ -241,15 +246,6 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
               </div>
             </div>
           )}
-
-          {/* 确认按钮 — 紧接输入区，键盘打开时仍在可视范围内 */}
-          <button
-            onClick={() => onConfirm(food, actualGrams, displayUnit)}
-            disabled={actualGrams <= 0}
-            className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {t('addButton')} · {formatNumber(nutrition.calories)} {localizeUnit('kcal', locale)}
-          </button>
 
           {/* 当前选择预览 */}
           <div className="text-xs text-gray-400 text-center">
@@ -300,7 +296,19 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 
         </div>
 
-        <BottomReturnButton onClick={onBack} />
+        {/* 确认按钮 — 滚动区外，始终固定在底部可见 */}
+        <div className="px-4 pt-2 pb-1 shrink-0">
+          <button
+            onClick={() => onConfirm(food, actualGrams, displayUnit)}
+            disabled={actualGrams <= 0}
+            className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {t('addButton')} · {formatNumber(nutrition.calories)} {localizeUnit('kcal', locale)}
+          </button>
+        </div>
+
+        {/* 返回按钮 — 键盘弹开时隐藏，收起时显示 */}
+        {!inputFocused && <BottomReturnButton onClick={onBack} />}
       </div>
     </div>
   );
