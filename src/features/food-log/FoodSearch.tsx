@@ -427,13 +427,13 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                   onClick={() => setView('scanner')}
                   className="py-3 flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-sm text-blue-700 font-medium transition-colors"
                 >
-                  <span>📷</span> {t('scanLabel')}
+                  {t('scanLabel')}
                 </button>
                 <button
                   onClick={() => setView('recipe')}
                   className="py-3 flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl text-sm text-green-700 font-medium transition-colors"
                 >
-                  <span>🧪</span> {t('customFood')}
+                  {t('customFood')}
                 </button>
               </div>
 

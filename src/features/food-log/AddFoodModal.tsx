@@ -289,7 +289,10 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
             )}
           </div>
 
-          {/* 确认按钮 */}
+        </div>
+
+        {/* 确认按钮 — 在滚动区外，键盘弹起时保持可见 */}
+        <div className="px-4 pt-2 pb-1 shrink-0">
           <button
             onClick={() => onConfirm(food, actualGrams, displayUnit)}
             disabled={actualGrams <= 0}
