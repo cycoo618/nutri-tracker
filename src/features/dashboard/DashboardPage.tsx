@@ -26,7 +26,7 @@ import { t as tStatic } from '../../i18n';
 import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
-import { localizeServingLabel } from '../../utils/servingLabels';
+import { localizeServingLabel, localizeUnit } from '../../utils/servingLabels';
 
 interface DashboardPageProps {
   profile: UserProfile;
@@ -108,14 +108,14 @@ function NutritionDetailSheet({ item, onClose, onEdit }: {
         {/* Calories */}
         <div className="flex items-baseline justify-center gap-1 py-5">
           <span className="text-4xl font-bold text-green-600">{item.calories}</span>
-          <span className="text-sm text-gray-400">kcal</span>
+          <span className="text-sm text-gray-400">{localizeUnit('kcal', locale)}</span>
         </div>
         {/* Macro grid */}
         <div className="px-5 grid grid-cols-2 gap-2 pb-2">
           {rows.map(r => (
             <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
               <span className="text-sm text-gray-500">{r.label}</span>
-              <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{r.unit}</span>
+              <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{localizeUnit(r.unit, locale)}</span>
             </div>
           ))}
         </div>
@@ -225,7 +225,7 @@ function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
           <span className="text-xs text-gray-400">{localizeServingLabel(item.unit, locale)}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-sm text-gray-600">{item.calories} kcal</span>
+          <span className="text-sm text-gray-600">{item.calories} {localizeUnit('kcal', locale)}</span>
           {/* Reserve space so kcal doesn't shift when arrow hides */}
           <span className={`text-gray-200 text-xs select-none ${isOpen ? 'invisible' : ''}`}>←</span>
         </div>
@@ -466,13 +466,13 @@ export function DashboardPage({
             <div className="flex items-center justify-center gap-8">
               <ProgressRing percent={ns.caloriePercent} size={140}>
                 <div className="text-3xl font-bold text-gray-900">{ns.consumedCalories}</div>
-                <div className="text-xs text-gray-400">/ {ns.targetCalories} kcal</div>
+                <div className="text-xs text-gray-400">/ {ns.targetCalories} {localizeUnit('kcal', locale)}</div>
               </ProgressRing>
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="text-gray-500">{t('remaining')}</span>
                   <div className={`text-lg font-bold ${ns.isOverCalorie ? 'text-red-500' : 'text-green-600'}`}>
-                    {ns.isOverCalorie ? '+' : ''}{Math.abs(ns.remainingCalories)} kcal
+                    {ns.isOverCalorie ? '+' : ''}{Math.abs(ns.remainingCalories)} {localizeUnit('kcal', locale)}
                   </div>
                 </div>
                 {ns.isOverCalorie && (
@@ -747,6 +747,7 @@ function AdvancedRow({ label, consumed, limit, status, unit = 'g' }: {
   label: string; consumed: number; limit: string;
   status: 'good' | 'warning' | 'danger'; unit?: string;
 }) {
+  const { locale } = useLocale();
   const statusColors = { good: 'text-green-600', warning: 'text-amber-500', danger: 'text-red-500' };
   const statusIcons = { good: '✓', warning: '⚠', danger: '✗' };
 
@@ -754,8 +755,8 @@ function AdvancedRow({ label, consumed, limit, status, unit = 'g' }: {
     <div className="flex items-center justify-between">
       <span className="text-gray-600">{label}</span>
       <div className="flex items-center gap-2">
-        <span className="text-gray-800">{consumed}{unit}</span>
-        <span className="text-gray-400 text-xs">{limit}</span>
+        <span className="text-gray-800">{consumed}{localizeUnit(unit, locale)}</span>
+        <span className="text-gray-400 text-xs">{localizeServingLabel(limit, locale)}</span>
         <span className={statusColors[status]}>{statusIcons[status]}</span>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { useLocale } from '../../i18n/useLocale';
-import { localizeServingLabel } from '../../utils/servingLabels';
+import { localizeServingLabel, localizeUnit } from '../../utils/servingLabels';
 import type { FoodItem } from '../../types/food';
 import {
   getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods, updateCustomFood,
@@ -20,7 +20,7 @@ import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
 import { RecipeBuilder } from '../food-log/RecipeBuilder';
 
 function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; onClose: () => void }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const n = record.per100g;
   const rows = [
@@ -74,13 +74,13 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
         </div>
         <div className="flex items-baseline justify-center gap-1 py-5">
           <span className="text-4xl font-bold text-green-600">{n.calories}</span>
-          <span className="text-sm text-gray-400">kcal / 100g</span>
+          <span className="text-sm text-gray-400">{localizeUnit('kcal', locale)} / 100{localizeUnit('g', locale)}</span>
         </div>
         <div className="px-5 grid grid-cols-2 gap-2 pb-2">
           {rows.map(r => (
             <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
               <span className="text-sm text-gray-500">{r.label}</span>
-              <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{r.unit}</span>
+              <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{localizeUnit(r.unit, locale)}</span>
             </div>
           ))}
         </div>
@@ -526,6 +526,7 @@ function NutriBadge({
   label: string; value: string; unit: string;
   color: 'amber' | 'blue' | 'orange' | 'red';
 }) {
+  const { locale } = useLocale();
   const bg = {
     amber: 'bg-amber-50 text-amber-700',
     blue: 'bg-blue-50 text-blue-700',
@@ -537,7 +538,7 @@ function NutriBadge({
     <div className={`${bg} rounded-xl py-2 px-1`}>
       <div className="text-xs font-medium opacity-70">{label}</div>
       <div className="text-sm font-bold">{value}</div>
-      <div className="text-xs opacity-60">{unit}</div>
+      <div className="text-xs opacity-60">{localizeUnit(unit, locale)}</div>
     </div>
   );
 }

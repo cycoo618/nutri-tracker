@@ -14,7 +14,7 @@ import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import { getAllCustomFoods } from '../../utils/customFoods';
 import { useLocale } from '../../i18n/useLocale';
-import { localizeServingLabel } from '../../utils/servingLabels';
+import { localizeServingLabel, localizeUnit } from '../../utils/servingLabels';
 
 interface AddFoodModalProps {
   food: FoodItem;
@@ -295,7 +295,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
             disabled={actualGrams <= 0}
             className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {t('addButton')} · {formatNumber(nutrition.calories)} kcal
+            {t('addButton')} · {formatNumber(nutrition.calories)} {localizeUnit('kcal', locale)}
           </button>
         </div>
 
@@ -308,11 +308,12 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 function NutrientRow({ label, value, unit, highlight }: {
   label: string; value: string; unit: string; highlight?: boolean;
 }) {
+  const { locale } = useLocale();
   return (
     <div className="flex justify-between items-baseline">
       <span className="text-xs text-gray-500">{label}</span>
       <span className={`text-sm ${highlight ? 'font-bold text-green-700' : 'font-medium text-gray-700'}`}>
-        {value}<span className="text-xs text-gray-400 ml-0.5">{unit}</span>
+        {value}<span className="text-xs text-gray-400 ml-0.5">{localizeUnit(unit, locale)}</span>
       </span>
     </div>
   );

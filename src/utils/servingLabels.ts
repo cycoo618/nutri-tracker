@@ -151,6 +151,19 @@ const EN_TO_ZH: [RegExp, string][] = [
   [/¼/g, '1/4'],
   [/~/g, '约'],
 
+  // Measurement units — digit-attached (must come before standalone to avoid double-replace)
+  // Order: mg before g, ml before l, kcal before cal
+  [/(\d)ml(?=[^a-zA-Z]|$)/g, '$1毫升'],
+  [/(\d)mg(?=[^a-zA-Z]|$)/g, '$1毫克'],
+  [/(\d)kcal(?=[^a-zA-Z]|$)/gi, '$1千卡'],
+  [/(\d)g(?=[^a-zA-Z]|$)/g, '$1克'],
+
+  // Measurement units — standalone (e.g. "50 g", "500 kcal")
+  [/\bkcal\b/gi, '千卡'],
+  [/\bml\b/g, '毫升'],
+  [/\bmg\b/g, '毫克'],
+  [/\bg\b/g, '克'],
+
   // Remove space between digit and Chinese unit: "1 杯" → "1杯"
   [/(\d) ([\u4e00-\u9fff])/g, '$1$2'],
   // Remove space between Chinese size modifier and unit: "大 碗" → "大碗", "半 份" → "半份"
@@ -159,6 +172,24 @@ const EN_TO_ZH: [RegExp, string][] = [
   // Cleanup
   [/  +/g, ' '],
 ];
+
+/**
+ * Localizes a standalone unit string (e.g. 'g', 'kcal', 'mg', 'ml').
+ * Pass-through for unrecognized units.
+ */
+export function localizeUnit(unit: string, locale: Locale): string {
+  if (locale === 'zh') {
+    const map: Record<string, string> = {
+      'g': '克', 'kcal': '千卡', 'mg': '毫克', 'ml': '毫升',
+    };
+    return map[unit.toLowerCase()] ?? unit;
+  }
+  // en — reverse map
+  const map: Record<string, string> = {
+    '克': 'g', '千卡': 'kcal', '毫克': 'mg', '毫升': 'ml',
+  };
+  return map[unit] ?? unit;
+}
 
 /**
  * Localizes a serving size label:
