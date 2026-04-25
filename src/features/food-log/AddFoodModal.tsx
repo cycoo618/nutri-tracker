@@ -242,6 +242,15 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
             </div>
           )}
 
+          {/* 确认按钮 — 紧接输入区，键盘打开时仍在可视范围内 */}
+          <button
+            onClick={() => onConfirm(food, actualGrams, displayUnit)}
+            disabled={actualGrams <= 0}
+            className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {t('addButton')} · {formatNumber(nutrition.calories)} {localizeUnit('kcal', locale)}
+          </button>
+
           {/* 当前选择预览 */}
           <div className="text-xs text-gray-400 text-center">
             {t('selectedPrefix')}{displayUnit}
@@ -289,17 +298,6 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
             )}
           </div>
 
-        </div>
-
-        {/* 确认按钮 — 在滚动区外，键盘弹起时保持可见 */}
-        <div className="px-4 pt-2 pb-1 shrink-0">
-          <button
-            onClick={() => onConfirm(food, actualGrams, displayUnit)}
-            disabled={actualGrams <= 0}
-            className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {t('addButton')} · {formatNumber(nutrition.calories)} {localizeUnit('kcal', locale)}
-          </button>
         </div>
 
         <BottomReturnButton onClick={onBack} />
