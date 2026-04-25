@@ -11,7 +11,8 @@ import { FOOD_CATEGORY_LABELS } from '../../types/food';
 import { searchBuiltinFoods, searchOpenFoodFacts } from '../../services/food-lookup';
 import { searchCustomFoods, recordToFoodItem } from '../../utils/customFoods';
 import type { CustomFoodRecord } from '../../utils/customFoods';
-import { getFamily, getFamilyMemberFoods } from '../../services/firestore';
+import { getFamily, getFamilyMemberFoods, getUserFoods } from '../../services/firestore';
+import { mergeCustomFoods } from '../../utils/customFoods';
 import { GIBadge } from '../../components/ui/GIBadge';
 import { ManualFoodEntry } from './ManualFoodEntry';
 import { RecipeBuilder } from './RecipeBuilder';
@@ -87,6 +88,16 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       inputRef.current?.focus();
     }
   }, [view]);
+
+  // 打开时从 Firestore 同步一次自定义食物（解决跨设备搜索不到的问题）
+  useEffect(() => {
+    if (!userId) return;
+    getUserFoods(userId)
+      .then(data => {
+        if (data.length > 0) mergeCustomFoods(data as CustomFoodRecord[]);
+      })
+      .catch(e => console.warn('[FoodSearch] Firestore sync failed:', e));
+  }, [userId]);
 
   // 搜索：本地结果立即显示；只有本地无结果时才 debounce 联网
   useEffect(() => {
