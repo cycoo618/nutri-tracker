@@ -2,7 +2,7 @@
 // Onboarding 页面 — 首次登录设置
 // ============================================
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type {
   GoalType, ActivityLevel, Gender, BodyMetrics,
   UserProfile, CalorieTargetMode,
@@ -10,6 +10,15 @@ import type {
 import { GOAL_LABELS, GOAL_DESCRIPTIONS, ACTIVITY_LEVELS } from '../../types';
 import { calculateTargetCalories, calculateTDEE, FAT_LOSS_INTENSITY, type FatLossIntensity } from '../../config/nutrition';
 import { GOAL_CONFIGS } from '../../config/goals';
+
+/** 聚焦数字输入框时：选中内容 + 等键盘弹起后滚动到视口中央 */
+function focusAndReveal(e: React.FocusEvent<HTMLInputElement>) {
+  const el = e.target;
+  setTimeout(() => {
+    el.select();
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 350); // 350ms 足够 iOS 键盘完全弹出
+}
 
 interface OnboardingPageProps {
   displayName: string;
@@ -45,6 +54,23 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
   // --- UI 状态 ---
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [bodyError, setBodyError] = useState<string | null>(null);
+
+  // 身体数据校验：性别已有默认值，身高体重必须合理
+  const handleBodyNext = useCallback(() => {
+    const h = Number(height);
+    const w = Number(weight);
+    if (!height || h < 50 || h > 250) {
+      setBodyError('请输入有效的身高（50 – 250 cm）');
+      return;
+    }
+    if (!weight || w < 20 || w > 300) {
+      setBodyError('请输入有效的体重（20 – 300 kg）');
+      return;
+    }
+    setBodyError(null);
+    setStep('calories');
+  }, [height, weight]);
 
   // --- 计算 ---
   const bodyMetrics: BodyMetrics = {
@@ -91,8 +117,8 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
   const stepIndex = steps.indexOf(step);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 overflow-y-auto">
+      <div className="w-full max-w-md mx-auto px-4 pt-10 pb-40">
 
         {/* Header */}
         <div className="text-center mb-6">
@@ -187,18 +213,24 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
 
             {/* Height / Weight / Age */}
             {[
-              { label: '身高', value: height, onChange: setHeight, unit: 'cm', placeholder: '170' },
-              { label: '体重', value: weight, onChange: setWeight, unit: 'kg', placeholder: '65' },
-              { label: '年龄', value: age, onChange: setAge, unit: '岁', placeholder: '25' },
+              { label: '身高', value: height, onChange: setHeight, unit: 'cm', placeholder: '170', required: true },
+              { label: '体重', value: weight, onChange: setWeight, unit: 'kg', placeholder: '65',  required: true },
+              { label: '年龄', value: age,    onChange: setAge,    unit: '岁', placeholder: '25',  required: false },
             ].map(field => (
               <div key={field.label}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {field.label}
+                  {field.required
+                    ? <span className="ml-1 text-red-500 text-xs">*</span>
+                    : <span className="ml-2 text-xs font-normal text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">可选</span>
+                  }
+                </label>
                 <div className="relative">
                   <input
                     type="number"
                     value={field.value}
-                    onChange={e => field.onChange(e.target.value)}
-                    onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
+                    onChange={e => { field.onChange(e.target.value); setBodyError(null); }}
+                    onFocus={focusAndReveal}
                     placeholder={field.placeholder}
                     className="w-full border border-gray-200 rounded-lg px-4 py-2.5 pr-12 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
@@ -218,7 +250,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
                   type="number"
                   value={bodyFat}
                   onChange={e => setBodyFat(e.target.value)}
-                  onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
+                  onFocus={focusAndReveal}
                   placeholder="如 20（填写后使用更精准的公式）"
                   className="w-full border border-gray-200 rounded-lg px-4 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
@@ -248,9 +280,15 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
               </div>
             </div>
 
+            {bodyError && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+                ⚠ {bodyError}
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2">
               <button onClick={() => setStep('goal')} className="flex-1 border border-gray-200 text-gray-600 rounded-xl py-3 font-medium hover:bg-gray-50">上一步</button>
-              <button onClick={() => setStep('calories')} className="flex-1 bg-green-600 text-white rounded-xl py-3 font-medium hover:bg-green-700">下一步</button>
+              <button onClick={handleBodyNext} className="flex-1 bg-green-600 text-white rounded-xl py-3 font-medium hover:bg-green-700">下一步</button>
             </div>
           </div>
         )}
@@ -311,7 +349,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
                   type="number"
                   value={manualCalories}
                   onChange={e => setManualCalories(e.target.value)}
-                  onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
+                  onFocus={focusAndReveal}
                   placeholder={String(autoCalories)}
                   className="w-full border border-gray-200 rounded-lg px-4 py-2.5 pr-20 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
