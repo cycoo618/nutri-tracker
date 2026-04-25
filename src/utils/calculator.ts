@@ -17,12 +17,21 @@ export function getTodayString(): string {
 
 /** 格式化日期为中文 */
 export function formatDateCN(dateStr: string): string {
+  return formatDate(dateStr, 'zh');
+}
+
+/** 本地化日期格式：zh → "4月25日 周六"，en → "Apr 25, Sat" */
+export function formatDate(dateStr: string, locale: string): string {
   const d = new Date(dateStr + 'T00:00:00');
+  if (locale === 'en') {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const days   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return `${months[d.getMonth()]} ${d.getDate()}, ${days[d.getDay()]}`;
+  }
   const month = d.getMonth() + 1;
   const day = d.getDate();
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  const weekday = weekdays[d.getDay()];
-  return `${month}月${day}日 周${weekday}`;
+  return `${month}月${day}日 周${weekdays[d.getDay()]}`;
 }
 
 /** 获取过去 N 天的日期列表 */

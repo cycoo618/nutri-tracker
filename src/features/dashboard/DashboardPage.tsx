@@ -21,7 +21,8 @@ import { AddFoodModal } from '../food-log/AddFoodModal';
 import { FoodPantryPage } from '../pantry/FoodPantryPage';
 import { FamilyPage } from '../family/FamilyPage';
 import { ProfileEditorModal } from '../profile/ProfileEditorModal';
-import { formatDateCN, formatNumber, getTodayString } from '../../utils/calculator';
+import { formatDate, formatNumber, getTodayString } from '../../utils/calculator';
+import { t as tStatic } from '../../i18n';
 import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
@@ -61,12 +62,12 @@ function NutritionDetailSheet({ item, onClose, onEdit }: {
 }) {
   const n = item.nutrition;
   const rows: { label: string; value: number; unit: string }[] = [
-    { label: '蛋白质', value: n.protein,       unit: 'g'  },
-    { label: '碳水化合物', value: n.carbs,      unit: 'g'  },
-    { label: '脂肪',   value: n.fat,           unit: 'g'  },
-    { label: '膳食纤维', value: n.fiber,        unit: 'g'  },
-    ...(n.sugar  != null ? [{ label: '糖',  value: n.sugar,  unit: 'g'  }] : []),
-    ...(n.sodium != null ? [{ label: '钠',  value: n.sodium, unit: 'mg' }] : []),
+    { label: tStatic('protein'),  value: n.protein, unit: 'g'  },
+    { label: tStatic('carbs'),    value: n.carbs,   unit: 'g'  },
+    { label: tStatic('fat'),      value: n.fat,     unit: 'g'  },
+    { label: tStatic('fiber'),    value: n.fiber,   unit: 'g'  },
+    ...(n.sugar  != null ? [{ label: tStatic('sugar'),  value: n.sugar,  unit: 'g'  }] : []),
+    ...(n.sodium != null ? [{ label: tStatic('sodium'), value: n.sodium, unit: 'mg' }] : []),
   ];
   const { cardRef, dragHandlers } = useSwipeDown(onClose);
 
@@ -99,7 +100,7 @@ function NutritionDetailSheet({ item, onClose, onEdit }: {
             onClick={() => onEdit(item)}
             className="shrink-0 text-xs text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors font-medium"
           >
-            ✏️ 修改用量
+            {tStatic('editAmount')}
           </button>
         </div>
         {/* Calories */}
@@ -181,17 +182,17 @@ function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
     return (
       <div className="flex items-center justify-between py-2.5 gap-3">
         <span className="text-sm text-gray-500 truncate flex-1">
-          删除「<span className="font-medium text-gray-700">{item.foodName}</span>」？
+          {tStatic('deleteQuestion')}「<span className="font-medium text-gray-700">{item.foodName}</span>」？
         </span>
         <div className="flex gap-2 shrink-0">
           <button
             onClick={handleCancel}
             className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 active:bg-gray-200 transition-colors"
-          >取消</button>
+          >{tStatic('cancel')}</button>
           <button
             onClick={handleConfirm}
             className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white active:bg-red-600 transition-colors"
-          >确认删除</button>
+          >{tStatic('confirmDelete')}</button>
         </div>
       </div>
     );
@@ -202,7 +203,7 @@ function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
       <button
         onClick={handleDeleteClick}
         className="absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-red-500 text-white text-sm font-medium"
-      >删除</button>
+      >{tStatic('delete')}</button>
 
       <div
         ref={rowRef}
@@ -338,9 +339,9 @@ export function DashboardPage({
               <button
                 onClick={onForceSync}
                 className="text-xs text-red-400 hover:text-red-500 flex items-center gap-1 transition-colors"
-                title={syncError ?? '点击重新同步'}
+                title={syncError ?? t('clickToSync')}
               >
-                {syncStatus === 'error' ? '⚠️ 重新同步' : '🔄 同步'}
+                {syncStatus === 'error' ? t('reSync') : t('syncNow')}
               </button>
             )}
             {/* 汉堡菜单 */}
@@ -430,14 +431,14 @@ export function DashboardPage({
           <div className="max-w-lg mx-auto px-4 pb-2">
             <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-xs text-red-600 flex items-start justify-between gap-3">
               <div>
-                <div><strong>云端同步失败：</strong>{syncError}</div>
-                <div className="text-red-400 mt-0.5">数据已保存在本设备，跨设备暂不可见。</div>
+                <div><strong>{t('syncFailed')}</strong>{syncError}</div>
+                <div className="text-red-400 mt-0.5">{t('syncLocalOnly')}</div>
               </div>
               <button
                 onClick={onForceSync}
                 className="shrink-0 bg-red-100 hover:bg-red-200 text-red-600 px-2.5 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap"
               >
-                重试
+                {t('retry')}
               </button>
             </div>
           </div>
@@ -448,11 +449,11 @@ export function DashboardPage({
         {/* Date Navigator */}
         <div className="flex items-center justify-center gap-4 py-4">
           <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
-            ← 前一天
+            ← {t('prevDay')}
           </button>
-          <span className="font-medium text-gray-900">{formatDateCN(currentDate)}</span>
+          <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
           <button onClick={() => navigateDate(1)} className="text-gray-400 hover:text-gray-600 p-1">
-            后一天 →
+            {t('nextDay')} →
           </button>
         </div>
 
@@ -472,7 +473,7 @@ export function DashboardPage({
                   </div>
                 </div>
                 {ns.isOverCalorie && (
-                  <div className="text-red-500 text-xs">⚠️ 已超出目标</div>
+                  <div className="text-red-500 text-xs">{t('overTarget')}</div>
                 )}
               </div>
             </div>
@@ -509,16 +510,16 @@ export function DashboardPage({
         {/* Advanced Nutrition */}
         {ns?.advanced && (
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">进阶营养指标</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('advancedNutrition')}</h3>
             <div className="space-y-2 text-sm">
               <AdvancedRow
-                label="添加糖"
+                label={t('addedSugar')}
                 consumed={ns.advanced.sugar.consumed}
                 limit={`< ${ns.advanced.sugar.max}g`}
                 status={ns.advanced.sugar.status}
               />
               <AdvancedRow
-                label="钠"
+                label={t('sodium')}
                 consumed={ns.advanced.sodium.consumed}
                 limit={`< ${ns.advanced.sodium.max}mg`}
                 status={ns.advanced.sodium.status}
@@ -538,7 +539,7 @@ export function DashboardPage({
         {/* ── 今日饮食时间线 ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
           <div className="flex items-center justify-between p-4 pb-3">
-            <h3 className="font-semibold text-gray-800">今日饮食</h3>
+            <h3 className="font-semibold text-gray-800">{t('todaysFoodLog')}</h3>
             <div className="flex items-center gap-2">
               {allItems.length > 0 && (
                 <span className="text-sm text-gray-400">
@@ -560,7 +561,7 @@ export function DashboardPage({
                 onClick={openSearch}
                 className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors"
               >
-                + 记录今天吃了什么
+                {t('logFood')}
               </button>
             </div>
           ) : (
@@ -594,7 +595,7 @@ export function DashboardPage({
             className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-green-600"
           >
             <span className="text-xl">📊</span>
-            <span className="text-xs font-medium">今日</span>
+            <span className="text-xs font-medium">{t('today')}</span>
           </button>
 
           {/* 中间 + 按钮 */}
@@ -613,7 +614,7 @@ export function DashboardPage({
             className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-gray-400 hover:text-green-600 transition-colors"
           >
             <span className="text-xl">📦</span>
-            <span className="text-xs font-medium">食材库</span>
+            <span className="text-xs font-medium">{t('pantryTitle')}</span>
           </button>
 
         </div>
