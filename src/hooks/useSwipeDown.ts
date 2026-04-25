@@ -3,7 +3,7 @@
 // dragHandlers   → attach to the drag handle (guaranteed to trigger swipe)
 // cardDragHandlers → attach to the whole card; only activates when scrollable
 //                    content inside is already scrolled to top
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 export function useSwipeDown(onClose: () => void, threshold = 80) {
   const cardRef   = useRef<HTMLDivElement>(null);
@@ -45,6 +45,15 @@ export function useSwipeDown(onClose: () => void, threshold = 80) {
       onClose();
     }
   };
+
+  // ESC 键关闭（桌面端）
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   // Always triggers swipe — for the small drag handle at the top
   const dragHandlers = {
