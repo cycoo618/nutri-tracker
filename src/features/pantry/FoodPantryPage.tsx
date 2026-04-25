@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { useLocale } from '../../i18n/useLocale';
+import { localizeServingLabel } from '../../utils/servingLabels';
 import type { FoodItem } from '../../types/food';
 import {
   getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods, updateCustomFood,
@@ -111,7 +112,7 @@ type SubView = 'list' | 'scanner' | 'recipe';
 type CloudStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
 export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPantryPageProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [subView, setSubView] = useState<SubView>('list');
   const [editingRecipe, setEditingRecipe] = useState<CustomFoodRecord | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<CustomFoodRecord | null>(null);
@@ -377,7 +378,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                         )}
                         {record.servingSizes.length > 0 && renamingId !== record.id && (
                           <div className="text-xs text-gray-400 mt-0.5">
-                            {record.servingSizes[0].label}
+                            {localizeServingLabel(record.servingSizes[0].label, locale)}
                           </div>
                         )}
                       </div>
@@ -474,7 +475,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                         </div>
                         {record.servingSizes?.length > 0 && (
                           <div className="text-xs text-gray-400 mt-0.5">
-                            {record.servingSizes[0].label}
+                            {localizeServingLabel(record.servingSizes[0].label, locale)}
                           </div>
                         )}
                       </div>

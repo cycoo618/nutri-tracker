@@ -26,6 +26,7 @@ import { t as tStatic } from '../../i18n';
 import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
+import { localizeServingLabel } from '../../utils/servingLabels';
 
 interface DashboardPageProps {
   profile: UserProfile;
@@ -60,6 +61,7 @@ function NutritionDetailSheet({ item, onClose, onEdit }: {
   onClose: () => void;
   onEdit: (item: MealItem) => void;
 }) {
+  const { locale } = useLocale();
   const n = item.nutrition;
   const rows: { label: string; value: number; unit: string }[] = [
     { label: tStatic('protein'),  value: n.protein, unit: 'g'  },
@@ -94,7 +96,7 @@ function NutritionDetailSheet({ item, onClose, onEdit }: {
         <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start justify-between gap-3">
           <div>
             <div className="font-semibold text-gray-900 text-base">{item.foodName}</div>
-            <div className="text-sm text-gray-400 mt-0.5">{item.unit}</div>
+            <div className="text-sm text-gray-400 mt-0.5">{localizeServingLabel(item.unit, locale)}</div>
           </div>
           <button
             onClick={() => onEdit(item)}
@@ -132,6 +134,7 @@ interface SwipeableRowProps {
 }
 
 function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
+  const { locale } = useLocale();
   const rowRef   = useRef<HTMLDivElement>(null);
   const startX   = useRef(0);
   const curX     = useRef(0);   // current translateX; negative = swiped left
@@ -219,7 +222,7 @@ function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
             <span className="text-sm font-medium text-gray-800 truncate">{item.foodName}</span>
             <GIBadge gi={item.gi} size="sm" />
           </div>
-          <span className="text-xs text-gray-400">{item.unit}</span>
+          <span className="text-xs text-gray-400">{localizeServingLabel(item.unit, locale)}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="text-sm text-gray-600">{item.calories} kcal</span>

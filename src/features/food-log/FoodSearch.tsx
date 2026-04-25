@@ -20,6 +20,7 @@ import { NutritionLabelScanner } from './NutritionLabelScanner';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import { estimateFoodNutrition, getGroqKey } from '../../services/nutrition-vision';
 import { useLocale } from '../../i18n/useLocale';
+import { localizeServingLabel } from '../../utils/servingLabels';
 
 interface FoodSearchProps {
   recentFoods?: RecentFoodEntry[];
@@ -33,7 +34,7 @@ type SearchState = 'idle' | 'searching_online' | 'done';
 type View = 'search' | 'manual' | 'recipe' | 'scanner';
 
 export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClose }: FoodSearchProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [view, setView] = useState<View>('search');
   const [query, setQuery] = useState('');
   const [searchTrigger, setSearchTrigger] = useState(0);
@@ -447,7 +448,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                         className="flex items-center gap-1.5 px-3 py-2 bg-gray-50 hover:bg-green-50 hover:border-green-300 border border-gray-200 rounded-xl text-sm transition-colors"
                       >
                         <span className="text-gray-800">{entry.food.name}</span>
-                        <span className="text-xs text-gray-400">{entry.lastUnit}</span>
+                        <span className="text-xs text-gray-400">{localizeServingLabel(entry.lastUnit, locale)}</span>
                         {entry.useCount > 2 && (
                           <span className="text-xs text-green-500 font-medium">×{entry.useCount}</span>
                         )}

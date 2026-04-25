@@ -14,6 +14,7 @@ import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import { getAllCustomFoods } from '../../utils/customFoods';
 import { useLocale } from '../../i18n/useLocale';
+import { localizeServingLabel } from '../../utils/servingLabels';
 
 interface AddFoodModalProps {
   food: FoodItem;
@@ -27,7 +28,7 @@ interface AddFoodModalProps {
 type InputMode = 'serving' | 'grams';
 
 export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm, onBack, onClose }: AddFoodModalProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   // recentFoods stores FoodItem without ingredients; look up fresh from localStorage
   const food = useMemo(() => {
     if (foodProp.source !== 'user_added' || foodProp.ingredients) return foodProp;
@@ -68,7 +69,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
   // ── 计算实际克数 & 显示单位 ──────────────
   const serving = mergedServings[selectedServing];
   const servingGrams = serving?.grams ?? 100;
-  const servingLabel = serving?.label ?? `${servingGrams}g`;
+  const servingLabel = localizeServingLabel(serving?.label ?? `${servingGrams}g`, locale);
 
   const actualGrams = mode === 'serving'
     ? servingGrams * servingQty
@@ -159,7 +160,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                         : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    {s.label}
+                    {localizeServingLabel(s.label, locale)}
                   </button>
                 ))}
               </div>
