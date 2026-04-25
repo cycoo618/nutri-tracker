@@ -135,6 +135,53 @@ const translations: Record<string, Record<Locale, string>> = {
   // 通用
   aiDataNote:   { zh: '⚠ AI 估算数据，仅供参考', en: '⚠ AI estimated, for reference only' },
   userDataNote: { zh: '📝 用户录入数据', en: '📝 User-entered data' },
+
+  // 搜索状态
+  searchingMore:       { zh: '正在联网搜索更多…',        en: 'Searching more online…' },
+  searchingOnline:     { zh: '本地未找到，正在联网搜索…', en: 'Searching online…' },
+  onlineNoResults:     { zh: '联网搜索无结果',            en: 'No online results' },
+  onlineSearchError:   { zh: '联网搜索失败，请稍后再试',  en: 'Search failed, please try again' },
+  onlineSearchFailed:  { zh: '（联网搜索失败）',          en: '(Search failed)' },
+  scanPackageLabel:    { zh: '拍照识别包装营养标签',      en: 'Scan Package Nutrition Label' },
+  retryOnline:         { zh: '重新联网',                  en: 'Retry Online' },
+  searchHint:          { zh: '输入食物名称开始搜索',      en: 'Search for food to get started' },
+  aiEstimateShort:     { zh: 'AI 估算',                   en: 'AI Est.' },
+  aiEstimateFailed:    { zh: 'AI 估算失败',               en: 'AI estimate failed' },
+
+  // 标签
+  tagFamily:           { zh: '家庭',     en: 'Family' },
+  tagScan:             { zh: '📷 扫码', en: '📷 Scanned' },
+  tagManual:           { zh: '手动',     en: 'Manual' },
+  tagCustom:           { zh: '自制',     en: 'Custom' },
+  tagRecipe:           { zh: '🧪 自制', en: '🧪 Custom' },
+
+  // 添加食物模态框
+  servingInferred:     { zh: '份量为系统推断，如不准确请切换「按克重」', en: 'Serving size is inferred. Switch to "By Grams" if inaccurate.' },
+  gramsPlaceholder:    { zh: '输入克数',  en: 'Enter grams' },
+  selectedPrefix:      { zh: '已选：',   en: 'Selected: ' },
+
+  // 食材库
+  emptyLabel:          { zh: '（空）',   en: '(empty)' },
+  itemUnit:            { zh: '种',       en: 'items' },
+  pantryEmpty:         { zh: '食材库是空的',              en: 'Pantry is empty' },
+  pantryEmptyHint:     { zh: '扫描包装袋或组合食材，保存到这里', en: 'Scan packages or build recipes to save here' },
+  savedBadge:          { zh: '✓ 已保存', en: '✓ Saved' },
+  ingredientsList:     { zh: '配料',     en: 'Ingredients' },
+  addToLog:            { zh: '＋ 添加到今日饮食', en: '＋ Add to Today' },
+  familyReadOnly:      { zh: '（只读，可添加到今日）', en: '(Read-only, can add to today)' },
+  proteinShort:        { zh: '蛋白',     en: 'Protein' },
+
+  // 档案编辑
+  myGoal:              { zh: '我的目标', en: 'My Goal' },
+  bodyData:            { zh: '身体数据', en: 'Body Data' },
+  savingEllipsis:      { zh: '保存中…',  en: 'Saving…' },
+  optional:            { zh: '可选',     en: 'Optional' },
+
+  // 目标描述
+  goal_fat_loss_desc:       { zh: '温和热量缺口，避免暴饮暴食，可持续减脂',        en: 'Moderate calorie deficit for sustainable fat loss' },
+  goal_muscle_gain_desc:    { zh: '适当增加蛋白质和优质碳水，支撑肌肉生长',        en: 'Increase protein and quality carbs to support muscle growth' },
+  goal_healthy_eating_desc: { zh: '均衡饮食，关注抗炎、控糖等高级营养指标',        en: 'Balanced diet focusing on anti-inflammatory and blood sugar control' },
+  goal_blood_sugar_desc:    { zh: '关注 GI 值，优先低GI食物，控制血糖波动',       en: 'Focus on GI values, prioritize low-GI foods to control blood sugar' },
 };
 
 export function t(key: string, locale?: Locale): string {

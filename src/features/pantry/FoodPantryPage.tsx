@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
+import { useLocale } from '../../i18n/useLocale';
 import type { FoodItem } from '../../types/food';
 import {
   getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods, updateCustomFood,
@@ -18,21 +19,22 @@ import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
 import { RecipeBuilder } from '../food-log/RecipeBuilder';
 
 function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; onClose: () => void }) {
+  const { t } = useLocale();
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const n = record.per100g;
   const rows = [
-    { label: '蛋白质',   value: n.protein,      unit: 'g'  },
-    { label: '碳水化合物', value: n.carbs,       unit: 'g'  },
-    { label: '脂肪',     value: n.fat,           unit: 'g'  },
-    { label: '膳食纤维', value: n.fiber,         unit: 'g'  },
-    ...(n.sugar        != null ? [{ label: '糖',      value: n.sugar,       unit: 'g'  }] : []),
-    ...(n.saturatedFat != null ? [{ label: '饱和脂肪', value: n.saturatedFat, unit: 'g' }] : []),
-    ...(n.sodium       != null ? [{ label: '钠',      value: n.sodium,      unit: 'mg' }] : []),
-    ...(n.omega3       != null ? [{ label: 'Omega-3', value: n.omega3,      unit: 'mg' }] : []),
-    ...(n.vitaminC     != null ? [{ label: '维生素C',  value: n.vitaminC,   unit: 'mg' }] : []),
-    ...(n.calcium      != null ? [{ label: '钙',      value: n.calcium,     unit: 'mg' }] : []),
-    ...(n.iron         != null ? [{ label: '铁',      value: n.iron,        unit: 'mg' }] : []),
-    ...(n.potassium    != null ? [{ label: '钾',      value: n.potassium,   unit: 'mg' }] : []),
+    { label: t('protein'),      value: n.protein,      unit: 'g'  },
+    { label: t('carbs'),        value: n.carbs,        unit: 'g'  },
+    { label: t('fat'),          value: n.fat,          unit: 'g'  },
+    { label: t('fiber'),        value: n.fiber,        unit: 'g'  },
+    ...(n.sugar        != null ? [{ label: t('sugar'),       value: n.sugar,       unit: 'g'  }] : []),
+    ...(n.saturatedFat != null ? [{ label: t('saturatedFat'), value: n.saturatedFat, unit: 'g' }] : []),
+    ...(n.sodium       != null ? [{ label: t('sodium'),      value: n.sodium,      unit: 'mg' }] : []),
+    ...(n.omega3       != null ? [{ label: t('omega3'),      value: n.omega3,      unit: 'mg' }] : []),
+    ...(n.vitaminC     != null ? [{ label: t('vitaminC'),    value: n.vitaminC,    unit: 'mg' }] : []),
+    ...(n.calcium      != null ? [{ label: t('calcium'),     value: n.calcium,     unit: 'mg' }] : []),
+    ...(n.iron         != null ? [{ label: t('iron'),        value: n.iron,        unit: 'mg' }] : []),
+    ...(n.potassium    != null ? [{ label: t('potassium'),   value: n.potassium,   unit: 'mg' }] : []),
   ];
 
   const { cardRef, dragHandlers } = useSwipeDown(onClose);
@@ -58,7 +60,7 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
         <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start gap-3 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-gray-900 text-base">{record.name}</div>
-            <div className="text-sm text-gray-400 mt-0.5">以下数据均为每100g</div>
+            <div className="text-sm text-gray-400 mt-0.5">{t('perHundredG')}</div>
           </div>
           {record.imageDataUrl && (
             <img
@@ -109,6 +111,7 @@ type SubView = 'list' | 'scanner' | 'recipe';
 type CloudStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
 export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPantryPageProps) {
+  const { t } = useLocale();
   const [subView, setSubView] = useState<SubView>('list');
   const [editingRecipe, setEditingRecipe] = useState<CustomFoodRecord | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<CustomFoodRecord | null>(null);
@@ -260,7 +263,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10 shrink-0">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
           <div className="w-14 shrink-0" />
-          <h1 className="flex-1 text-center font-semibold text-gray-900">我的食材库</h1>
+          <h1 className="flex-1 text-center font-semibold text-gray-900">{t('pantryTitle')}</h1>
           {/* 云同步状态 */}
           <button
             onClick={handleForceSync}
@@ -270,17 +273,17 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
             {cloudStatus === 'syncing' && (
               <span className="text-gray-400 flex items-center gap-1">
                 <span className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin inline-block" />
-                同步中
+                {t('syncing')}
               </span>
             )}
             {cloudStatus === 'synced' && (
-              <span className="text-green-500" style={{ fontSize: '0.8rem' }}>☁️ 已同步</span>
+              <span className="text-green-500" style={{ fontSize: '0.8rem' }}>{t('synced')}</span>
             )}
             {cloudStatus === 'error' && (
-              <span className="text-red-400">⚠️ 重试</span>
+              <span className="text-red-400">{t('retry')}</span>
             )}
             {cloudStatus === 'idle' && (
-              <span className="text-gray-400">{records.length} 种</span>
+              <span className="text-gray-400">{records.length} {t('itemUnit')}</span>
             )}
           </button>
         </div>
@@ -293,13 +296,13 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
             onClick={() => setSubView('scanner')}
             className="py-3.5 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-semibold transition-colors shadow-sm"
           >
-            <span>📷</span> 扫描包装袋
+            {t('scanPackage')}
           </button>
           <button
             onClick={() => setSubView('recipe')}
             className="py-3.5 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-2xl text-sm font-semibold transition-colors shadow-sm"
           >
-            <span>🧪</span> 组合食材
+            {t('buildRecipe')}
           </button>
         </div>
       </div>
@@ -311,17 +314,17 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
         <div className="pt-2">
           <div className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
             <span>🗄️</span>
-            你的食材库
+            {t('myPantry')}
             {records.length === 0 && (
-              <span className="text-xs text-gray-300 font-normal">（空）</span>
+              <span className="text-xs text-gray-300 font-normal">{t('emptyLabel')}</span>
             )}
           </div>
 
           {records.length === 0 && familyRecords.length === 0 && (
             <div className="text-center py-10">
               <div className="text-5xl mb-4">📦</div>
-              <div className="text-gray-600 font-medium mb-1">食材库是空的</div>
-              <div className="text-gray-400 text-sm">扫描包装袋或组合食材，保存到这里</div>
+              <div className="text-gray-600 font-medium mb-1">{t('pantryEmpty')}</div>
+              <div className="text-gray-400 text-sm">{t('pantryEmptyHint')}</div>
             </div>
           )}
 
@@ -355,20 +358,20 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                               }}
                               className="flex-1 text-sm font-semibold border-b border-green-400 focus:outline-none bg-transparent py-0.5"
                             />
-                            <button onClick={() => handleRename(record.id, renameValue)} className="text-xs text-green-600 font-medium shrink-0">保存</button>
-                            <button onClick={() => setRenamingId(null)} className="text-xs text-gray-400 shrink-0">取消</button>
+                            <button onClick={() => handleRename(record.id, renameValue)} className="text-xs text-green-600 font-medium shrink-0">{t('save')}</button>
+                            <button onClick={() => setRenamingId(null)} className="text-xs text-gray-400 shrink-0">{t('cancel')}</button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-gray-900">{record.name}</span>
                             {isNew && (
-                              <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">✓ 已保存</span>
+                              <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">{t('savedBadge')}</span>
                             )}
                             {record.pantrySource === 'scanned' && (
-                              <span className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0">📷 扫码</span>
+                              <span className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0">{t('tagScan')}</span>
                             )}
                             {record.pantrySource === 'recipe' && (
-                              <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">🧪 自制</span>
+                              <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">{t('tagRecipe')}</span>
                             )}
                           </div>
                         )}
@@ -381,8 +384,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                       {/* 编辑 + 删除 */}
                       {deleteConfirm === record.id ? (
                         <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-400 hover:text-gray-600">取消</button>
-                          <button onClick={() => handleDelete(record.id)} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors">确认删除</button>
+                          <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-400 hover:text-gray-600">{t('cancel')}</button>
+                          <button onClick={() => handleDelete(record.id)} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors">{t('confirmDelete')}</button>
                         </div>
                       ) : renamingId !== record.id ? (
                         <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
@@ -405,17 +408,17 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
 
                     {/* 营养数据 */}
                     <div className="grid grid-cols-4 gap-2 text-center mb-3">
-                      <NutriBadge label="热量" value={`${record.per100g.calories}`} unit="kcal" color="amber" />
-                      <NutriBadge label="蛋白" value={formatNumber(record.per100g.protein)} unit="g" color="blue" />
-                      <NutriBadge label="碳水" value={formatNumber(record.per100g.carbs)} unit="g" color="orange" />
-                      <NutriBadge label="脂肪" value={formatNumber(record.per100g.fat)} unit="g" color="red" />
+                      <NutriBadge label={t('calories')} value={`${record.per100g.calories}`} unit="kcal" color="amber" />
+                      <NutriBadge label={t('proteinShort')} value={formatNumber(record.per100g.protein)} unit="g" color="blue" />
+                      <NutriBadge label={t('carbs')} value={formatNumber(record.per100g.carbs)} unit="g" color="orange" />
+                      <NutriBadge label={t('fat')} value={formatNumber(record.per100g.fat)} unit="g" color="red" />
                     </div>
-                    <div className="text-xs text-gray-400 mb-3 text-center">以上数据均为每100g</div>
+                    <div className="text-xs text-gray-400 mb-3 text-center">{t('perHundredG')}</div>
 
                     {/* 食材明细 */}
                     {record.ingredients.length > 0 && (
                       <div className="bg-gray-50 rounded-xl p-2.5 mb-3">
-                        <div className="text-xs text-gray-400 mb-1.5">配料</div>
+                        <div className="text-xs text-gray-400 mb-1.5">{t('ingredientsList')}</div>
                         <div className="flex flex-wrap gap-1.5">
                           {record.ingredients.map(ing => (
                             <span
@@ -435,7 +438,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                         onClick={e => { e.stopPropagation(); handleAddToLog(record); }}
                         className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium rounded-xl transition-colors"
                       >
-                        ＋ 添加到今日饮食
+                        {t('addToLog')}
                       </button>
                     )}
                   </div>
@@ -450,8 +453,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
         {familyRecords.length > 0 && (
           <div className="pt-4">
             <div className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
-              <span>👨‍👩‍👧</span> 家庭食材库
-              <span className="text-xs text-gray-400 font-normal">（只读，可添加到今日）</span>
+              <span>👨‍👩‍👧</span> {t('familyPantry')}
+              <span className="text-xs text-gray-400 font-normal">{t('familyReadOnly')}</span>
             </div>
             <div className="space-y-3">
               {familyRecords.map((record, idx) => (
@@ -466,7 +469,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-gray-900">{record.name}</span>
                           <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full shrink-0">
-                            👨‍👩‍👧 家庭
+                            👨‍👩‍👧 {t('tagFamily')}
                           </span>
                         </div>
                         {record.servingSizes?.length > 0 && (
@@ -477,18 +480,18 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2 text-center mb-3">
-                      <NutriBadge label="热量" value={`${record.per100g.calories}`} unit="kcal" color="amber" />
-                      <NutriBadge label="蛋白" value={formatNumber(record.per100g.protein)} unit="g" color="blue" />
-                      <NutriBadge label="碳水" value={formatNumber(record.per100g.carbs)} unit="g" color="orange" />
-                      <NutriBadge label="脂肪" value={formatNumber(record.per100g.fat)} unit="g" color="red" />
+                      <NutriBadge label={t('calories')} value={`${record.per100g.calories}`} unit="kcal" color="amber" />
+                      <NutriBadge label={t('proteinShort')} value={formatNumber(record.per100g.protein)} unit="g" color="blue" />
+                      <NutriBadge label={t('carbs')} value={formatNumber(record.per100g.carbs)} unit="g" color="orange" />
+                      <NutriBadge label={t('fat')} value={formatNumber(record.per100g.fat)} unit="g" color="red" />
                     </div>
-                    <div className="text-xs text-gray-400 mb-3 text-center">以上数据均为每100g</div>
+                    <div className="text-xs text-gray-400 mb-3 text-center">{t('perHundredG')}</div>
                     {onAddToLog && (
                       <button
                         onClick={e => { e.stopPropagation(); onAddToLog(recordToFoodItem(record)); }}
                         className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium rounded-xl transition-colors"
                       >
-                        ＋ 添加到今日饮食
+                        {t('addToLog')}
                       </button>
                     )}
                   </div>
@@ -505,7 +508,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
           onClick={onClose}
           className="w-full py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 border border-gray-300 text-gray-600 font-medium transition-colors"
         >
-          ↵ 返回
+          {t('back')}
         </button>
       </div>
 

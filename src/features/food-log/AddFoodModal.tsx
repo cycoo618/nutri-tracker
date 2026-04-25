@@ -13,6 +13,7 @@ import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import { getAllCustomFoods } from '../../utils/customFoods';
+import { useLocale } from '../../i18n/useLocale';
 
 interface AddFoodModalProps {
   food: FoodItem;
@@ -26,6 +27,7 @@ interface AddFoodModalProps {
 type InputMode = 'serving' | 'grams';
 
 export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm, onBack, onClose }: AddFoodModalProps) {
+  const { t } = useLocale();
   // recentFoods stores FoodItem without ingredients; look up fresh from localStorage
   const food = useMemo(() => {
     if (foodProp.source !== 'user_added' || foodProp.ingredients) return foodProp;
@@ -129,7 +131,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                   mode === 'serving' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
-                按份量
+                {t('byServing')}
               </button>
               <button
                 onClick={() => setMode('grams')}
@@ -137,7 +139,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                   mode === 'grams' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
-                按克重
+                {t('byGrams')}
               </button>
             </div>
           </div>
@@ -164,7 +166,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 
               {/* 份数 +/- */}
               <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-500">份数</span>
+                <span className="text-sm text-gray-500">{t('servings')}</span>
                 <div className="flex items-center gap-0 bg-gray-100 rounded-xl overflow-hidden">
                   <button
                     onClick={() => changeQty(-0.5)}
@@ -200,7 +202,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
               {/* 推断提示 — 仅当无内置份量时显示 */}
               {(food.servingSizes?.length ?? 0) === 0 && (
                 <div className="text-xs text-gray-400">
-                  份量为系统推断，如不准确请切换「按克重」
+                  {t('servingInferred')}
                 </div>
               )}
             </div>
@@ -216,7 +218,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                   onChange={e => setGrams(e.target.value)}
                   onFocus={autoSelect}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="输入克数"
+                  placeholder={t('gramsPlaceholder')}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">g</span>
               </div>
@@ -241,13 +243,13 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 
           {/* 当前选择预览 */}
           <div className="text-xs text-gray-400 text-center">
-            已选：{displayUnit}
+            {t('selectedPrefix')}{displayUnit}
           </div>
 
           {/* 食材组成（仅组合食物） */}
           {food.ingredients && food.ingredients.length > 0 && (
             <div className="bg-blue-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-blue-700 mb-2">食材组成</div>
+              <div className="text-sm font-medium text-blue-700 mb-2">{t('ingredients')}</div>
               <div className="grid grid-cols-2 gap-y-1.5 gap-x-6">
                 {food.ingredients.map((ing, i) => (
                   <div key={i} className="flex justify-between items-baseline text-xs">
@@ -262,27 +264,27 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
           {/* 营养数据 */}
           <div className="bg-gray-50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-gray-700">营养数据</span>
+              <span className="text-sm font-medium text-gray-700">{t('nutritionData')}</span>
               <GIBadge gi={food.gi} />
             </div>
             <div className="grid grid-cols-2 gap-y-2 gap-x-6">
-              <NutrientRow label="热量" value={formatNumber(nutrition.calories)} unit="kcal" highlight />
-              <NutrientRow label="蛋白质" value={formatNumber(nutrition.protein)} unit="g" />
-              <NutrientRow label="碳水" value={formatNumber(nutrition.carbs)} unit="g" />
-              <NutrientRow label="脂肪" value={formatNumber(nutrition.fat)} unit="g" />
-              <NutrientRow label="膳食纤维" value={formatNumber(nutrition.fiber)} unit="g" />
+              <NutrientRow label={t('calories')} value={formatNumber(nutrition.calories)} unit="kcal" highlight />
+              <NutrientRow label={t('protein')} value={formatNumber(nutrition.protein)} unit="g" />
+              <NutrientRow label={t('carbs')} value={formatNumber(nutrition.carbs)} unit="g" />
+              <NutrientRow label={t('fat')} value={formatNumber(nutrition.fat)} unit="g" />
+              <NutrientRow label={t('fiber')} value={formatNumber(nutrition.fiber)} unit="g" />
               {nutrition.sugar !== undefined && (
-                <NutrientRow label="糖" value={formatNumber(nutrition.sugar)} unit="g" />
+                <NutrientRow label={t('sugar')} value={formatNumber(nutrition.sugar)} unit="g" />
               )}
               {nutrition.sodium !== undefined && (
-                <NutrientRow label="钠" value={formatNumber(nutrition.sodium)} unit="mg" />
+                <NutrientRow label={t('sodium')} value={formatNumber(nutrition.sodium)} unit="mg" />
               )}
             </div>
             {food.source === 'ai_estimated' && (
-              <div className="mt-2 text-xs text-amber-500">⚠ AI 估算数据，仅供参考</div>
+              <div className="mt-2 text-xs text-amber-500">{t('aiDataNote')}</div>
             )}
             {food.source === 'user_added' && (
-              <div className="mt-2 text-xs text-blue-500">📝 用户录入数据</div>
+              <div className="mt-2 text-xs text-blue-500">{t('userDataNote')}</div>
             )}
           </div>
 
@@ -292,7 +294,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
             disabled={actualGrams <= 0}
             className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            添加 · {formatNumber(nutrition.calories)} kcal
+            {t('addButton')} · {formatNumber(nutrition.calories)} kcal
           </button>
         </div>
 

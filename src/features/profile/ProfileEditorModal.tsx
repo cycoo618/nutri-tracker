@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { UserProfile, GoalType } from '../../types/user';
-import { GOAL_LABELS, GOAL_DESCRIPTIONS } from '../../types/user';
 import { autoSelect } from '../../utils/inputHelpers';
+import { useLocale } from '../../i18n/useLocale';
 
 interface Props {
   profile: UserProfile;
@@ -18,6 +18,7 @@ interface Props {
 const GOALS: GoalType[] = ['fat_loss', 'muscle_gain', 'healthy_eating', 'blood_sugar'];
 
 export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
+  const { t } = useLocale();
   const [goal, setGoal] = useState<GoalType>(profile.goal);
   const [weight, setWeight] = useState(String(profile.bodyMetrics?.weight ?? ''));
   const [bodyFat, setBodyFat] = useState(String(profile.bodyMetrics?.bodyFat ?? ''));
@@ -63,13 +64,13 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
         {/* Header */}
         <div className="px-4 pb-3 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div className="w-10" />
-          <h3 className="font-semibold text-gray-900">我的数据</h3>
+          <h3 className="font-semibold text-gray-900">{t('myData')}</h3>
           <button
             onClick={handleSave}
             disabled={saving}
             className="text-sm font-semibold text-green-600 hover:text-green-700 disabled:text-gray-300"
           >
-            {saving ? '保存中…' : '保存'}
+            {saving ? t('savingEllipsis') : t('save')}
           </button>
         </div>
 
@@ -77,7 +78,7 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
 
           {/* 目标 */}
           <section>
-            <div className="text-sm font-medium text-gray-700 mb-3">我的目标</div>
+            <div className="text-sm font-medium text-gray-700 mb-3">{t('myGoal')}</div>
             <div className="space-y-2">
               {GOALS.map(g => (
                 <button
@@ -89,8 +90,8 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
                       : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <div className="font-medium text-sm">{GOAL_LABELS[g]}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{GOAL_DESCRIPTIONS[g]}</div>
+                  <div className="font-medium text-sm">{t(`goal_${g}`)}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{t(`goal_${g}_desc`)}</div>
                 </button>
               ))}
             </div>
@@ -98,10 +99,10 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
 
           {/* 身体数据 */}
           <section>
-            <div className="text-sm font-medium text-gray-700 mb-3">身体数据</div>
+            <div className="text-sm font-medium text-gray-700 mb-3">{t('bodyData')}</div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">体重 (kg)</label>
+                <label className="text-xs text-gray-500 mb-1 block">{t('bodyWeight')}</label>
                 <input
                   type="number"
                   value={weight}
@@ -112,7 +113,7 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">体脂率 (%) <span className="text-gray-300">可选</span></label>
+                <label className="text-xs text-gray-500 mb-1 block">{t('bodyFat')} <span className="text-gray-300">{t('optional')}</span></label>
                 <input
                   type="number"
                   value={bodyFat}
@@ -127,7 +128,7 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
 
           {/* 热量目标 */}
           <section>
-            <div className="text-sm font-medium text-gray-700 mb-3">每日热量目标</div>
+            <div className="text-sm font-medium text-gray-700 mb-3">{t('calorieTarget')}</div>
             <div className="relative">
               <input
                 type="number"

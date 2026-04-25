@@ -19,6 +19,7 @@ import { RecipeBuilder } from './RecipeBuilder';
 import { NutritionLabelScanner } from './NutritionLabelScanner';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import { estimateFoodNutrition, getGroqKey } from '../../services/nutrition-vision';
+import { useLocale } from '../../i18n/useLocale';
 
 interface FoodSearchProps {
   recentFoods?: RecentFoodEntry[];
@@ -32,6 +33,7 @@ type SearchState = 'idle' | 'searching_online' | 'done';
 type View = 'search' | 'manual' | 'recipe' | 'scanner';
 
 export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClose }: FoodSearchProps) {
+  const { t } = useLocale();
   const [view, setView] = useState<View>('search');
   const [query, setQuery] = useState('');
   const [searchTrigger, setSearchTrigger] = useState(0);
@@ -76,7 +78,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       onSelect(food);
     } catch (e) {
       setAiState('error');
-      setAiError(e instanceof Error ? e.message : 'AI 估算失败');
+      setAiError(e instanceof Error ? e.message : t('aiEstimateFailed'));
     }
   };
 
@@ -167,10 +169,10 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         const online = await searchOpenFoodFacts(query);
         setResults(online);
         setOnlineResults(online);
-        if (online.length === 0) setOnlineError('联网搜索无结果');
+        if (online.length === 0) setOnlineError(t('onlineNoResults'));
       } catch (err) {
         console.warn('Online search failed:', err);
-        setOnlineError('联网搜索失败，请稍后再试');
+        setOnlineError(t('onlineSearchError'));
       }
       setOnlineSearched(true);
       setSearchState('done');
@@ -267,7 +269,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                   setQuery((e.target as HTMLInputElement).value);
                   setSearchTrigger(t => t + 1);
                 }}
-                placeholder="输入食物名称…"
+                placeholder={t('searchPlaceholder')}
                 className="flex-1 min-w-0 bg-transparent py-4 focus:outline-none text-base placeholder-gray-400"
               />
               {query ? (
@@ -286,7 +288,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               >
                 {aiState === 'loading'
                   ? <span className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                  : <><span className="text-base leading-none">🤖</span><span>AI 估算</span></>}
+                  : <><span className="text-base leading-none">🤖</span><span>{t('aiEstimateShort')}</span></>}
               </button>
             )}
           </div>
@@ -294,7 +296,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           {searchState === 'searching_online' && (
             <div className="mt-2 text-xs text-blue-500 flex items-center gap-1.5">
               <span className="inline-block w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              {results.length > 0 ? '正在联网搜索更多…' : '本地未找到，正在联网搜索…'}
+              {results.length > 0 ? t('searchingMore') : t('searchingOnline')}
             </div>
           )}
         </div>
@@ -307,7 +309,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           {noResults && (
             <div className="px-4 pt-3 pb-2 space-y-2.5">
               <div className="text-sm text-gray-400 text-center">
-                没有找到「{query}」{onlineError?.includes('失败') ? '（联网搜索失败）' : ''}
+                {t('noResults')}「{query}」{onlineError?.includes('失败') || onlineError?.includes('failed') ? t('onlineSearchFailed') : ''}
               </div>
 
               {aiState === 'error' && aiError && (
@@ -319,7 +321,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                 onClick={() => setView('scanner')}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
               >
-                <span>📷</span> 拍照识别包装营养标签
+                <span>📷</span> {t('scanPackageLabel')}
               </button>
 
               <div className="flex gap-2">
@@ -334,25 +336,25 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                         setOnlineResults(online);
                         setOnlineSearched(true);
                         setSearchState('done');
-                        if (!online.length) setOnlineError('联网搜索无结果');
+                        if (!online.length) setOnlineError(t('onlineNoResults'));
                       })
-                      .catch(() => { setOnlineError('联网搜索失败，请稍后再试'); setSearchState('done'); });
+                      .catch(() => { setOnlineError(t('onlineSearchError')); setSearchState('done'); });
                   }}
                   className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <span>🌐</span> 重新联网
+                  <span>🌐</span> {t('retryOnline')}
                 </button>
                 <button
                   onClick={() => setView('recipe')}
                   className="flex-1 py-2.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl text-sm font-medium transition-colors"
                 >
-                  🧪 组合食材
+                  {t('buildRecipe')}
                 </button>
                 <button
                   onClick={() => setView('manual')}
                   className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors"
                 >
-                  手动录入
+                  {t('manualEntry')}
                 </button>
               </div>
             </div>
@@ -368,7 +370,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               {/* 家庭成员食物 */}
               {familyResults.length > 0 && (
                 <>
-                  <div className="px-2 pt-3 pb-1 text-xs font-medium text-gray-400">家庭食物</div>
+                  <div className="px-2 pt-3 pb-1 text-xs font-medium text-gray-400">{t('familyFoods')}</div>
                   {familyResults.map((food, i) => (
                     <FoodResultItem key={`family_${food.id || i}`} food={food} onSelect={onSelect} isFamily />
                   ))}
@@ -384,7 +386,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                 onClick={handleOnlineSearch}
                 className="w-full py-2.5 text-sm text-blue-500 hover:text-blue-700 border border-blue-100 hover:border-blue-300 rounded-xl transition-colors flex items-center justify-center gap-1.5"
               >
-                <span>🌐</span> 联网搜索更多结果
+                <span>🌐</span> {t('onlineSearch')}
               </button>
             </div>
           )}
@@ -397,19 +399,19 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                   onClick={() => setView('scanner')}
                   className="flex-1 py-2 text-sm text-gray-400 hover:text-blue-600 transition-colors text-center"
                 >
-                  📷 拍照识别
+                  {t('scanLabel')}
                 </button>
                 <button
                   onClick={() => setView('recipe')}
                   className="flex-1 py-2 text-sm text-gray-500 hover:text-green-600 transition-colors text-center"
                 >
-                  🧪 自定义食物
+                  {t('customFood')}
                 </button>
                 <button
                   onClick={() => setView('manual')}
                   className="flex-1 py-2 text-sm text-gray-400 hover:text-green-600 transition-colors text-center"
                 >
-                  手动录入
+                  {t('manualEntry')}
                 </button>
               </div>
             </div>
@@ -424,19 +426,19 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                   onClick={() => setView('scanner')}
                   className="py-3 flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-sm text-blue-700 font-medium transition-colors"
                 >
-                  <span>📷</span> 拍照识别
+                  <span>📷</span> {t('scanLabel')}
                 </button>
                 <button
                   onClick={() => setView('recipe')}
                   className="py-3 flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl text-sm text-green-700 font-medium transition-colors"
                 >
-                  <span>🧪</span> 自定义食物
+                  <span>🧪</span> {t('customFood')}
                 </button>
               </div>
 
               {recentFoods.length > 0 ? (
                 <>
-                  <div className="text-xs font-medium text-gray-400 mb-3">常用食物</div>
+                  <div className="text-xs font-medium text-gray-400 mb-3">{t('recentFoods')}</div>
                   <div className="flex flex-wrap gap-2">
                     {recentFoods.map(entry => (
                       <button
@@ -456,7 +458,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               ) : (
                 <div className="text-center py-4">
                   <div className="text-4xl mb-3">🥗</div>
-                  <div className="text-gray-400 text-sm">输入食物名称开始搜索</div>
+                  <div className="text-gray-400 text-sm">{t('searchHint')}</div>
                 </div>
               )}
             </div>
@@ -474,7 +476,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           onClick={onClose}
           className="w-full max-w-lg mx-auto block py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 border border-gray-300 text-gray-600 font-medium transition-colors"
         >
-          ↵ 返回
+          {t('back')}
         </button>
       </div>
     </div>
@@ -490,6 +492,7 @@ function FoodResultItem({
   onSelect: (food: FoodItem) => void;
   isFamily?: boolean;
 }) {
+  const { t } = useLocale();
   return (
     <button
       onClick={() => onSelect(food)}
@@ -500,12 +503,12 @@ function FoodResultItem({
           <span className="font-medium text-gray-900 truncate">{food.name}</span>
           {isFamily && (
             <span className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded shrink-0">
-              👨‍👩‍👧 家庭
+              👨‍👩‍👧 {t('tagFamily')}
             </span>
           )}
           {!isFamily && food.source === 'user_added' && (
             <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded shrink-0">
-              {food.tags?.includes('扫码') ? '📷 扫码' : food.tags?.includes('手动') ? '手动' : '自制'}
+              {food.tags?.includes('扫码') ? t('tagScan') : food.tags?.includes('手动') ? t('tagManual') : t('tagCustom')}
             </span>
           )}
           {food.brand && (
@@ -515,7 +518,7 @@ function FoodResultItem({
         <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
           <span>{FOOD_CATEGORY_LABELS[food.category]}</span>
           <span>{food.per100g.calories} kcal/100g</span>
-          <span>蛋白 {food.per100g.protein}g</span>
+          <span>{t('proteinShort')} {food.per100g.protein}g</span>
         </div>
       </div>
       <GIBadge gi={food.gi} />
