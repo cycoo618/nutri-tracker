@@ -1,61 +1,52 @@
 // ============================================
-// Serving label localization
-// Translates Chinese measure-word labels to English on-the-fly.
-// Works purely via regex substitution — no i18n dependency.
+// Serving label localization — bidirectional
+// ZH→EN  and  EN→ZH  via ordered regex substitutions.
 // ============================================
 
 import type { Locale } from '../i18n';
 
-/**
- * Ordered replacement rules applied left-to-right.
- * Rules with leading spaces handle "digit immediately before Chinese unit"
- * (e.g. 1碗 → "1 bowl") so we don't need a generic digit+letter spacer,
- * which would incorrectly split measurement units like 100g → "100 g".
- *
- * More specific / longer patterns MUST come before shorter ones.
- */
-const RULES: [RegExp, string][] = [
-  // ── Multi-token patterns ────────────────────────────────────────
-  // "1份6个 (150g)" → "6 pcs (150g)"
+// ── ZH → EN rules ───────────────────────────────────────────────────────────
+// Leading spaces on unit replacements handle "1碗" → "1 bowl" without a
+// generic digit+letter spacer (which would incorrectly split "100g" → "100 g").
+const ZH_TO_EN: [RegExp, string][] = [
+  // Multi-token: "1份6个 (150g)" → "6 pcs (150g)"
   [/(\d+)份(\d+)个/g, '$2 pcs'],
   // "6只约 (60g)" → "~6 pcs (60g)"
   [/(\d+)只约/g, '~$1 pcs'],
 
-  // ── Inline size with 约 — must come BEFORE 约→~ and 个→piece ────
-  // "1个(中，约150g)" → "1 medium (~150g)"
+  // Inline size with 约 — must come BEFORE 约→~ and 个→piece
   [/个\(中，约/g, ' medium (~'],
   [/个\(大，约/g, ' large (~'],
   [/个\(小，约/g, ' small (~'],
-  // Without 约: "1个(中，150g)"
-  [/个\(中，/g, ' medium ('],
-  [/个\(大，/g, ' large ('],
-  [/个\(小，/g, ' small ('],
+  [/个\(中，/g,   ' medium ('],
+  [/个\(大，/g,   ' large ('],
+  [/个\(小，/g,   ' small ('],
 
   // 约 → ~
   [/约/g, '~'],
 
-  // ── State modifiers ─────────────────────────────────────────────
+  // State modifiers
   [/煮熟/g, ' cooked'],
   [/可食/g, ' edible'],
   [/带骨/g, ' with bone'],
   [/全翅/g, ' whole wing'],
-  [/蛋白/g, ' white'],    // 1个蛋的蛋白
-  [/蛋黄/g, ' yolk'],     // 1个蛋的蛋黄
+  [/蛋白/g, ' white'],
+  [/蛋黄/g, ' yolk'],
   [/仁/g,   ' kernel'],
   [/干/g,   ' dry'],
 
-  // ── 半 compounds — must precede bare 半 and individual units ────
-  [/半个/g,  '½ piece'],
-  [/半份/g,  '½ serving'],
-  [/半碗/g,  '½ bowl'],
-  [/半包/g,  '½ pack'],
-  [/半杯/g,  '½ cup'],
-  [/半瓶/g,  '½ bottle'],
-  [/半条/g,  '½ bar'],
-  [/半块/g,  '½ piece'],
-  [/半/g,    '½'],   // bare 半 (e.g. 半张, 半串) — no trailing space; trim handles it
+  // 半 compounds — before bare 半 and individual units
+  [/半个/g, '½ piece'],
+  [/半份/g, '½ serving'],
+  [/半碗/g, '½ bowl'],
+  [/半包/g, '½ pack'],
+  [/半杯/g, '½ cup'],
+  [/半瓶/g, '½ bottle'],
+  [/半条/g, '½ bar'],
+  [/半块/g, '½ piece'],
+  [/半/g,   '½'],
 
-  // ── Size+unit compounds — leading space so "1大碗" → "1 large bowl" ─
+  // Size+unit compounds — leading space so "1大碗" → "1 large bowl"
   [/中份/g,  ' medium serving'],
   [/大份/g,  ' large serving'],
   [/小份/g,  ' small serving'],
@@ -70,7 +61,7 @@ const RULES: [RegExp, string][] = [
   [/茶匙/g,  ' tsp'],
   [/汤匙/g,  ' tbsp'],
 
-  // ── Modifier attached to unit ───────────────────────────────────
+  // Modifier attached to unit
   [/个中/g,  ' medium'],
   [/个大/g,  ' large'],
   [/个小/g,  ' small'],
@@ -78,12 +69,11 @@ const RULES: [RegExp, string][] = [
   [/根大/g,  ' large'],
   [/块大/g,  ' large piece'],
   [/条大/g,  ' large bar'],
-  // Standalone size descriptors inside parentheses
   [/小，/g,  'small, '],
   [/中，/g,  'medium, '],
   [/大，/g,  'large, '],
 
-  // ── Single units — leading space so "1碗" → "1 bowl" ────────────
+  // Single units — leading space so "1碗" → "1 bowl"
   [/碗/g,   ' bowl'],
   [/份/g,   ' serving'],
   [/片/g,   ' slice'],
@@ -101,36 +91,98 @@ const RULES: [RegExp, string][] = [
   [/包/g,   ' pack'],
   [/串/g,   ' cluster'],
   [/张/g,   ' piece'],
-  [/颗/g,   ' pcs'],    // small round fruits/nuts
-  [/粒/g,   ' pcs'],    // grains / small items
+  [/颗/g,   ' pcs'],
+  [/粒/g,   ' pcs'],
   [/袋/g,   ' bag'],
-  [/貫/g,   ' piece'],  // sushi (traditional char)
-  [/贯/g,   ' piece'],  // sushi (simplified)
+  [/貫/g,   ' piece'],
+  [/贯/g,   ' piece'],
   [/寸/g,   ' inch'],
-  [/英寸/g, ' inch'],   // explicit just in case
-
-  // ── Misc descriptors ────────────────────────────────────────────
+  [/英寸/g, ' inch'],
   [/标准/g, 'standard'],
 
-  // ── Cleanup ─────────────────────────────────────────────────────
-  // Collapse multiple spaces (no digit+letter rule — avoids "100 g" breakage)
+  // Cleanup
+  [/  +/g, ' '],
+];
+
+// ── EN → ZH rules ───────────────────────────────────────────────────────────
+const EN_TO_ZH: [RegExp, string][] = [
+  // Starbucks sizes — before generic terms
+  [/Triple shot/gi,        '三份浓缩'],
+  [/Double shot/gi,        '双份浓缩'],
+  [/\bVenti\b/gi,          '超大杯'],
+  [/\bGrande\b/gi,         '大杯'],
+  [/\bTall\b/gi,           '中杯'],
+
+  // Measurement units (with optional plural -s/-es)
+  [/\btbsp\b/gi,           '汤匙'],
+  [/\btsp\b/gi,            '茶匙'],
+  [/\bscoops?\b/gi,        '勺'],
+  [/\bbowls?\b/gi,         '碗'],
+  [/\bservings?\b/gi,      '份'],
+  [/\bslices?\b/gi,        '片'],
+  [/\bpieces?\b/gi,        '个'],
+  [/\bpcs\b/gi,            '个'],
+  [/\bbottles?\b/gi,       '瓶'],
+  [/\bcans?\b/gi,          '罐'],
+  [/\bbars?\b/gi,          '条'],
+  [/\bbags?\b/gi,          '袋'],
+  [/\bpacks?\b/gi,         '包'],
+  [/\bhandfuls?\b/gi,      '把'],
+  [/\bclusters?\b/gi,      '串'],
+  [/\bcups?\b/gi,          '杯'],
+  [/\bshots?\b/gi,         '份'],
+  [/\binch(?:es)?\b/gi,    '寸'],
+  [/\bsquares?\b/gi,       '格'],
+
+  // Size modifiers
+  [/\blarge\b/gi,          '大'],
+  [/\bsmall\b/gi,          '小'],
+  [/\bmedium\b/gi,         '中'],
+  [/\bstandard\b/gi,       '标准'],
+
+  // State modifiers
+  [/\bcooked\b/gi,         '熟'],
+  [/\bdry\b/gi,            '干'],
+  [/\bedible\b/gi,         '可食'],
+  [/\bwith bone\b/gi,      '带骨'],
+
+  // Fractions / symbols
+  [/½/g, '半'],
+  [/¼/g, '1/4'],
+  [/~/g, '约'],
+
+  // Remove space between digit and Chinese unit: "1 杯" → "1杯"
+  [/(\d) ([\u4e00-\u9fff])/g, '$1$2'],
+  // Remove space between Chinese size modifier and unit: "大 碗" → "大碗", "半 份" → "半份"
+  [/([大小中半双三四五六]) ([\u4e00-\u9fff])/g, '$1$2'],
+
+  // Cleanup
   [/  +/g, ' '],
 ];
 
 /**
- * Localizes a serving size label for the given locale.
- * - 'zh': returns the label unchanged.
- * - 'en': applies ordered regex substitutions to translate Chinese measure
- *   words while preserving numeric values and gram/ml amounts.
+ * Localizes a serving size label:
+ * - 'en': translates Chinese measure words → English
+ * - 'zh': translates English measure words → Chinese
+ * Labels already in the target language are returned unchanged.
  */
 export function localizeServingLabel(label: string, locale: Locale): string {
-  if (locale === 'zh') return label;
-  // Fast path: no Chinese characters → already English
-  if (!/[\u4e00-\u9fff]/.test(label)) return label;
+  const hasChinese = /[\u4e00-\u9fff]/.test(label);
 
-  let s = label;
-  for (const [pattern, replacement] of RULES) {
-    s = s.replace(pattern, replacement);
+  if (locale === 'en') {
+    // Already English — nothing to do
+    if (!hasChinese) return label;
+    // Translate ZH → EN
+    let s = label;
+    for (const [p, r] of ZH_TO_EN) s = s.replace(p, r);
+    return s.trim();
   }
+
+  // locale === 'zh'
+  // Already Chinese — nothing to do
+  if (hasChinese) return label;
+  // Translate EN → ZH
+  let s = label;
+  for (const [p, r] of EN_TO_ZH) s = s.replace(p, r);
   return s.trim();
 }
