@@ -359,6 +359,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                   type="text"
                   value={extracted.name}
                   onChange={e => updateField('name', e.target.value)}
+                  onFocus={autoSelect}
                   className="w-full bg-gray-100 rounded-xl px-4 py-3 text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="输入食物名称"
                 />

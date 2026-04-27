@@ -187,10 +187,12 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                     onChange={e => setServingQtyStr(e.target.value)}
                     onFocus={e => { setInputFocused(true); const t = e.target; setTimeout(() => t.select(), 50); }}
                     onBlur={e => {
-                      setInputFocused(false);
-                      // 失焦时规范化：确保是合法正数
+                      // 延迟 200ms：让 click 事件先触发，避免布局位移导致确认按钮移位后 click 丢失
                       const v = parseFloat(e.target.value);
-                      setServingQtyStr(isNaN(v) || v <= 0 ? '1' : String(v));
+                      setTimeout(() => {
+                        setInputFocused(false);
+                        setServingQtyStr(isNaN(v) || v <= 0 ? '1' : String(v));
+                      }, 200);
                     }}
                     className="w-14 h-10 text-center text-sm font-semibold text-gray-800 bg-transparent focus:outline-none"
                   />
@@ -222,7 +224,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
                   value={grams}
                   onChange={e => setGrams(e.target.value)}
                   onFocus={e => { setInputFocused(true); autoSelect(e); }}
-                  onBlur={() => setInputFocused(false)}
+                  onBlur={() => setTimeout(() => setInputFocused(false), 200)}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-10 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder={t('gramsPlaceholder')}
                 />
