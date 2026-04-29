@@ -1,5 +1,11 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
+import {
+  getAuth,
+  setPersistence,
+  browserLocalPersistence,
+  GoogleAuthProvider,
+  OAuthProvider,
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -14,6 +20,13 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, 'default');
+
+// iOS Safari 的 ITP（Intelligent Tracking Prevention）会阻断 Firebase 默认的
+// indexedDB 跨域 iframe 方案，导致 session 无法持久化（每次打开都要重新登录）。
+// 强制使用 localStorage 存储 token，绕过 ITP 限制。
+setPersistence(auth, browserLocalPersistence).catch(err =>
+  console.warn('[Auth] setPersistence failed:', err)
+);
 
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');
