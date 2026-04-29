@@ -9,6 +9,7 @@ import { useSwipeDown } from '../../hooks/useSwipeDown';
 import type { FoodItem } from '../../types/food';
 import { FOOD_CATEGORY_LABELS } from '../../types/food';
 import { searchBuiltinFoods, searchOpenFoodFacts } from '../../services/food-lookup';
+import { searchCachedFoods, cacheFoods } from '../../utils/searchCache';
 import { searchCustomFoods, recordToFoodItem } from '../../utils/customFoods';
 import type { CustomFoodRecord } from '../../utils/customFoods';
 import { getFamily, getFamilyMemberFoods, getUserFoods } from '../../services/firestore';
@@ -76,6 +77,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         tags: ['AI估算'],
       };
       setAiState('idle');
+      cacheFoods([food]); // 缓存 AI 估算结果，下次搜索直接命中
       onSelect(food);
     } catch (e) {
       setAiState('error');
@@ -118,9 +120,12 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
     // ── 本地搜索：立即同步执行，零延迟 ────────────────────────────
     const custom = searchCustomFoods(query);
     const builtin = searchBuiltinFoods(query);
+    const cached = searchCachedFoods(query);
+    const seenIds = new Set([...custom.map(f => f.id), ...builtin.map(f => f.id)]);
     const localResults = [
       ...custom,
       ...builtin.filter(b => !custom.some(c => c.id === b.id)),
+      ...cached.filter(c => !seenIds.has(c.id)), // 缓存食物排在自定义和内置之后
     ];
 
     // ── 家庭成员食物：始终异步加载，不依赖本地结果是否存在 ────────
@@ -168,6 +173,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
     const timer = setTimeout(async () => {
       try {
         const online = await searchOpenFoodFacts(query);
+        cacheFoods(online); // 缓存联网结果
         setResults(online);
         setOnlineResults(online);
         if (online.length === 0) setOnlineError(t('onlineNoResults'));
@@ -187,6 +193,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
     setSearchState('searching_online');
     try {
       const online = await searchOpenFoodFacts(query);
+      cacheFoods(online); // 缓存联网结果
       setOnlineResults(online);
       const existingIds = new Set(results.map(r => r.id));
       setResults([...results, ...online.filter(r => !existingIds.has(r.id))]);

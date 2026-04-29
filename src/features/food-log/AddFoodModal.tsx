@@ -298,9 +298,11 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 
         </div>
 
-        {/* 确认按钮 — 滚动区外，始终固定在底部可见 */}
+        {/* 确认按钮 — 滚动区外，始终固定在底部可见
+            onMouseDown preventDefault：防止 iOS 上点击按钮时键盘先 blur 导致 click 丢失 */}
         <div className="px-4 pt-2 pb-1 shrink-0">
           <button
+            onMouseDown={e => e.preventDefault()}
             onClick={() => onConfirm(food, actualGrams, displayUnit)}
             disabled={actualGrams <= 0}
             className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
