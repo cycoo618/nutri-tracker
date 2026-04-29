@@ -231,7 +231,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
     );
   }
 
-  const noResults = searchState === 'done' && results.length === 0;
+  const noResults = searchState === 'done' && results.length === 0 && familyResults.length === 0;
   const hasLocalResults = results.length > 0 && !onlineSearched;
 
   return (
@@ -369,13 +369,13 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           )}
 
           {/* 搜索结果 */}
-          {results.length > 0 && (
+          {(results.length > 0 || familyResults.length > 0) && (
             <div className="p-2">
               {results.map((food, i) => (
                 <FoodResultItem key={food.id || i} food={food} onSelect={onSelect} />
               ))}
 
-              {/* 家庭成员食物 */}
+              {/* 家庭成员食物 — 独立渲染，即使本地无结果也可见 */}
               {familyResults.length > 0 && (
                 <>
                   <div className="px-2 pt-3 pb-1 text-xs font-medium text-gray-400">{t('familyFoods')}</div>
@@ -400,7 +400,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           )}
 
           {/* 底部操作入口（有结果时） */}
-          {results.length > 0 && (
+          {(results.length > 0 || familyResults.length > 0) && (
             <div className="px-4 pb-4 pt-1 border-t border-gray-50 space-y-2">
               <div className="flex gap-3">
                 <button
