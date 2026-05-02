@@ -109,25 +109,73 @@ async function fetchAiInsight(stats: Stats, profile: UserProfile): Promise<AiIns
   const goal = profile.goal;
   const target = profile.targetCalories;
 
-  const prompt = `你是专业营养师，请分析以下近30天饮食数据，给出深度洞察：
+  // ── 目标特定的分析框架 ───────────────────────────────────────────
+  const goalFrameworks: Record<string, string> = {
+    healthy_eating: `
+【分析框架：地中海饮食标准】
+请严格按地中海饮食金字塔评估用户的饮食结构：
+✅ 基础（每餐应有）：蔬菜、水果、全谷物、橄榄油、豆类、坚果、香草香料
+✅ 每周应有：鱼类/海鲜（≥2次）、低脂乳制品（酸奶/奶酪）、鸡蛋（2-4次）
+⚠️ 应适量：禽肉（每周）、红肉（每月不超过1-2次）
+❌ 应避免：加工食品、精制糖、反式脂肪、含糖饮料
+关键营养素重点：膳食纤维（≥25g）、Omega-3脂肪酸、抗氧化物、健康脂肪占比
+请从地中海饮食合规度角度评估食物清单，指出哪些符合/不符合地中海饮食原则。`,
 
-【用户目标】${goal}，每日热量目标 ${target} kcal
-【有记录天数】${stats.daysLogged} 天
+    fat_loss: `
+【分析框架：科学减脂标准】
+热量缺口是否合理（建议缺口 300-500 kcal/天，避免过度节食）
+蛋白质是否充足（建议 1.6-2.2g/kg 体重，防止肌肉流失）
+碳水质量（优先低GI全谷物，避免精制糖）
+饱腹感食物摄入（高纤维、高蛋白食物频率）
+避免：空热量食物、高糖饮料、超加工食品`,
+
+    muscle_gain: `
+【分析框架：增肌营养标准】
+蛋白质摄入是否达标（目标 1.8-2.5g/kg 体重/天，且分散在各餐）
+热量盈余是否合理（建议盈余 200-400 kcal，避免过多脂肪增加）
+碳水是否充足（训练能量来源，占总热量 45-55%）
+氨基酸完整性（优质蛋白食物种类）
+餐后蛋白质时机（训练后是否有优质蛋白摄入）`,
+
+    blood_sugar: `
+【分析框架：控血糖饮食标准】
+低GI食物比例（优先推荐GI<55的食物）
+碳水分配是否均匀（避免单餐大量碳水）
+膳食纤维是否充足（可减缓血糖上升，目标≥30g）
+精制糖和精制碳水摄入（面包、白米饭、含糖饮料频率）
+蛋白质和健康脂肪的搭配（降低餐后血糖峰值）`,
+  };
+
+  const framework = goalFrameworks[goal] ?? '';
+  const goalLabels: Record<string, string> = {
+    healthy_eating: '健康饮食（地中海饮食标准）',
+    fat_loss: '减脂',
+    muscle_gain: '增肌',
+    blood_sugar: '控血糖',
+  };
+
+  const prompt = `你是专业营养师，请分析以下近30天饮食数据，给出深度、具体、有针对性的洞察。
+${framework}
+
+【用户目标】${goalLabels[goal] ?? goal}，每日热量目标 ${target} kcal
+【有记录天数】${stats.daysLogged} 天（共30天）
 【日均摄入】热量 ${stats.avgCalories} kcal，蛋白质 ${stats.avgProtein}g，碳水 ${stats.avgCarbs}g，脂肪 ${stats.avgFat}g，膳食纤维 ${stats.avgFiber}g，钠 ${stats.avgSodium}mg
 【最常吃的食物Top10】${topFoodsList || '暂无数据'}
 【参考RDA】热量2000kcal，蛋白质60g，碳水250g，脂肪65g，膳食纤维25g，钠<2300mg
 
+要求：分析要结合用户实际吃的食物，评价要具体（不要泛泛而谈），推荐食物要符合用户目标的饮食框架。
+
 请返回 JSON（不要任何解释）：
 {
-  "summary": "2-3句总体评价",
-  "strengths": ["优点1", "优点2", "优点3"],
-  "weaknesses": ["不足1", "不足2", "不足3"],
+  "summary": "2-3句总体评价，结合目标框架给出针对性判断",
+  "strengths": ["具体优点1，提及实际食物", "具体优点2", "具体优点3"],
+  "weaknesses": ["具体不足1，结合目标框架", "具体不足2", "具体不足3"],
   "recommendations": [
-    {"food": "推荐食物名", "reason": "推荐原因，结合用户目标和缺乏的营养素"},
-    {"food": "推荐食物名", "reason": "推荐原因"},
-    {"food": "推荐食物名", "reason": "推荐原因"},
-    {"food": "推荐食物名", "reason": "推荐原因"},
-    {"food": "推荐食物名", "reason": "推荐原因"}
+    {"food": "推荐食物名", "reason": "结合用户目标和缺乏营养素的具体推荐理由"},
+    {"food": "推荐食物名", "reason": "推荐理由"},
+    {"food": "推荐食物名", "reason": "推荐理由"},
+    {"food": "推荐食物名", "reason": "推荐理由"},
+    {"food": "推荐食物名", "reason": "推荐理由"}
   ]
 }`;
 
@@ -372,7 +420,7 @@ export function InsightsPage({ profile, onClose }: InsightsPageProps) {
 
                 {/* AI 分析 */}
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100 shadow-sm p-5">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-1">
                     <div className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
                       <span>🤖</span>
                       <span>{locale === 'zh' ? 'AI 营养分析' : 'AI Nutrition Analysis'}</span>
@@ -386,6 +434,13 @@ export function InsightsPage({ profile, onClose }: InsightsPageProps) {
                       </button>
                     )}
                   </div>
+                  {/* 当前分析框架标签 */}
+                  {{
+                    healthy_eating: <div className="text-xs text-blue-500 bg-blue-50 rounded-lg px-2.5 py-1 mb-3 inline-block">🫒 {locale === 'zh' ? '基于地中海饮食标准' : 'Mediterranean Diet Standard'}</div>,
+                    fat_loss:       <div className="text-xs text-orange-500 bg-orange-50 rounded-lg px-2.5 py-1 mb-3 inline-block">🔥 {locale === 'zh' ? '基于科学减脂标准' : 'Fat Loss Standard'}</div>,
+                    muscle_gain:    <div className="text-xs text-purple-500 bg-purple-50 rounded-lg px-2.5 py-1 mb-3 inline-block">💪 {locale === 'zh' ? '基于增肌营养标准' : 'Muscle Gain Standard'}</div>,
+                    blood_sugar:    <div className="text-xs text-teal-500 bg-teal-50 rounded-lg px-2.5 py-1 mb-3 inline-block">🩸 {locale === 'zh' ? '基于控血糖标准' : 'Blood Sugar Control Standard'}</div>,
+                  }[profile.goal] ?? null}
 
                   {aiLoading && (
                     <div className="flex flex-col items-center gap-2 py-6">
