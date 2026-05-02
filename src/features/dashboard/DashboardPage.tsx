@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { UserProfile } from '../../types/user';
-import { GOAL_LABELS } from '../../types/user';
+import { GOAL_LABELS, GOAL_ICONS, getActiveGoals } from '../../types/user';
 import type { DailyLog, MealItem } from '../../types/log';
 import type { FoodItem } from '../../types/food';
 import type { NutritionStatus } from '../../hooks/useNutrition';
@@ -318,9 +318,11 @@ export function DashboardPage({
           <div className="flex items-center gap-2">
             <span className="text-xl">🥗</span>
             <span className="font-bold text-gray-900">NutriTrack</span>
-            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-              {GOAL_LABELS[profile.goal]}
-            </span>
+            {getActiveGoals(profile).map(g => (
+              <span key={g} className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                {GOAL_ICONS[g]} {GOAL_LABELS[g]}
+              </span>
+            ))}
           </div>
           <div className="flex items-center gap-3">
             {/* 同步状态指示器 */}

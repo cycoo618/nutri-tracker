@@ -7,9 +7,9 @@ import type {
   GoalType, ActivityLevel, Gender, BodyMetrics,
   UserProfile, CalorieTargetMode,
 } from '../../types';
-import { GOAL_LABELS, GOAL_DESCRIPTIONS, ACTIVITY_LEVELS } from '../../types';
+import { GOAL_LABELS, GOAL_DESCRIPTIONS, GOAL_ICONS, GOAL_MUTEX_GROUPS, ACTIVITY_LEVELS } from '../../types';
 import { calculateTargetCalories, calculateTDEE, FAT_LOSS_INTENSITY, type FatLossIntensity } from '../../config/nutrition';
-import { GOAL_CONFIGS } from '../../config/goals';
+import { mergeGoalConfigs } from '../../config/goals';
 
 /** 聚焦数字输入框时：选中内容 + 等键盘弹起后滚动到视口中央 */
 function focusAndReveal(e: React.FocusEvent<HTMLInputElement>) {
@@ -31,8 +31,8 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
   // --- 步骤 ---
   const [step, setStep] = useState<Step>('goal');
 
-  // --- 目标 ---
-  const [goal, setGoal] = useState<GoalType>('healthy_eating');
+  // --- 目标（多选） ---
+  const [goals, setGoals] = useState<GoalType[]>(['anti_inflammatory']);
   const [fatLossIntensity, setFatLossIntensity] = useState<FatLossIntensity>('moderate');
 
   // --- 身体数据 ---
@@ -84,9 +84,10 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
 
   const tdee = calculateTDEE(bodyMetrics);
 
-  const effectiveAdjustment = goal === 'fat_loss'
+  const mergedConfig = mergeGoalConfigs(goals.length > 0 ? goals : ['anti_inflammatory']);
+  const effectiveAdjustment = goals.includes('fat_loss')
     ? FAT_LOSS_INTENSITY[fatLossIntensity].adjustment
-    : GOAL_CONFIGS[goal].calorieAdjustment;
+    : mergedConfig.calorieAdjustment;
 
   const autoCalories = calculateTargetCalories(bodyMetrics, effectiveAdjustment);
 
@@ -94,12 +95,29 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
     ? autoCalories
     : Number(manualCalories) || autoCalories;
 
+  /** 切换目标，处理互斥逻辑 */
+  const toggleGoal = (g: GoalType) => {
+    setGoals(prev => {
+      if (prev.includes(g)) {
+        // 至少保留一个
+        if (prev.length === 1) return prev;
+        return prev.filter(x => x !== g);
+      }
+      // 找出 g 的互斥伙伴，移除它们
+      const mutex = GOAL_MUTEX_GROUPS.find(group => group.includes(g));
+      const toRemove = mutex ? mutex.filter(x => x !== g) : [];
+      return [...prev.filter(x => !toRemove.includes(x)), g];
+    });
+  };
+
   const handleFinish = async () => {
     setSaving(true);
     setSaveError(null);
+    const activeGoals = goals.length > 0 ? goals : ['anti_inflammatory' as GoalType];
     try {
       await onComplete({
-        goal,
+        goal: activeGoals[0],
+        goals: activeGoals,
         bodyMetrics,
         targetCalories: finalCalories,
         targetCaloriesMode: calorieMode,
@@ -139,21 +157,48 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
         {/* ===== Step: Goal ===== */}
         {step === 'goal' && (
           <div className="space-y-3">
-            {(Object.keys(GOAL_LABELS) as GoalType[]).map(g => (
-              <button
-                key={g}
-                onClick={() => setGoal(g)}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                  goal === g ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white hover:border-gray-200'
-                }`}
-              >
-                <div className="font-semibold text-gray-900">{GOAL_LABELS[g]}</div>
-                <div className="text-sm text-gray-500 mt-0.5">{GOAL_DESCRIPTIONS[g]}</div>
-              </button>
-            ))}
+            <p className="text-xs text-gray-400 text-center mb-1">可多选，减脂和增肌不能同时选</p>
+            {(Object.keys(GOAL_LABELS) as GoalType[]).map(g => {
+              const selected = goals.includes(g);
+              // 是否被互斥规则禁用
+              const disabledBy = GOAL_MUTEX_GROUPS.find(
+                group => group.includes(g) && group.some(x => x !== g && goals.includes(x))
+              );
+              const isDisabled = !!disabledBy;
+              return (
+                <button
+                  key={g}
+                  onClick={() => !isDisabled && toggleGoal(g)}
+                  disabled={isDisabled}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                    selected
+                      ? 'border-green-500 bg-green-50'
+                      : isDisabled
+                        ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
+                        : 'border-gray-100 bg-white hover:border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{GOAL_ICONS[g]}</span>
+                      <span className="font-semibold text-gray-900">{GOAL_LABELS[g]}</span>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      selected ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                    }`}>
+                      {selected && <span className="text-white text-xs">✓</span>}
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500 mt-0.5 pl-7">{GOAL_DESCRIPTIONS[g]}</div>
+                  {isDisabled && (
+                    <div className="text-xs text-gray-400 mt-1 pl-7">与已选目标互斥</div>
+                  )}
+                </button>
+              );
+            })}
 
             {/* 减脂烈度 */}
-            {goal === 'fat_loss' && (
+            {goals.includes('fat_loss') && (
               <div className="mt-2 p-4 bg-amber-50 rounded-xl border border-amber-200">
                 <div className="text-sm font-medium text-amber-800 mb-3">选择减脂节奏</div>
                 <div className="space-y-2">
@@ -304,9 +349,9 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
               </div>
               <div className="flex justify-between text-sm text-gray-500 mb-1">
                 <span>
-                  {goal === 'fat_loss' && `减脂缺口（${FAT_LOSS_INTENSITY[fatLossIntensity].label}）`}
-                  {goal === 'muscle_gain' && '增肌盈余'}
-                  {goal === 'healthy_eating' && '维持摄入'}
+                  {goals.includes('fat_loss') && `减脂缺口（${FAT_LOSS_INTENSITY[fatLossIntensity].label}）`}
+                  {!goals.includes('fat_loss') && goals.includes('muscle_gain') && '增肌盈余'}
+                  {!goals.includes('fat_loss') && !goals.includes('muscle_gain') && '维持摄入'}
                 </span>
                 <span className={`font-medium ${effectiveAdjustment < 0 ? 'text-blue-600' : effectiveAdjustment > 0 ? 'text-orange-500' : 'text-gray-700'}`}>
                   {effectiveAdjustment > 0 ? '+' : ''}{effectiveAdjustment} kcal
@@ -318,7 +363,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
               </div>
             </div>
 
-            {goal === 'fat_loss' && (
+            {goals.includes('fat_loss') && (
               <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 leading-relaxed">
                 💡 此方案每周预计减重约 <strong>{(Math.abs(effectiveAdjustment) * 7 / 7700).toFixed(2)} kg</strong>，
                 属于{FAT_LOSS_INTENSITY[fatLossIntensity].label}缺口，不易引发饥饿感和暴食反弹。

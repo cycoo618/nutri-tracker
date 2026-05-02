@@ -43,7 +43,7 @@ export const GOAL_CONFIGS: Record<GoalType, GoalConfig> = {
     calorieAdjustment: 300,
     macroRatio: { protein: 30, carbs: 45, fat: 25 },
   },
-  healthy_eating: {
+  anti_inflammatory: {
     strictCalories: false,
     showAdvancedNutrition: true,
     proteinTarget: false,
@@ -66,6 +66,49 @@ export const GOAL_CONFIGS: Record<GoalType, GoalConfig> = {
 };
 
 /**
+ * 合并多个目标的配置
+ * 规则：
+ * - calorieAdjustment：取最严格的体型目标（最小值，即最大缺口）
+ * - boolean 标志：OR 合并（任一目标要求则启用）
+ * - macroRatio：取最高蛋白质比例目标的那条（增肌/减脂优先）
+ */
+export function mergeGoalConfigs(goals: GoalType[]): GoalConfig {
+  if (goals.length === 0) return GOAL_CONFIGS['anti_inflammatory'];
+  if (goals.length === 1) return GOAL_CONFIGS[goals[0]];
+
+  const configs = goals.map(g => GOAL_CONFIGS[g]);
+
+  // calorieAdjustment: 取最小值（最大缺口 or 最大盈余中的"更积极"方向）
+  // 若有减脂（负值），用最小（最大缺口）；若有增肌（正值），且无减脂，用最大正值
+  const hasFatLoss = goals.includes('fat_loss');
+  const hasMuscleGain = goals.includes('muscle_gain');
+  let calorieAdjustment: number;
+  if (hasFatLoss) {
+    calorieAdjustment = Math.min(...configs.map(c => c.calorieAdjustment));
+  } else if (hasMuscleGain) {
+    calorieAdjustment = Math.max(...configs.map(c => c.calorieAdjustment));
+  } else {
+    calorieAdjustment = 0;
+  }
+
+  // macroRatio: 取最高蛋白质比例的配置
+  const highestProteinConfig = configs.reduce((best, c) =>
+    c.macroRatio.protein > best.macroRatio.protein ? c : best,
+  );
+
+  return {
+    strictCalories: configs.some(c => c.strictCalories),
+    showAdvancedNutrition: configs.some(c => c.showAdvancedNutrition),
+    proteinTarget: configs.some(c => c.proteinTarget),
+    showGI: configs.some(c => c.showGI),
+    showAntiInflammatory: configs.some(c => c.showAntiInflammatory),
+    premiumFeature: configs.some(c => c.premiumFeature),
+    calorieAdjustment,
+    macroRatio: highestProteinConfig.macroRatio,
+  };
+}
+
+/**
  * 获取目标配置，考虑用户付费状态
  * 未来加付费限制时，只需修改此函数
  */
@@ -75,8 +118,5 @@ export function getEffectiveGoalConfig(
 ): GoalConfig {
   const config = GOAL_CONFIGS[goal];
   // TODO: 未来在此处根据 premiumEnabled 限制功能
-  // if (!premiumEnabled && config.premiumFeature) {
-  //   return { ...config, showAdvancedNutrition: false, showGI: false, showAntiInflammatory: false };
-  // }
   return config;
 }

@@ -6,7 +6,8 @@ import { useMemo } from 'react';
 import type { UserProfile } from '../types/user';
 import type { DailyLog } from '../types/log';
 import type { NutritionData } from '../types/food';
-import { GOAL_CONFIGS } from '../config/goals';
+import { mergeGoalConfigs } from '../config/goals';
+import { getActiveGoals } from '../types/user';
 import { calculateTargetCalories, calculateMacroTargets, DAILY_RECOMMENDED } from '../config/nutrition';
 
 export interface NutritionStatus {
@@ -34,7 +35,7 @@ export function useNutrition(profile: UserProfile | null, dailyLog: DailyLog | n
   return useMemo<NutritionStatus | null>(() => {
     if (!profile || !dailyLog) return null;
 
-    const goalConfig = GOAL_CONFIGS[profile.goal];
+    const goalConfig = mergeGoalConfigs(getActiveGoals(profile));
 
     // 计算目标卡路里
     // 规则：存了非零值就用，否则才用公式自动计算

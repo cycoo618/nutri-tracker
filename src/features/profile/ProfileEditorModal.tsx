@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { UserProfile, GoalType } from '../../types/user';
+import { GOAL_ICONS, GOAL_MUTEX_GROUPS, getActiveGoals } from '../../types/user';
 import { autoSelect } from '../../utils/inputHelpers';
 import { useLocale } from '../../i18n/useLocale';
 
@@ -15,21 +16,35 @@ interface Props {
   onClose: () => void;
 }
 
-const GOALS: GoalType[] = ['fat_loss', 'muscle_gain', 'healthy_eating', 'blood_sugar'];
+const ALL_GOALS: GoalType[] = ['fat_loss', 'muscle_gain', 'anti_inflammatory', 'blood_sugar'];
 
 export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
   const { t } = useLocale();
-  const [goal, setGoal] = useState<GoalType>(profile.goal);
+  const [goals, setGoals] = useState<GoalType[]>(getActiveGoals(profile));
   const [weight, setWeight] = useState(String(profile.bodyMetrics?.weight ?? ''));
   const [bodyFat, setBodyFat] = useState(String(profile.bodyMetrics?.bodyFat ?? ''));
   const [targetCal, setTargetCal] = useState(String(profile.targetCalories));
   const [saving, setSaving] = useState(false);
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
+  const toggleGoal = (g: GoalType) => {
+    setGoals(prev => {
+      if (prev.includes(g)) {
+        if (prev.length === 1) return prev; // 至少保留一个
+        return prev.filter(x => x !== g);
+      }
+      const mutex = GOAL_MUTEX_GROUPS.find(group => group.includes(g));
+      const toRemove = mutex ? mutex.filter(x => x !== g) : [];
+      return [...prev.filter(x => !toRemove.includes(x)), g];
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
+    const activeGoals = goals.length > 0 ? goals : ['anti_inflammatory' as GoalType];
     const updates: Partial<UserProfile> = {
-      goal,
+      goal: activeGoals[0],
+      goals: activeGoals,
       targetCalories: Number(targetCal) || profile.targetCalories,
       targetCaloriesMode: 'manual',
       bodyMetrics: {
@@ -78,22 +93,43 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
 
           {/* 目标 */}
           <section>
-            <div className="text-sm font-medium text-gray-700 mb-3">{t('myGoal')}</div>
+            <div className="text-sm font-medium text-gray-700 mb-1">{t('myGoal')}</div>
+            <div className="text-xs text-gray-400 mb-3">可多选，减脂和增肌不能同时选</div>
             <div className="space-y-2">
-              {GOALS.map(g => (
-                <button
-                  key={g}
-                  onClick={() => setGoal(g)}
-                  className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
-                    goal === g
-                      ? 'bg-green-50 border-green-400 text-green-800'
-                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="font-medium text-sm">{t(`goal_${g}`)}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{t(`goal_${g}_desc`)}</div>
-                </button>
-              ))}
+              {ALL_GOALS.map(g => {
+                const selected = goals.includes(g);
+                const disabledBy = GOAL_MUTEX_GROUPS.find(
+                  group => group.includes(g) && group.some(x => x !== g && goals.includes(x))
+                );
+                const isDisabled = !!disabledBy;
+                return (
+                  <button
+                    key={g}
+                    onClick={() => !isDisabled && toggleGoal(g)}
+                    disabled={isDisabled}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                      selected
+                        ? 'bg-green-50 border-green-400 text-green-800'
+                        : isDisabled
+                          ? 'bg-gray-50 border-gray-100 opacity-40 cursor-not-allowed'
+                          : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span>{GOAL_ICONS[g]}</span>
+                        <span className="font-medium text-sm">{t(`goal_${g}`)}</span>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        selected ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                      }`}>
+                        {selected && <span className="text-white text-[10px]">✓</span>}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5 pl-6">{t(`goal_${g}_desc`)}</div>
+                  </button>
+                );
+              })}
             </div>
           </section>
 

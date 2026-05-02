@@ -122,10 +122,10 @@ const translations: Record<string, Record<Locale, string>> = {
   saveProfile:      { zh: '保存', en: 'Save' },
 
   // 目标类型
-  goal_fat_loss:      { zh: '减脂', en: 'Fat Loss' },
-  goal_muscle_gain:   { zh: '增肌', en: 'Muscle Gain' },
-  goal_healthy_eating:{ zh: '健康饮食', en: 'Healthy Eating' },
-  goal_blood_sugar:   { zh: '控血糖', en: 'Blood Sugar' },
+  goal_fat_loss:          { zh: '减脂', en: 'Fat Loss' },
+  goal_muscle_gain:       { zh: '增肌', en: 'Muscle Gain' },
+  goal_anti_inflammatory: { zh: '抗炎', en: 'Anti-Inflammatory' },
+  goal_blood_sugar:       { zh: '控血糖', en: 'Blood Sugar' },
 
   // GI
   giLow:    { zh: '低GI', en: 'Low GI' },
@@ -267,10 +267,10 @@ const translations: Record<string, Record<Locale, string>> = {
   loginTerms:    { zh: '登录即表示同意我们的服务条款和隐私政策', en: 'By signing in, you agree to our Terms of Service and Privacy Policy' },
 
   // 目标描述
-  goal_fat_loss_desc:       { zh: '温和热量缺口，避免暴饮暴食，可持续减脂',        en: 'Moderate calorie deficit for sustainable fat loss' },
-  goal_muscle_gain_desc:    { zh: '适当增加蛋白质和优质碳水，支撑肌肉生长',        en: 'Increase protein and quality carbs to support muscle growth' },
-  goal_healthy_eating_desc: { zh: '均衡饮食，关注抗炎、控糖等高级营养指标',        en: 'Balanced diet focusing on anti-inflammatory and blood sugar control' },
-  goal_blood_sugar_desc:    { zh: '关注 GI 值，优先低GI食物，控制血糖波动',       en: 'Focus on GI values, prioritize low-GI foods to control blood sugar' },
+  goal_fat_loss_desc:             { zh: '温和热量缺口，避免暴饮暴食，可持续减脂',                    en: 'Moderate calorie deficit for sustainable fat loss' },
+  goal_muscle_gain_desc:          { zh: '适当增加蛋白质和优质碳水，支撑肌肉生长',                    en: 'Increase protein and quality carbs to support muscle growth' },
+  goal_anti_inflammatory_desc:    { zh: '地中海饮食为基础，关注抗炎食物、Omega-3 和多样蔬果',        en: 'Mediterranean-based: anti-inflammatory foods, Omega-3 and diverse vegetables' },
+  goal_blood_sugar_desc:          { zh: '关注 GI 值，优先低GI食物，控制血糖波动',                   en: 'Focus on GI values, prioritize low-GI foods to control blood sugar' },
 };
 
 export function t(key: string, locale?: Locale): string {

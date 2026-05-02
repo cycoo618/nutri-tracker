@@ -8,6 +8,7 @@ import { getDailyLogs } from '../../services/firestore';
 import { getGroqKey } from '../../services/nutrition-vision';
 import type { DailyLog, MealItem } from '../../types/log';
 import type { UserProfile } from '../../types/user';
+import { getActiveGoals } from '../../types/user';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeUnit } from '../../utils/servingLabels';
 import { formatNumber } from '../../utils/calculator';
@@ -106,12 +107,12 @@ async function fetchAiInsight(stats: Stats, profile: UserProfile): Promise<AiIns
   if (!key) throw new Error('no_groq_key');
 
   const topFoodsList = stats.topFoods.map(f => `${f.name}（${f.count}次，均${f.avgCalories}kcal）`).join('、');
-  const goal = profile.goal;
+  const activeGoals = getActiveGoals(profile);
   const target = profile.targetCalories;
 
   // ── 目标特定的分析框架 ───────────────────────────────────────────
   const goalFrameworks: Record<string, string> = {
-    healthy_eating: `
+    anti_inflammatory: `
 【分析框架：地中海饮食标准】
 请严格按地中海饮食金字塔评估用户的饮食结构：
 ✅ 基础（每餐应有）：蔬菜、水果、全谷物、橄榄油、豆类、坚果、香草香料
@@ -146,18 +147,24 @@ async function fetchAiInsight(stats: Stats, profile: UserProfile): Promise<AiIns
 蛋白质和健康脂肪的搭配（降低餐后血糖峰值）`,
   };
 
-  const framework = goalFrameworks[goal] ?? '';
   const goalLabels: Record<string, string> = {
-    healthy_eating: '健康饮食（地中海饮食标准）',
+    anti_inflammatory: '抗炎（地中海饮食标准）',
     fat_loss: '减脂',
     muscle_gain: '增肌',
     blood_sugar: '控血糖',
   };
 
-  const prompt = `你是专业营养师，请分析以下近30天饮食数据，给出深度、具体、有针对性的洞察。
-${framework}
+  // 合并所有激活目标的框架
+  const combinedFramework = activeGoals
+    .map(g => goalFrameworks[g])
+    .filter(Boolean)
+    .join('\n\n');
+  const combinedGoalLabel = activeGoals.map(g => goalLabels[g] ?? g).join(' + ');
 
-【用户目标】${goalLabels[goal] ?? goal}，每日热量目标 ${target} kcal
+  const prompt = `你是专业营养师，请分析以下近30天饮食数据，给出深度、具体、有针对性的洞察。
+${combinedFramework}
+
+【用户目标】${combinedGoalLabel}，每日热量目标 ${target} kcal
 【有记录天数】${stats.daysLogged} 天（共30天）
 【日均摄入】热量 ${stats.avgCalories} kcal，蛋白质 ${stats.avgProtein}g，碳水 ${stats.avgCarbs}g，脂肪 ${stats.avgFat}g，膳食纤维 ${stats.avgFiber}g，钠 ${stats.avgSodium}mg
 【最常吃的食物Top10】${topFoodsList || '暂无数据'}
@@ -435,12 +442,23 @@ export function InsightsPage({ profile, onClose }: InsightsPageProps) {
                     )}
                   </div>
                   {/* 当前分析框架标签 */}
-                  {{
-                    healthy_eating: <div className="text-xs text-blue-500 bg-blue-50 rounded-lg px-2.5 py-1 mb-3 inline-block">🫒 {locale === 'zh' ? '基于地中海饮食标准' : 'Mediterranean Diet Standard'}</div>,
-                    fat_loss:       <div className="text-xs text-orange-500 bg-orange-50 rounded-lg px-2.5 py-1 mb-3 inline-block">🔥 {locale === 'zh' ? '基于科学减脂标准' : 'Fat Loss Standard'}</div>,
-                    muscle_gain:    <div className="text-xs text-purple-500 bg-purple-50 rounded-lg px-2.5 py-1 mb-3 inline-block">💪 {locale === 'zh' ? '基于增肌营养标准' : 'Muscle Gain Standard'}</div>,
-                    blood_sugar:    <div className="text-xs text-teal-500 bg-teal-50 rounded-lg px-2.5 py-1 mb-3 inline-block">🩸 {locale === 'zh' ? '基于控血糖标准' : 'Blood Sugar Control Standard'}</div>,
-                  }[profile.goal] ?? null}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {getActiveGoals(profile).map(g => {
+                      const badges: Record<string, { color: string; text: string; textEn: string }> = {
+                        anti_inflammatory: { color: 'text-blue-500 bg-blue-50',   text: '🫒 基于地中海饮食标准', textEn: '🫒 Mediterranean Standard' },
+                        fat_loss:          { color: 'text-orange-500 bg-orange-50', text: '🔥 基于科学减脂标准',   textEn: '🔥 Fat Loss Standard' },
+                        muscle_gain:       { color: 'text-purple-500 bg-purple-50', text: '💪 基于增肌营养标准',   textEn: '💪 Muscle Gain Standard' },
+                        blood_sugar:       { color: 'text-teal-500 bg-teal-50',   text: '🩸 基于控血糖标准',     textEn: '🩸 Blood Sugar Standard' },
+                      };
+                      const b = badges[g];
+                      if (!b) return null;
+                      return (
+                        <div key={g} className={`text-xs rounded-lg px-2.5 py-1 inline-block ${b.color}`}>
+                          {locale === 'zh' ? b.text : b.textEn}
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   {aiLoading && (
                     <div className="flex flex-col items-center gap-2 py-6">
