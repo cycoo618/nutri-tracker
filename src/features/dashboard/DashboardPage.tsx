@@ -21,6 +21,7 @@ import { AddFoodModal } from '../food-log/AddFoodModal';
 import { FoodPantryPage } from '../pantry/FoodPantryPage';
 import { FamilyPage } from '../family/FamilyPage';
 import { ProfileEditorModal } from '../profile/ProfileEditorModal';
+import { InsightsPage } from '../insights/InsightsPage';
 import { formatDate, formatNumber, getTodayString } from '../../utils/calculator';
 import { t as tStatic } from '../../i18n';
 import { setFontSize, getFontSize } from '../../utils/fontSize';
@@ -255,6 +256,7 @@ export function DashboardPage({
   const [showFamily, setShowFamily] = useState(false);
   const [showMenu,   setShowMenu]   = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
   const [fontSize, setFontSizeState] = useState<FontSize>(getFontSize());
   const { locale, changeLocale, t } = useLocale();
 
@@ -370,6 +372,14 @@ export function DashboardPage({
                     >
                       <span>📊</span>
                       <span>{t('myData')}</span>
+                    </button>
+                    <div className="h-px bg-gray-100 mx-3" />
+                    <button
+                      onClick={() => { setShowMenu(false); setShowInsights(true); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    >
+                      <span>🔍</span>
+                      <span>{locale === 'zh' ? '饮食分析' : 'Nutrition Insights'}</span>
                     </button>
                     <div className="h-px bg-gray-100 mx-3" />
                     {/* 字体大小 */}
@@ -737,6 +747,13 @@ export function DashboardPage({
           profile={profile}
           onSave={onProfileUpdate}
           onClose={() => setShowProfile(false)}
+        />
+      )}
+
+      {showInsights && (
+        <InsightsPage
+          profile={profile}
+          onClose={() => setShowInsights(false)}
         />
       )}
     </div>

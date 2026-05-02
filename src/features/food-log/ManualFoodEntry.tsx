@@ -3,13 +3,15 @@
 // 搜索不到时让用户自己填写
 // ============================================
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { FoodItem, FoodCategory } from '../../types/food';
 import { FOOD_CATEGORY_LABELS } from '../../types/food';
 import { generateId } from '../../utils/calculator';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
+import { useLocale } from '../../i18n/useLocale';
+import { localizeUnit } from '../../utils/servingLabels';
 
 interface ManualFoodEntryProps {
   initialName?: string;
@@ -21,6 +23,7 @@ interface ManualFoodEntryProps {
 const INPUT_CLS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white';
 
 export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }: ManualFoodEntryProps) {
+  const { t, locale } = useLocale();
   const [name, setName] = useState(initialName);
   const [category, setCategory] = useState<FoodCategory>('other');
   const [calories, setCalories] = useState('');
@@ -35,6 +38,16 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
   const isValid = name.trim() && Number(calories) > 0;
+
+  // Localized nutrient field definitions
+  const nutrientFields = useMemo(() => [
+    { label: t('caloriesRequired'), value: calories, onChange: setCalories, unit: localizeUnit('kcal', locale), placeholder: '如 52' },
+    { label: t('protein'),   value: protein,  onChange: setProtein,  unit: localizeUnit('g', locale),   placeholder: '如 3.2' },
+    { label: t('carbsFull'), value: carbs,    onChange: setCarbs,    unit: localizeUnit('g', locale),   placeholder: '如 4.8' },
+    { label: t('fat'),       value: fat,      onChange: setFat,      unit: localizeUnit('g', locale),   placeholder: '如 3.3' },
+    { label: t('fiber'),     value: fiber,    onChange: setFiber,    unit: localizeUnit('g', locale),   placeholder: '如 0' },
+    { label: t('giOptional'),value: gi,       onChange: setGi,       unit: '',                          placeholder: '如 27' },
+  ], [t, locale, calories, protein, carbs, fat, fiber, gi]);
 
   const handleSubmit = () => {
     if (!isValid) return;
@@ -85,17 +98,17 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
         </div>
 
         <div className="px-4 pb-2 shrink-0 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900 text-center">手动录入食物</h3>
+          <h3 className="font-semibold text-gray-900 text-center">{t('manualEntryTitle')}</h3>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-            💡 以下营养数据均为每 <strong>100g</strong> 的含量，可在包装背面食品标签找到
+            💡 {t('per100gNote')}
           </div>
 
           {/* 食物名称 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">食物名称 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('foodNameRequiredLabel')}</label>
             <input
               type="text"
               value={name}
@@ -108,7 +121,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
 
           {/* 分类 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">分类</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('categoryLabel')}</label>
             <select
               value={category}
               onChange={e => setCategory(e.target.value as FoodCategory)}
@@ -122,14 +135,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
 
           {/* 营养数据（每100g） */}
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: '热量 *', value: calories, onChange: setCalories, unit: 'kcal', placeholder: '如 52' },
-              { label: '蛋白质', value: protein,  onChange: setProtein,  unit: 'g',    placeholder: '如 3.2' },
-              { label: '碳水化合物', value: carbs, onChange: setCarbs,  unit: 'g',    placeholder: '如 4.8' },
-              { label: '脂肪',   value: fat,       onChange: setFat,     unit: 'g',    placeholder: '如 3.3' },
-              { label: '膳食纤维', value: fiber,   onChange: setFiber,   unit: 'g',    placeholder: '如 0' },
-              { label: 'GI值（可选）', value: gi,  onChange: setGi,      unit: '',     placeholder: '如 27' },
-            ].map(f => (
+            {nutrientFields.map(f => (
               <div key={f.label}>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
                 <div className="relative">
@@ -152,8 +158,8 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
           {/* 常用份量（可选） */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              常用份量
-              <span className="ml-2 text-xs font-normal text-gray-400">可选，方便下次快速选择</span>
+              {t('servingOptionalLabel')}
+              <span className="ml-2 text-xs font-normal text-gray-400">{t('servingOptionalNote')}</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -179,11 +185,12 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
           </div>
 
           <button
+            onMouseDown={e => e.preventDefault()}
             onClick={handleSubmit}
             disabled={!isValid}
             className="w-full bg-green-600 text-white rounded-xl py-3.5 font-medium hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            下一步：确认用量
+            {t('nextConfirmAmount')}
           </button>
         </div>
 

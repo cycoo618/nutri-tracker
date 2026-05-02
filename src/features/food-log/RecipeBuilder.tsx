@@ -12,6 +12,8 @@ import { searchBuiltinFoods } from '../../services/food-lookup';
 import { searchCustomFoods, calcRecipeNutrition, saveCustomFood, updateCustomFood, recordToFoodItem } from '../../utils/customFoods';
 import type { RecipeIngredient, CustomFoodRecord } from '../../utils/customFoods';
 import { formatNumber } from '../../utils/calculator';
+import { useLocale } from '../../i18n/useLocale';
+import { localizeUnit } from '../../utils/servingLabels';
 
 interface RecipeBuilderProps {
   onClose: () => void;
@@ -61,7 +63,7 @@ function GramInput({
           inputMode="decimal"
           value={text}
           onChange={e => setText(e.target.value)}
-          onFocus={e => { const t = e.target; setTimeout(() => t.select(), 50); }}
+          onFocus={autoSelect}
           onBlur={() => commit(text)}
           onKeyDown={e => e.key === 'Enter' && commit(text)}
           className="w-20 py-2.5 pl-3 pr-1 text-sm font-semibold focus:outline-none rounded-l-xl bg-transparent"
@@ -92,6 +94,7 @@ function GramInput({
 
 // ── 主组件 ─────────────────────────────────────────────────────────
 export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilderProps) {
+  const { t, locale } = useLocale();
   const [name, setName] = useState(existingRecord?.name ?? '');
   const [servingLabel, setServingLabel] = useState(existingRecord?.servingSizes?.[0]?.label ?? '');
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(existingRecord?.ingredients ?? []);
@@ -158,8 +161,8 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
   };
 
   const handleSave = () => {
-    if (!name.trim()) { setError('请输入食物名称'); return; }
-    if (ingredients.length === 0) { setError('请至少添加一种食材'); return; }
+    if (!name.trim()) { setError(t('foodNameRequired')); return; }
+    if (ingredients.length === 0) { setError(t('noIngredientError')); return; }
     setSaving(true);
     setError('');
 
@@ -202,13 +205,14 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
         {/* Header */}
         <div className="px-4 pb-3 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div className="w-8" />
-          <h3 className="font-semibold text-gray-900">{existingRecord ? '编辑自制食物' : '创建自定义食物'}</h3>
+          <h3 className="font-semibold text-gray-900">{existingRecord ? t('editRecipeTitle') : t('createRecipeTitle')}</h3>
           <button
+            onMouseDown={e => e.preventDefault()}
             onClick={handleSave}
             disabled={saving || !name.trim() || ingredients.length === 0}
             className="text-sm font-semibold text-green-600 hover:text-green-700 disabled:text-gray-300 disabled:cursor-not-allowed"
           >
-            {saving ? '保存中…' : '保存'}
+            {saving ? t('savingEllipsis') : t('save')}
           </button>
         </div>
 
@@ -216,7 +220,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
 
           {/* 食物名称 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">食物名称 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('foodNameRequiredLabel')}</label>
             <input
               type="text"
               value={name}
@@ -230,7 +234,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
           {/* 份量标签 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              份量标签 <span className="text-gray-400 font-normal">（可选，默认"1份"）</span>
+              {t('servingLabelField')} <span className="text-gray-400 font-normal">（{t('servingLabelOptional')}）</span>
             </label>
             <input
               type="text"
@@ -245,9 +249,9 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
           {/* 食材列表 */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">食材配比 *</label>
+              <label className="text-sm font-medium text-gray-700">{t('ingredientsRatioLabel')}</label>
               {ingredients.length > 0 && (
-                <span className="text-xs text-gray-400">共 {totalGrams}g</span>
+                <span className="text-xs text-gray-400">{locale === 'zh' ? `共 ${totalGrams}${localizeUnit('g', locale)}` : `${totalGrams}${localizeUnit('g', locale)} total`}</span>
               )}
             </div>
 
@@ -285,8 +289,8 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
                   type="text"
                   value={ingQuery}
                   onChange={e => { setIngQuery(e.target.value); setShowIngSearch(true); }}
-                  onFocus={() => setShowIngSearch(true)}
-                  placeholder="搜索并添加食材，如「黑米」「红枣」…"
+                  onFocus={e => { setShowIngSearch(true); autoSelect(e); }}
+                  placeholder={t('addIngredientPlaceholder')}
                   className="flex-1 bg-transparent text-sm focus:outline-none text-gray-700 placeholder-green-400"
                 />
               </div>
@@ -302,11 +306,11 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
                       <div>
                         <div className="text-sm font-medium text-gray-800">{food.name}</div>
                         <div className="text-xs text-gray-400">
-                          {food.per100g.calories} kcal/100g · 蛋白 {food.per100g.protein}g
+                          {food.per100g.calories} {localizeUnit('kcal', locale)}/100{localizeUnit('g', locale)} · {t('proteinShort')} {food.per100g.protein}{localizeUnit('g', locale)}
                         </div>
                       </div>
                       {ingredients.some(i => i.foodId === food.id) && (
-                        <span className="text-xs text-green-500 shrink-0 ml-2">已添加</span>
+                        <span className="text-xs text-green-500 shrink-0 ml-2">{t('alreadyAdded')}</span>
                       )}
                     </button>
                   ))}
@@ -319,43 +323,43 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
           {ingredients.length > 0 && (
             <div className="bg-green-50 rounded-xl p-4 border border-green-100">
               <div className="flex items-baseline justify-between mb-3">
-                <span className="text-sm font-semibold text-gray-700">合并营养预览</span>
-                <span className="text-xs text-gray-400">基于配比总量 {totalGrams}g</span>
+                <span className="text-sm font-semibold text-gray-700">{t('recipePreviewTitle')}</span>
+                <span className="text-xs text-gray-400">{t('basedOnTotal')} {totalGrams}{localizeUnit('g', locale)}</span>
               </div>
               <div className="text-center mb-3 py-2 bg-white rounded-lg">
                 <div className="text-2xl font-bold text-green-700">{totalCalories}</div>
-                <div className="text-xs text-gray-400">这一份总热量 (kcal)</div>
+                <div className="text-xs text-gray-400">{t('totalCaloriesNote')} ({localizeUnit('kcal', locale)})</div>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-500">
                 <div className="flex justify-between">
-                  <span>每100g热量</span>
-                  <span className="font-medium text-gray-700">{per100g.calories} kcal</span>
+                  <span>{t('per100gCalories')}</span>
+                  <span className="font-medium text-gray-700">{per100g.calories} {localizeUnit('kcal', locale)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>蛋白质</span>
-                  <span className="font-medium text-gray-700">{formatNumber(per100g.protein)}g</span>
+                  <span>{t('protein')}</span>
+                  <span className="font-medium text-gray-700">{formatNumber(per100g.protein)}{localizeUnit('g', locale)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>碳水</span>
-                  <span className="font-medium text-gray-700">{formatNumber(per100g.carbs)}g</span>
+                  <span>{t('carbs')}</span>
+                  <span className="font-medium text-gray-700">{formatNumber(per100g.carbs)}{localizeUnit('g', locale)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>脂肪</span>
-                  <span className="font-medium text-gray-700">{formatNumber(per100g.fat)}g</span>
+                  <span>{t('fat')}</span>
+                  <span className="font-medium text-gray-700">{formatNumber(per100g.fat)}{localizeUnit('g', locale)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>膳食纤维</span>
-                  <span className="font-medium text-gray-700">{formatNumber(per100g.fiber)}g</span>
+                  <span>{t('fiber')}</span>
+                  <span className="font-medium text-gray-700">{formatNumber(per100g.fiber)}{localizeUnit('g', locale)}</span>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-green-100">
-                <div className="text-xs text-gray-400 mb-1.5">食材明细</div>
+                <div className="text-xs text-gray-400 mb-1.5">{t('ingredientsDetail')}</div>
                 {ingredients.map(ing => {
                   const cal = Math.round(ing.per100g.calories * ing.grams / 100);
                   return (
                     <div key={ing.foodId} className="flex justify-between text-xs text-gray-500 py-0.5">
-                      <span>{ing.foodName} {ing.grams}g</span>
-                      <span>{cal} kcal</span>
+                      <span>{ing.foodName} {ing.grams}{localizeUnit('g', locale)}</span>
+                      <span>{cal} {localizeUnit('kcal', locale)}</span>
                     </div>
                   );
                 })}

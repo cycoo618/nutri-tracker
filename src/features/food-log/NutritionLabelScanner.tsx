@@ -10,6 +10,8 @@ import { autoSelect } from '../../utils/inputHelpers';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
 import { getGroqKey, saveGroqKey, isKeyFromEnv } from '../../services/nutrition-vision';
+import { useLocale } from '../../i18n/useLocale';
+import { localizeUnit } from '../../utils/servingLabels';
 
 // ── 外部分析函数的接口定义 ──────────────────
 
@@ -46,19 +48,20 @@ interface Field {
   type: 'text' | 'number';
 }
 
-const NUTRIENT_FIELDS: Field[] = [
-  { key: 'calories',     label: '热量',     unit: 'kcal', type: 'number' },
-  { key: 'protein',      label: '蛋白质',   unit: 'g',    type: 'number' },
-  { key: 'carbs',        label: '碳水化合物', unit: 'g', type: 'number' },
-  { key: 'fat',          label: '脂肪',     unit: 'g',    type: 'number' },
-  { key: 'fiber',        label: '膳食纤维', unit: 'g',    type: 'number' },
-  { key: 'sugar',        label: '糖',       unit: 'g',    type: 'number' },
-  { key: 'saturatedFat', label: '饱和脂肪', unit: 'g',    type: 'number' },
-  { key: 'sodium',       label: '钠',       unit: 'mg',   type: 'number' },
-  { key: 'calcium',      label: '钙',       unit: 'mg',   type: 'number' },
-  { key: 'iron',         label: '铁',       unit: 'mg',   type: 'number' },
-  { key: 'potassium',    label: '钾',       unit: 'mg',   type: 'number' },
-  { key: 'vitaminC',     label: '维生素C',  unit: 'mg',   type: 'number' },
+// NUTRIENT_FIELDS labels are computed inside the component using t() for i18n
+const NUTRIENT_FIELD_DEFS: Omit<Field, 'label'>[] = [
+  { key: 'calories',     unit: 'kcal', type: 'number' },
+  { key: 'protein',      unit: 'g',    type: 'number' },
+  { key: 'carbs',        unit: 'g',    type: 'number' },
+  { key: 'fat',          unit: 'g',    type: 'number' },
+  { key: 'fiber',        unit: 'g',    type: 'number' },
+  { key: 'sugar',        unit: 'g',    type: 'number' },
+  { key: 'saturatedFat', unit: 'g',    type: 'number' },
+  { key: 'sodium',       unit: 'mg',   type: 'number' },
+  { key: 'calcium',      unit: 'mg',   type: 'number' },
+  { key: 'iron',         unit: 'mg',   type: 'number' },
+  { key: 'potassium',    unit: 'mg',   type: 'number' },
+  { key: 'vitaminC',     unit: 'mg',   type: 'number' },
 ];
 
 // 压缩图片到最大 400px 宽，JPEG 0.72，约 20-50KB
@@ -90,6 +93,10 @@ interface NutritionLabelScannerProps {
 // ── Component ───────────────────────────────
 
 export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScannerProps) {
+  const { t, locale } = useLocale();
+  // Build localized nutrient fields
+  const NUTRIENT_FIELDS: Field[] = NUTRIENT_FIELD_DEFS.map(f => ({ ...f, label: t(f.key) }));
+
   const [step, setStep]               = useState<Step>(() => getGroqKey() ? 'capture' : 'setup');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -128,7 +135,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
         setStep('confirm');
       } catch (err) {
         console.warn('Label analysis failed:', err);
-        setErrorMsg(err instanceof Error ? err.message : '识别失败，请重试');
+        setErrorMsg(err instanceof Error ? err.message : t('recognitionFailedNote'));
         setStep('error');
       }
     };
@@ -215,7 +222,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
       onSaved(foodItem);
     } catch (err) {
       console.warn('Save failed:', err);
-      setErrorMsg('保存失败，请重试');
+      setErrorMsg(t('saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -239,7 +246,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
         {/* Header */}
         <div className="flex items-center justify-center px-4 pb-3 border-b border-gray-100 shrink-0">
           <span className="text-xl mr-2">📷</span>
-          <span className="font-semibold text-gray-800">扫描营养标签</span>
+          <span className="font-semibold text-gray-800">{t('scanNutritionLabel')}</span>
         </div>
 
         {/* Body */}
@@ -250,9 +257,9 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
             <div className="p-6 space-y-4">
               <div className="text-center">
                 <div className="text-4xl mb-3">🔑</div>
-                <p className="font-medium text-gray-800 mb-1">填入 Groq API Key</p>
+                <p className="font-medium text-gray-800 mb-1">{t('setupGroqKey')}</p>
                 <p className="text-sm text-gray-500">
-                  免费获取：前往{' '}
+                  {locale === 'zh' ? '免费获取：前往' : 'Get for free: visit'}{' '}
                   <a
                     href="https://console.groq.com/keys"
                     target="_blank"
@@ -261,7 +268,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                   >
                     console.groq.com
                   </a>
-                  {' '}注册后创建 API Key（完全免费）
+                  {locale === 'zh' ? ' 注册后创建 API Key（完全免费）' : ' to sign up and create a free API Key'}
                 </p>
               </div>
 
@@ -269,19 +276,21 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                 type="text"
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
+                onFocus={autoSelect}
                 onKeyDown={e => e.key === 'Enter' && handleSaveKey()}
                 placeholder="AIza..."
                 className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
                 autoFocus
               />
               <button
+                onMouseDown={e => e.preventDefault()}
                 onClick={handleSaveKey}
                 disabled={!keyInput.trim()}
                 className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-xl font-medium transition-colors"
               >
-                保存并继续
+                {t('saveAndContinue')}
               </button>
-              <p className="text-xs text-gray-400 text-center">Key 仅存储在你的设备上，不经过任何服务器</p>
+              <p className="text-xs text-gray-400 text-center">{t('keyLocalOnly')}</p>
             </div>
           )}
 
@@ -289,7 +298,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
           {step === 'capture' && (
             <div className="p-6">
               <p className="text-sm text-gray-500 text-center mb-5">
-                拍摄或上传食品包装上的营养成分表，AI 会自动识别数据
+                {t('scanInstruction')}
               </p>
 
               <button
@@ -297,15 +306,15 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                 className="w-full mb-3 py-10 border-2 border-dashed border-green-300 rounded-2xl bg-green-50 hover:bg-green-100 transition-colors flex flex-col items-center justify-center gap-3"
               >
                 <span className="text-5xl">📷</span>
-                <span className="font-medium text-green-700">拍摄营养成分表</span>
-                <span className="text-xs text-green-500">点击开启相机</span>
+                <span className="font-medium text-green-700">{t('takePhotoBtn')}</span>
+                <span className="text-xs text-green-500">{t('tapToOpenCamera')}</span>
               </button>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full py-3 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
               >
-                <span>🖼️</span> 从相册选择图片
+                <span>🖼️</span> {t('selectFromAlbum')}
               </button>
 
               <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChange} />
@@ -316,7 +325,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                   onClick={() => setStep('setup')}
                   className="w-full mt-3 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  🔑 更换 Groq API Key
+                  🔑 {t('changeGroqKey')}
                 </button>
               )}
             </div>
@@ -334,8 +343,8 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
               )}
               <div className="flex flex-col items-center gap-3 py-4">
                 <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
-                <p className="text-gray-600 font-medium">AI 正在识别营养数据…</p>
-                <p className="text-xs text-gray-400">通常需要 5-10 秒</p>
+                <p className="text-gray-600 font-medium">{t('aiRecognizing')}</p>
+                <p className="text-xs text-gray-400">{t('aiTimeNote')}</p>
               </div>
             </div>
           )}
@@ -354,20 +363,20 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
 
               {/* 食物名称 */}
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1">食物名称</label>
+                <label className="text-xs font-medium text-gray-500 block mb-1">{t('foodNameLabel')}</label>
                 <input
                   type="text"
                   value={extracted.name}
                   onChange={e => updateField('name', e.target.value)}
                   onFocus={autoSelect}
                   className="w-full bg-gray-100 rounded-xl px-4 py-3 text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="输入食物名称"
+                  placeholder={t('foodNamePlaceholder')}
                 />
               </div>
 
               {/* 每100g营养数据 */}
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">每 100g 营养数据</p>
+                <p className="text-xs font-medium text-gray-500 mb-2">{t('per100gNutrition')}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {NUTRIENT_FIELDS.map(f => {
                     const val = extracted[f.key];
@@ -375,7 +384,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                     return (
                       <div key={f.key} className="bg-gray-50 rounded-xl p-3">
                         <label className="text-xs text-gray-400 block mb-1">
-                          {f.label} <span className="text-gray-300">({f.unit})</span>
+                          {f.label} <span className="text-gray-300">({localizeUnit(f.unit, locale)})</span>
                           {isOptional && val == null && <span className="text-gray-300 ml-1">—</span>}
                         </label>
                         <input
@@ -383,7 +392,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                           value={val ?? ''}
                           onChange={e => updateField(f.key, e.target.value)}
                           onFocus={autoSelect}
-                          placeholder={isOptional ? '未检测到' : '0'}
+                          placeholder={isOptional ? t('notDetected') : '0'}
                           className="w-full bg-transparent text-gray-800 font-semibold focus:outline-none text-sm placeholder-gray-300"
                           min="0"
                           step="0.1"
@@ -396,13 +405,14 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
 
               {/* 份量 */}
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">参考份量（可选）</p>
+                <p className="text-xs font-medium text-gray-500 mb-2">{t('servingSizeOptional')}</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={extracted.servingLabel ?? ''}
                     onChange={e => updateField('servingLabel', e.target.value)}
-                    placeholder="份量名称，如「1袋」"
+                    onFocus={autoSelect}
+                    placeholder={t('servingNamePlaceholder')}
                     className="flex-1 bg-gray-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   <div className="flex items-center gap-1 bg-gray-100 rounded-xl px-3 py-2.5">
@@ -410,11 +420,12 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                       type="number"
                       value={extracted.servingGrams ?? ''}
                       onChange={e => updateField('servingGrams', e.target.value)}
-                      placeholder="克数"
+                      onFocus={autoSelect}
+                      placeholder={t('gramsPlaceholderShort')}
                       className="w-16 bg-transparent text-sm focus:outline-none"
                       min="0"
                     />
-                    <span className="text-xs text-gray-400">g</span>
+                    <span className="text-xs text-gray-400">{localizeUnit('g', locale)}</span>
                   </div>
                 </div>
               </div>
@@ -432,21 +443,21 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
                 />
               )}
               <div className="text-4xl">😕</div>
-              <p className="text-gray-700 font-medium">识别失败</p>
+              <p className="text-gray-700 font-medium">{t('recognitionFailed')}</p>
               <p className="text-sm text-gray-400">{errorMsg}</p>
               {!isKeyFromEnv() && (
                 <button
                   onClick={() => { setKeyInput(''); setStep('setup'); }}
                   className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-sm font-medium transition-colors"
                 >
-                  🔑 更换 Groq API Key
+                  🔑 {t('changeGroqKey')}
                 </button>
               )}
               <button
                 onClick={reset}
                 className="w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm text-gray-600 font-medium transition-colors"
               >
-                重新拍摄
+                {t('retakePhoto')}
               </button>
             </div>
           )}
@@ -457,6 +468,7 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
         {step === 'confirm' && (
           <div className="px-4 pt-4 border-t border-gray-100 space-y-2 shrink-0">
             <button
+              onMouseDown={e => e.preventDefault()}
               onClick={handleSave}
               disabled={saving}
               className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
@@ -464,15 +476,15 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
               {saving ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  保存中…
+                  {t('savingEllipsis')}
                 </>
-              ) : '保存到食物库'}
+              ) : t('saveToLibrary')}
             </button>
             <button
               onClick={reset}
               className="w-full py-2.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
-              重新拍摄
+              {t('retakePhoto')}
             </button>
           </div>
         )}
