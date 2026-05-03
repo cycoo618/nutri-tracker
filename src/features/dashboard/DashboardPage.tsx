@@ -546,83 +546,81 @@ export function DashboardPage({
                 </div>
               </div>
 
-              {/* 右：宏量 + 进阶指标 */}
-              <div className="flex-1 min-w-0 flex flex-col gap-2">
-                {/* 蛋白 / 碳水 / 脂肪 / 膳食纤维 */}
-                {[
-                  { label: t('protein'), m: ns.macros.protein, color: 'bg-blue-500'  },
-                  { label: t('carbs'),   m: ns.macros.carbs,   color: 'bg-amber-400' },
-                  { label: t('fat'),     m: ns.macros.fat,     color: 'bg-red-400'   },
-                  { label: t('fiber'),   m: ns.fiber,          color: 'bg-green-400' },
-                ].map(({ label, m, color }) => (
-                  <div key={label}>
-                    <div className="flex justify-between items-baseline mb-0.5">
-                      <span className="text-xs text-gray-600 font-medium">{label}</span>
-                      <span className="text-[10px] text-gray-400 tabular-nums">
-                        {m.consumed}<span className="text-gray-300">/{m.target}g</span>
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${color} transition-all`}
-                        style={{ width: `${Math.min(100, m.percent)}%` }} />
-                    </div>
-                  </div>
-                ))}
+              {/* 右：两列并排 */}
+              <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-3">
 
-                {/* 分隔线 + 进阶指标（糖/钠/Omega-3）紧凑单行 */}
-                {ns.advanced && (
-                  <>
-                    <div className="border-t border-gray-100 pt-1.5 space-y-1.5">
-                      {[
-                        {
-                          icon: '🍬', label: t('addedSugar'),
-                          display: `${ns.advanced.sugar.consumed}g`,
-                          limit: `<${ns.advanced.sugar.max}g`,
-                          status: ns.advanced.sugar.status,
-                          pct: Math.min(100, Math.round(ns.advanced.sugar.consumed / ns.advanced.sugar.max * 100)),
-                          barColor: ns.advanced.sugar.status === 'good' ? 'bg-green-400' : ns.advanced.sugar.status === 'warning' ? 'bg-amber-400' : 'bg-red-400',
-                        },
-                        {
-                          icon: '🧂', label: t('sodium'),
-                          display: ns.advanced.sodium.consumed >= 1000
-                            ? `${(ns.advanced.sodium.consumed/1000).toFixed(1)}g`
-                            : `${ns.advanced.sodium.consumed}mg`,
-                          limit: `<${ns.advanced.sodium.max/1000}g`,
-                          status: ns.advanced.sodium.status,
-                          pct: Math.min(100, Math.round(ns.advanced.sodium.consumed / ns.advanced.sodium.max * 100)),
-                          barColor: ns.advanced.sodium.status === 'good' ? 'bg-green-400' : ns.advanced.sodium.status === 'warning' ? 'bg-amber-400' : 'bg-red-400',
-                        },
-                        {
-                          icon: '🫙', label: 'Omega-3',
-                          display: `${ns.advanced.omega3.consumed}mg`,
-                          limit: `≥${ns.advanced.omega3.min}mg`,
-                          status: ns.advanced.omega3.status,
-                          pct: Math.min(100, Math.round(ns.advanced.omega3.consumed / ns.advanced.omega3.min * 100)),
-                          barColor: ns.advanced.omega3.status === 'good' ? 'bg-green-400' : 'bg-amber-400',
-                        },
-                      ].map(item => (
+                {/* 左列：蛋白 / 碳水 / 脂肪 / 膳食纤维 */}
+                <div className="space-y-2">
+                  {[
+                    { label: t('protein'), m: ns.macros.protein, color: 'bg-blue-500'  },
+                    { label: t('carbs'),   m: ns.macros.carbs,   color: 'bg-amber-400' },
+                    { label: t('fat'),     m: ns.macros.fat,     color: 'bg-red-400'   },
+                    { label: t('fiber'),   m: ns.fiber,          color: 'bg-green-400' },
+                  ].map(({ label, m, color }) => (
+                    <div key={label}>
+                      <div className="flex justify-between items-baseline mb-0.5">
+                        <span className="text-[10px] text-gray-600 font-medium">{label}</span>
+                        <span className="text-[10px] text-gray-400 tabular-nums">
+                          {m.consumed}<span className="text-gray-300">/{m.target}g</span>
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${color} transition-all`}
+                          style={{ width: `${Math.min(100, m.percent)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 右列：糖 / 钠 / Omega-3（仅有进阶数据时显示） */}
+                {ns.advanced ? (
+                  <div className="space-y-2">
+                    {[
+                      {
+                        label: t('addedSugar'),
+                        display: `${ns.advanced.sugar.consumed}g`,
+                        limit: `<${ns.advanced.sugar.max}g`,
+                        status: ns.advanced.sugar.status,
+                        pct: Math.min(100, Math.round(ns.advanced.sugar.consumed / ns.advanced.sugar.max * 100)),
+                      },
+                      {
+                        label: t('sodium'),
+                        display: ns.advanced.sodium.consumed >= 1000
+                          ? `${(ns.advanced.sodium.consumed / 1000).toFixed(1)}g`
+                          : `${ns.advanced.sodium.consumed}mg`,
+                        limit: `<${ns.advanced.sodium.max / 1000}g`,
+                        status: ns.advanced.sodium.status,
+                        pct: Math.min(100, Math.round(ns.advanced.sodium.consumed / ns.advanced.sodium.max * 100)),
+                      },
+                      {
+                        label: 'Omega-3',
+                        display: `${ns.advanced.omega3.consumed}mg`,
+                        limit: `≥${ns.advanced.omega3.min}mg`,
+                        status: ns.advanced.omega3.status,
+                        pct: Math.min(100, Math.round(ns.advanced.omega3.consumed / ns.advanced.omega3.min * 100)),
+                      },
+                    ].map(item => {
+                      const barColor = item.status === 'good' ? 'bg-green-400'
+                        : item.status === 'warning' ? 'bg-amber-400' : 'bg-red-400';
+                      const valColor = item.status === 'good' ? 'text-green-600'
+                        : item.status === 'warning' ? 'text-amber-500' : 'text-red-500';
+                      return (
                         <div key={item.label}>
                           <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-[10px] text-gray-500">
-                              {item.icon} {item.label}
-                            </span>
-                            <span className="text-[10px] tabular-nums">
-                              <span className={
-                                item.status === 'good' ? 'text-green-600' :
-                                item.status === 'warning' ? 'text-amber-500' : 'text-red-500'
-                              }>{item.display}</span>
-                              <span className="text-gray-300"> {item.limit}</span>
-                            </span>
+                            <span className="text-[10px] text-gray-600 font-medium">{item.label}</span>
+                            <span className={`text-[10px] tabular-nums ${valColor}`}>{item.display}</span>
                           </div>
-                          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${item.barColor} transition-all`}
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor} transition-all`}
                               style={{ width: `${item.pct}%` }} />
                           </div>
+                          <div className="text-[9px] text-gray-300 mt-0.5">{item.limit}</div>
                         </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                      );
+                    })}
+                  </div>
+                ) : <div />}
+
               </div>
             </div>
           </div>
