@@ -29,8 +29,9 @@ import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeServingLabel, localizeUnit } from '../../utils/servingLabels';
 import { getFoodWarning } from '../../utils/goalAlerts';
-import { getDailyProgress, analyzeRollingWindow, getCategoryAlerts } from '../../utils/nutritionTargets';
+import { getDailyProgress, analyzeRollingWindow, getCategoryAlerts, CATEGORY_INFO } from '../../utils/nutritionTargets';
 import type { RollingStats } from '../../utils/nutritionTargets';
+import type { MedCategory } from '../../utils/goalAlerts';
 import { getDailyLogs } from '../../services/firestore';
 
 interface DashboardPageProps {
@@ -297,8 +298,9 @@ export function DashboardPage({
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
   const [weeklyRolling, setWeeklyRolling] = useState<RollingStats | null>(null);
+  const [infoCategory, setInfoCategory] = useState<MedCategory | null>(null);
 
-  const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood;
+  const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood || !!infoCategory;
 
 
   const lockCount = useRef(0);
@@ -652,17 +654,27 @@ export function DashboardPage({
                 const showDaysChip = daysSince !== null && daysSince > 0 && p.todayGrams === 0 && !isWeekly;
                 return (
                   <div key={p.category}>
-                    {/* 类别名 + 天数chip */}
-                    <div className="flex items-center gap-1 mb-0.5 flex-wrap">
+                    {/* 类别名 + 天数chip + ⓘ */}
+                    <div className="flex items-center gap-1 mb-0.5">
                       <span className="text-sm leading-none">{p.icon}</span>
-                      <span className="text-xs font-medium text-gray-700">
+                      <span className="text-xs font-medium text-gray-700 truncate">
                         {locale === 'zh' ? p.label : p.labelEn}
                       </span>
                       {showDaysChip && (
-                        <span className="text-[9px] text-amber-500 bg-amber-50 px-1 py-0.5 rounded-full leading-none">
+                        <span className="text-[9px] text-amber-500 bg-amber-50 px-1 py-0.5 rounded-full leading-none shrink-0">
                           {daysSince}{locale === 'zh' ? '天前' : 'd'}
                         </span>
                       )}
+                      <button
+                        onClick={() => setInfoCategory(p.category as MedCategory)}
+                        className="ml-auto shrink-0 text-gray-300 hover:text-green-500 transition-colors leading-none"
+                        aria-label="learn more"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                          <circle cx="8" cy="8" r="7.5" stroke="currentColor" strokeWidth="1" fill="none"/>
+                          <text x="8" y="12" textAnchor="middle" fontSize="9" fontWeight="600" fill="currentColor">i</text>
+                        </svg>
+                      </button>
                     </div>
                     {/* 进度条 */}
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-0.5">
@@ -937,6 +949,92 @@ export function DashboardPage({
           onClose={() => setShowInsights(false)}
         />
       )}
+
+      {/* 食物类别科普弹窗 */}
+      {infoCategory && (() => {
+        const info = CATEGORY_INFO[infoCategory];
+        if (!info) return null;
+        const target = getDailyProgress(allItems, rolling).find(p => p.category === infoCategory);
+        return (
+          <div
+            className="fixed inset-x-0 bg-black/40 z-50 flex items-end justify-center"
+            style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
+            onClick={() => setInfoCategory(null)}
+          >
+            <div
+              className="bg-white w-full sm:max-w-lg rounded-t-2xl overflow-hidden"
+              style={{ maxHeight: '80vh' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* drag handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-gray-200 rounded-full" />
+              </div>
+
+              {/* header */}
+              <div className="px-5 pt-1 pb-3 flex items-center justify-between border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{target?.icon}</span>
+                  <div>
+                    <div className="font-semibold text-gray-900 text-base leading-tight">
+                      {locale === 'zh' ? target?.label : target?.labelEn}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {locale === 'zh' ? target?.targetLabel : target?.targetLabelEn}
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setInfoCategory(null)} className="text-gray-300 hover:text-gray-500 text-xl leading-none p-1">×</button>
+              </div>
+
+              {/* scrollable content */}
+              <div className="overflow-y-auto px-5 pb-8 pt-4 space-y-5" style={{ maxHeight: 'calc(80vh - 80px)' }}>
+
+                {/* 健康作用 */}
+                <section>
+                  <div className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">
+                    {locale === 'zh' ? '为什么要吃' : 'Why it matters'}
+                  </div>
+                  <ul className="space-y-2">
+                    {info.benefits.map((b, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                        <span className="text-green-400 mt-0.5 shrink-0">✦</span>
+                        <span>{locale === 'zh' ? b.zh : b.en}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                {/* 推荐食物 */}
+                <section>
+                  <div className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">
+                    {locale === 'zh' ? '推荐食物' : 'Recommended foods'}
+                  </div>
+                  <div className="space-y-1.5">
+                    {info.foods.map((f, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm bg-green-50 rounded-xl px-3 py-2">
+                        <span className="text-green-500 shrink-0 mt-0.5">→</span>
+                        <span className="text-gray-700">{locale === 'zh' ? f.zh : f.en}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* 科学小贴士 */}
+                <section className="bg-amber-50 rounded-2xl px-4 py-3">
+                  <div className="text-xs font-semibold text-amber-700 mb-1">
+                    💡 {locale === 'zh' ? '科学小贴士' : 'Science tip'}
+                  </div>
+                  <p className="text-sm text-amber-800 leading-relaxed">
+                    {locale === 'zh' ? info.tip.zh : info.tip.en}
+                  </p>
+                </section>
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

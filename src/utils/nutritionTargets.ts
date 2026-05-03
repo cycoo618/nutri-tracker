@@ -114,6 +114,127 @@ export const CATEGORY_TARGETS: CategoryTarget[] = [
   },
 ];
 
+// ── 分类科普知识 ─────────────────────────────────────────────────────
+
+export interface CategoryInfo {
+  category: MedCategory;
+  /** 核心作用（2-3条） */
+  benefits: { zh: string; en: string }[];
+  /** 推荐食物列表 */
+  foods: { zh: string; en: string }[];
+  /** 科学小贴士 */
+  tip: { zh: string; en: string };
+}
+
+export const CATEGORY_INFO: Record<MedCategory, CategoryInfo> = {
+  vegetable: {
+    category: 'vegetable',
+    benefits: [
+      { zh: '富含多酚、类黄酮，直接抑制炎症因子（NF-κB 通路）', en: 'Rich in polyphenols & flavonoids that suppress inflammatory pathways (NF-κB)' },
+      { zh: '膳食纤维喂养肠道益生菌，产生短链脂肪酸降低系统性炎症', en: 'Fiber feeds gut bacteria, producing short-chain fatty acids that reduce systemic inflammation' },
+      { zh: '维生素 C、K、叶酸及多种矿物质，支持免疫与细胞修复', en: 'Vitamins C, K, folate and minerals support immunity and cell repair' },
+    ],
+    foods: [
+      { zh: '深色叶菜：菠菜、羽衣甘蓝、油菜', en: 'Dark leafy greens: spinach, kale, bok choy' },
+      { zh: '十字花科：西兰花、花椰菜、卷心菜', en: 'Cruciferous: broccoli, cauliflower, cabbage' },
+      { zh: '茄果类：番茄（含番茄红素）、彩椒', en: 'Nightshades: tomatoes (lycopene), bell peppers' },
+      { zh: '菌菇类：香菇、金针菇（β-葡聚糖）', en: 'Mushrooms: shiitake, enoki (β-glucans)' },
+    ],
+    tip: { zh: '深色蔬菜（绿、红、紫）多酚含量远高于浅色蔬菜，每天至少一半选深色', en: 'Dark-colored vegetables have far more polyphenols — aim for at least half your veg intake in deep colors' },
+  },
+  fruit: {
+    category: 'fruit',
+    benefits: [
+      { zh: '花青素（蓝莓、樱桃）、槲皮素（苹果）等植化素与蔬菜不重叠，互补抗氧化', en: 'Anthocyanins (berries), quercetin (apple) and other phytonutrients complement vegetables for broader antioxidant coverage' },
+      { zh: '天然果糖配合纤维，GI 值低于果汁，不会引起血糖快速波动', en: 'Natural fructose paired with fiber keeps GI low — unlike juice, it won\'t spike blood sugar' },
+      { zh: '维生素 C 促进胶原蛋白合成，支持皮肤、血管、关节健康', en: 'Vitamin C boosts collagen synthesis, supporting skin, vessels, and joints' },
+    ],
+    foods: [
+      { zh: '浆果类：蓝莓、草莓、覆盆子（花青素最高）', en: 'Berries: blueberries, strawberries, raspberries (highest anthocyanins)' },
+      { zh: '苹果、梨（含果胶，益肠道菌群）', en: 'Apples, pears (pectin — feeds beneficial gut bacteria)' },
+      { zh: '柑橘类：橙子、柚子（维生素 C + 类黄酮）', en: 'Citrus: oranges, grapefruit (vitamin C + flavonoids)' },
+      { zh: '石榴、樱桃（抗炎效果尤其突出）', en: 'Pomegranate, tart cherries (exceptional anti-inflammatory effect)' },
+    ],
+    tip: { zh: '蔬菜和水果的植化素种类不同，不能互相替代。每天保证两者都吃到才能覆盖更广的抗氧化谱', en: 'Fruit and vegetables have different phytonutrients and can\'t replace each other — eat both daily for full antioxidant coverage' },
+  },
+  whole_grain: {
+    category: 'whole_grain',
+    benefits: [
+      { zh: '保留了麸皮和胚芽，B 族维生素、镁、锌含量是精制谷物的 3-5 倍', en: 'Retains bran and germ — B vitamins, magnesium, zinc are 3–5× higher than refined grains' },
+      { zh: '较低 GI 减少胰岛素波动，长期降低 2 型糖尿病和心血管疾病风险', en: 'Lower GI reduces insulin spikes, lowering long-term risk of type 2 diabetes and cardiovascular disease' },
+      { zh: '可溶性纤维（β-葡聚糖）降低 LDL 胆固醇，每天 3g 即有效', en: 'Soluble fiber (β-glucan) reduces LDL cholesterol — just 3g/day is effective' },
+    ],
+    foods: [
+      { zh: '燕麦（β-葡聚糖最丰富，推荐首选）', en: 'Oats (richest β-glucan — top choice)' },
+      { zh: '藜麦（完整氨基酸，无麸质）', en: 'Quinoa (complete amino acids, gluten-free)' },
+      { zh: '糙米、黑米、紫米（替代白米的最简单方式）', en: 'Brown rice, black rice (easiest swap for white rice)' },
+      { zh: '大麦、荞麦、小米（杂粮饭）', en: 'Barley, buckwheat, millet (multi-grain rice)' },
+    ],
+    tip: { zh: '把白米饭换成糙米是最简单的升级方式。混合 1/3 糙米 + 2/3 白米，口感差别不大但营养大幅提升', en: 'Swapping white rice for brown is the simplest upgrade. Try a 1/3 brown + 2/3 white blend — minimal taste difference, big nutritional gain' },
+  },
+  legume: {
+    category: 'legume',
+    benefits: [
+      { zh: '植物蛋白 + 可溶性纤维协同降低 LDL 胆固醇，减少心血管疾病风险', en: 'Plant protein + soluble fiber synergistically lower LDL cholesterol and reduce cardiovascular risk' },
+      { zh: '大豆异黄酮有抗炎和调节激素的作用，对女性尤其有益', en: 'Soy isoflavones have anti-inflammatory and hormone-modulating effects, especially beneficial for women' },
+      { zh: '低 GI，餐后血糖上升缓慢，是控糖饮食的优质主食替代品', en: 'Low GI — blood sugar rises slowly after eating, making legumes an excellent carb substitute for blood sugar control' },
+    ],
+    foods: [
+      { zh: '豆腐（北豆腐蛋白更高）、豆浆（300ml ≈ 一份）', en: 'Tofu (firm has more protein), soy milk (300ml = 1 serving)' },
+      { zh: '毛豆（新鲜大豆，富含 GABA）', en: 'Edamame (fresh soybeans, rich in GABA)' },
+      { zh: '红豆、绿豆、黑豆（煮粥或杂粮饭）', en: 'Red beans, mung beans, black beans (porridge or mixed rice)' },
+      { zh: '鹰嘴豆（口感好，做沙拉或鹰嘴豆泥）', en: 'Chickpeas (great texture — add to salads or make hummus)' },
+    ],
+    tip: { zh: '豆腐和豆浆都是大豆制品。150g 豆腐或 300ml 豆浆即为一天的参考目标，简单又实用', en: '150g tofu or 300ml soy milk meets the daily target — simple and practical' },
+  },
+  nut: {
+    category: 'nut',
+    benefits: [
+      { zh: '单不饱和脂肪酸和多不饱和脂肪酸（核桃含 ALA omega-3）降低心血管风险', en: 'Mono- and polyunsaturated fats (walnuts contain ALA omega-3) reduce cardiovascular risk' },
+      { zh: '维生素 E 是脂溶性抗氧化剂，直接减少细胞氧化损伤', en: 'Vitamin E is a fat-soluble antioxidant that directly reduces cellular oxidative damage' },
+      { zh: '镁帮助调节皮质醇，有助于减少压力诱发的炎症', en: 'Magnesium helps regulate cortisol, reducing stress-induced inflammation' },
+    ],
+    foods: [
+      { zh: '核桃（omega-3 最高，每天 3-4 颗）', en: 'Walnuts (highest omega-3 — 3–4 per day)' },
+      { zh: '杏仁（维生素 E 最高，约 10 颗/天）', en: 'Almonds (highest vitamin E — ~10 per day)' },
+      { zh: '腰果、开心果（镁和锌含量丰富）', en: 'Cashews, pistachios (rich in magnesium and zinc)' },
+      { zh: '亚麻籽、奇亚籽（omega-3，可加入酸奶或燕麦）', en: 'Flaxseed, chia seeds (omega-3 — add to yogurt or oats)' },
+    ],
+    tip: { zh: '每天一小把（约 30g）坚果最理想。超过 50g 热量较高，不建议当零食无限吃', en: 'One small handful (~30g) daily is ideal. Over 50g adds significant calories — don\'t snack on them freely' },
+  },
+  seafood: {
+    category: 'seafood',
+    benefits: [
+      { zh: 'EPA 和 DHA（长链 omega-3）是目前证据最强的天然抗炎营养素', en: 'EPA and DHA (long-chain omega-3s) are the best-evidenced natural anti-inflammatory nutrients' },
+      { zh: '每周 2 次高脂鱼可将心脏病发作风险降低约 36%（AHA 数据）', en: 'Two servings of fatty fish per week reduce heart attack risk by ~36% (AHA data)' },
+      { zh: '高质量蛋白质 + 维生素 D，支持肌肉合成和免疫功能', en: 'High-quality protein + vitamin D support muscle synthesis and immune function' },
+    ],
+    foods: [
+      { zh: '三文鱼（omega-3 最高，每 100g 含 2.5g EPA+DHA）', en: 'Salmon (highest omega-3 — 2.5g EPA+DHA per 100g)' },
+      { zh: '沙丁鱼、秋刀鱼、鲭鱼（廉价高营养）', en: 'Sardines, mackerel (affordable and highly nutritious)' },
+      { zh: '金枪鱼（方便罐头也可以）', en: 'Tuna (canned is convenient and fine)' },
+      { zh: '虾、扇贝、蛤蜊（低脂高蛋白，锌含量高）', en: 'Shrimp, scallops, clams (low fat, high protein, high zinc)' },
+    ],
+    tip: { zh: '深海冷水鱼（三文鱼、沙丁鱼、鲭鱼）omega-3 含量远高于淡水鱼，尽量优选。每次约 150g，每周 2 次即可达标', en: 'Cold-water fatty fish (salmon, sardines, mackerel) have far more omega-3 than freshwater fish. ~150g twice a week meets the target' },
+  },
+  fermented: {
+    category: 'fermented',
+    benefits: [
+      { zh: '活性益生菌（乳酸菌等）调节肠道菌群，增强肠道屏障，减少内毒素入血引起的炎症', en: 'Live probiotics (lactobacillus etc.) balance gut microbiome, strengthen gut barrier, and reduce inflammation from endotoxin leakage' },
+      { zh: '发酵过程产生短链脂肪酸（丁酸），直接向免疫系统发出抗炎信号', en: 'Fermentation produces short-chain fatty acids (butyrate) that directly signal the immune system to reduce inflammation' },
+      { zh: '韩国泡菜、味噌等含有几十种有益菌株，多样性高于大多数益生菌补剂', en: 'Kimchi, miso, etc. contain dozens of beneficial strains — more diversity than most probiotic supplements' },
+    ],
+    foods: [
+      { zh: '希腊酸奶（蛋白质高，选无糖）', en: 'Greek yogurt (high protein — choose unsweetened)' },
+      { zh: '韩式泡菜（最简单的随餐发酵菜）', en: 'Kimchi (easiest fermented side dish)' },
+      { zh: '味噌汤（味噌不要煮沸，保留活菌）', en: 'Miso soup (don\'t boil — add miso at end to preserve live cultures)' },
+      { zh: '纳豆（维 K2 最高，益心血管，日本长寿饮食核心）', en: 'Natto (highest vitamin K2, great for cardiovascular health — a longevity staple in Japan)' },
+      { zh: '开菲尔、酸菜、康普茶（多样发酵来源）', en: 'Kefir, sauerkraut, kombucha (diverse fermented options)' },
+    ],
+    tip: { zh: '加热会杀死活菌，泡菜最好直接冷食，味噌在汤出锅后再加入。每天一份即能维持肠道菌群多样性', en: 'Heat kills live cultures — eat kimchi cold and add miso after cooking. One serving daily maintains gut microbiome diversity' },
+  },
+};
+
 // ── 今日克数分析 ─────────────────────────────────────────────────────
 
 /**
