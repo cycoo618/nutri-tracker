@@ -143,7 +143,7 @@ export type MedCategory =
   | 'legume'
   | 'nut'
   | 'seafood'
-  | 'dairy';
+  | 'fermented';
 
 export interface MedCheckItem {
   category: MedCategory;
@@ -192,9 +192,17 @@ export const MED_KEYWORDS: Record<MedCategory, string[]> = {
     '扇贝', '花蛤', '蛤蜊', '墨鱼', '鱿鱼', '章鱼', '海参', '鲍鱼',
     'fish', 'salmon', 'tuna', 'shrimp', 'prawn', 'seafood', 'oyster',
   ],
-  dairy: [
-    '酸奶', '奶酪', '牛奶', '芝士', '希腊酸奶', '低脂奶', '脱脂奶', '乳酸菌',
-    'yogurt', 'cheese', 'milk', 'dairy',
+  fermented: [
+    // 发酵乳制品
+    '酸奶', '希腊酸奶', '开菲尔', '奶酪', '芝士', '乳酸菌饮料',
+    // 发酵蔬菜
+    '泡菜', '韩式泡菜', '酸菜', '德国酸菜',
+    // 发酵豆制品
+    '味噌', '纳豆', '天贝', '豆豉', '腐乳',
+    // 其他发酵
+    '康普茶', '开菲尔', '发酵',
+    'yogurt', 'kefir', 'kimchi', 'miso', 'natto', 'tempeh', 'fermented',
+    'sauerkraut', 'kombucha',
   ],
 };
 
@@ -224,9 +232,9 @@ const MED_SUGGESTIONS: Record<MedCategory, { zh: string; en: string }> = {
     zh: '今天可以加一块三文鱼、虾仁或贝类',
     en: 'Add salmon, shrimp or shellfish today',
   },
-  dairy:     {
-    zh: '来一杯希腊酸奶或一小块奶酪',
-    en: 'Have some Greek yogurt or a small piece of cheese',
+  fermented: {
+    zh: '来一杯希腊酸奶，或试试泡菜、味噌汤、纳豆',
+    en: 'Try Greek yogurt, kimchi, miso soup or natto',
   },
 };
 
@@ -237,11 +245,11 @@ const MED_META: Record<MedCategory, { icon: string; label: string; labelEn: stri
   legume:      { icon: '🫘', label: '豆类',    labelEn: 'Legumes'    },
   nut:         { icon: '🥜', label: '坚果',    labelEn: 'Nuts'       },
   seafood:     { icon: '🐟', label: '鱼/海鲜', labelEn: 'Seafood'    },
-  dairy:       { icon: '🥛', label: '乳制品',  labelEn: 'Dairy'      },
+  fermented:   { icon: '🫙', label: '发酵食品', labelEn: 'Fermented'  },
 };
 
 const MED_ORDER: MedCategory[] = [
-  'vegetable', 'fruit', 'whole_grain', 'legume', 'nut', 'seafood', 'dairy',
+  'vegetable', 'fruit', 'whole_grain', 'legume', 'nut', 'seafood', 'fermented',
 ];
 
 /**

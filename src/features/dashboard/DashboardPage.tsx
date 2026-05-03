@@ -340,9 +340,9 @@ export function DashboardPage({
 
   // 今日各类别进度 & 滚动提醒
   const emptyRolling: RollingStats = {
-    daysSinceLastEaten: { vegetable: null, fruit: null, whole_grain: null, legume: null, nut: null, seafood: null, dairy: null },
-    weeklyCount:        { vegetable: 0,    fruit: 0,    whole_grain: 0,    legume: 0,    nut: 0,    seafood: 0,    dairy: 0    },
-    weeklyGrams:        { vegetable: 0,    fruit: 0,    whole_grain: 0,    legume: 0,    nut: 0,    seafood: 0,    dairy: 0    },
+    daysSinceLastEaten: { vegetable: null, fruit: null, whole_grain: null, legume: null, nut: null, seafood: null, fermented: null },
+    weeklyCount:        { vegetable: 0,    fruit: 0,    whole_grain: 0,    legume: 0,    nut: 0,    seafood: 0,    fermented: 0    },
+    weeklyGrams:        { vegetable: 0,    fruit: 0,    whole_grain: 0,    legume: 0,    nut: 0,    seafood: 0,    fermented: 0    },
   };
   const rolling = weeklyRolling ?? emptyRolling;
   const dailyProgress = showMedChecklist ? getDailyProgress(allItems, rolling) : [];

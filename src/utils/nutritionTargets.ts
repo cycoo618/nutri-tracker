@@ -57,7 +57,7 @@ export const CATEGORY_TARGETS: CategoryTarget[] = [
     icon: '🍎',
     label: '水果',        labelEn: 'Fruit',
     dailyGrams: 250,      weeklyServings: null,
-    servingGrams: 100,    alertAfterDays: 2,
+    servingGrams: 100,    alertAfterDays: 3,
     targetLabel: '200-350g/天',   targetLabelEn: '200–350g/day',
     suggestion: '加一个苹果或橙子，约200g',
     suggestionEn: 'Add an apple or orange, about 200g',
@@ -103,14 +103,14 @@ export const CATEGORY_TARGETS: CategoryTarget[] = [
     suggestionEn: 'Salmon, sea bass, shrimp or shellfish, ~150g per serving',
   },
   {
-    category: 'dairy',
-    icon: '🥛',
-    label: '乳制品',      labelEn: 'Dairy',
-    dailyGrams: 300,      weeklyServings: null,
-    servingGrams: 100,    alertAfterDays: 2,
-    targetLabel: '300g/天',       targetLabelEn: '300g/day (milk equivalent)',
-    suggestion: '一杯酸奶（150g）或一杯牛奶（250ml）',
-    suggestionEn: 'A cup of yogurt (150g) or a glass of milk (250ml)',
+    category: 'fermented',
+    icon: '🫙',
+    label: '发酵食品',    labelEn: 'Fermented',
+    dailyGrams: 150,      weeklyServings: null,
+    servingGrams: 100,    alertAfterDays: 3,
+    targetLabel: '每天一份',       targetLabelEn: '1 serving/day',
+    suggestion: '希腊酸奶、泡菜、味噌汤、纳豆均可',
+    suggestionEn: 'Greek yogurt, kimchi, miso soup or natto',
   },
 ];
 
@@ -156,7 +156,7 @@ function matchesCategory(foodName: string, category: MedCategory): boolean {
  */
 export function analyzeRollingWindow(logs: DailyLog[], todayStr: string): RollingStats {
   const today = new Date(todayStr + 'T00:00:00');
-  const categories: MedCategory[] = ['vegetable', 'fruit', 'whole_grain', 'legume', 'nut', 'seafood', 'dairy'];
+  const categories: MedCategory[] = ['vegetable', 'fruit', 'whole_grain', 'legume', 'nut', 'seafood', 'fermented'];
 
   const daysSince: Record<string, number | null> = {};
   const weeklyCount: Record<string, number> = {};
