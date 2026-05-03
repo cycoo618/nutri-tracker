@@ -155,8 +155,8 @@ export interface MedCheckItem {
   suggestionEn: string;
 }
 
-/** 各类别的关键词 */
-const MED_KEYWORDS: Record<MedCategory, string[]> = {
+/** 各类别的关键词（同时被 nutritionTargets.ts 引用） */
+export const MED_KEYWORDS: Record<MedCategory, string[]> = {
   vegetable: [
     '菜', '菠菜', '西兰花', '花椰菜', '番茄', '西红柿', '胡萝卜', '黄瓜',
     '茄子', '青椒', '洋葱', '生菜', '芹菜', '韭菜', '白菜', '南瓜', '藕',
@@ -280,3 +280,6 @@ export function getMediterraneanChecklist(items: MealItem[]): MedCheckItem[] {
 export function getMissingMedSuggestions(checklist: MedCheckItem[]): MedCheckItem[] {
   return checklist.filter(c => !c.done).slice(0, 3);
 }
+
+/** 别名导出，供 nutritionTargets.ts 使用 */
+export { MED_KEYWORDS as MED_KEYWORDS_EXPORT };

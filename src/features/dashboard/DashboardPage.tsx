@@ -28,7 +28,10 @@ import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeServingLabel, localizeUnit } from '../../utils/servingLabels';
-import { getFoodWarning, getMediterraneanChecklist, getMissingMedSuggestions } from '../../utils/goalAlerts';
+import { getFoodWarning } from '../../utils/goalAlerts';
+import { getDailyProgress, analyzeRollingWindow, getCategoryAlerts } from '../../utils/nutritionTargets';
+import type { RollingStats } from '../../utils/nutritionTargets';
+import { getDailyLogs } from '../../services/firestore';
 
 interface DashboardPageProps {
   profile: UserProfile;
@@ -293,6 +296,7 @@ export function DashboardPage({
   const [familyId, setFamilyId] = useState<string | undefined>(profile.familyId);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
+  const [weeklyRolling, setWeeklyRolling] = useState<RollingStats | null>(null);
 
   const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood;
 
@@ -317,11 +321,32 @@ export function DashboardPage({
         .sort((a, b) => (a.loggedAt || '').localeCompare(b.loggedAt || ''))
     : [];
 
-  // 目标警示 & 地中海打卡
+  // 目标警示 & 地中海量化追踪
   const activeGoals = getActiveGoals(profile);
   const showMedChecklist = activeGoals.includes('anti_inflammatory');
-  const medChecklist = showMedChecklist ? getMediterraneanChecklist(allItems) : [];
-  const medSuggestions = showMedChecklist ? getMissingMedSuggestions(medChecklist) : [];
+
+  // 拉取最近7天历史记录，计算滚动窗口统计
+  useEffect(() => {
+    if (!showMedChecklist) return;
+    const end = currentDate;
+    const startDate = new Date(currentDate + 'T00:00:00');
+    startDate.setDate(startDate.getDate() - 6);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const start = `${startDate.getFullYear()}-${pad(startDate.getMonth()+1)}-${pad(startDate.getDate())}`;
+    getDailyLogs(profile.uid, start, end).then(logs => {
+      setWeeklyRolling(analyzeRollingWindow(logs, currentDate));
+    }).catch(() => {/* 静默失败，不影响主功能 */});
+  }, [profile.uid, currentDate, showMedChecklist]);
+
+  // 今日各类别进度 & 滚动提醒
+  const emptyRolling: RollingStats = {
+    daysSinceLastEaten: { vegetable: null, fruit: null, whole_grain: null, legume: null, nut: null, seafood: null, dairy: null },
+    weeklyCount:        { vegetable: 0,    fruit: 0,    whole_grain: 0,    legume: 0,    nut: 0,    seafood: 0,    dairy: 0    },
+    weeklyGrams:        { vegetable: 0,    fruit: 0,    whole_grain: 0,    legume: 0,    nut: 0,    seafood: 0,    dairy: 0    },
+  };
+  const rolling = weeklyRolling ?? emptyRolling;
+  const dailyProgress = showMedChecklist ? getDailyProgress(allItems, rolling) : [];
+  const categoryAlerts = showMedChecklist ? getCategoryAlerts(rolling, allItems) : [];
 
   const openSearch = () => { lockBody(); setShowSearch(true); };
   const closeSearch = () => { setShowSearch(false); unlockBody(); };
@@ -581,64 +606,108 @@ export function DashboardPage({
           </div>
         )}
 
-        {/* ── 地中海饮食今日打卡 ── */}
+        {/* ── 地中海饮食 · 量化目标进度 ── */}
         {showMedChecklist && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
-            <div className="px-4 pt-4 pb-3 border-b border-gray-50 flex items-center justify-between">
+            {/* 标题 */}
+            <div className="px-4 pt-4 pb-3 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-base">🫒</span>
                 <span className="font-semibold text-gray-800 text-sm">
-                  {locale === 'zh' ? '地中海饮食 · 今日打卡' : 'Mediterranean Diet · Today'}
+                  {locale === 'zh' ? '地中海饮食目标' : 'Mediterranean Goals'}
                 </span>
               </div>
               <span className="text-xs text-gray-400">
-                {medChecklist.filter(c => c.done).length}/{medChecklist.length}
+                {dailyProgress.filter(p => p.met).length}/{dailyProgress.length}
+                {' '}{locale === 'zh' ? '达标' : 'met'}
               </span>
             </div>
 
-            {/* 食物类别格子 */}
-            <div className="grid grid-cols-4 gap-0 divide-x divide-y divide-gray-50">
-              {medChecklist.map(item => (
-                <div
-                  key={item.category}
-                  className={`flex flex-col items-center justify-center py-3 gap-0.5 ${
-                    item.done ? 'bg-green-50' : 'bg-white'
-                  }`}
-                >
-                  <span className={`text-xl ${item.done ? '' : 'grayscale opacity-40'}`}>
-                    {item.icon}
-                  </span>
-                  <span className={`text-xs font-medium ${item.done ? 'text-green-700' : 'text-gray-400'}`}>
-                    {locale === 'zh' ? item.label : item.labelEn}
-                  </span>
-                  {item.done && (
-                    <span className="text-[10px] text-green-500">✓</span>
-                  )}
-                </div>
-              ))}
+            {/* 每类别进度条 */}
+            <div className="px-4 pb-3 space-y-3">
+              {dailyProgress.map(p => {
+                const isWeekly = p.weeklyTarget !== null;
+                const barPct = p.percent;
+                return (
+                  <div key={p.category}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base leading-none">{p.icon}</span>
+                        <span className="text-xs font-medium text-gray-700">
+                          {locale === 'zh' ? p.label : p.labelEn}
+                        </span>
+                        {/* 滚动天数提示 */}
+                        {rolling.daysSinceLastEaten[p.category] !== null &&
+                         rolling.daysSinceLastEaten[p.category]! > 0 &&
+                         p.todayGrams === 0 && !isWeekly && (
+                          <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                            {rolling.daysSinceLastEaten[p.category]}
+                            {locale === 'zh' ? '天前' : 'd ago'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {isWeekly
+                          ? `${p.weeklyCount}/${p.weeklyTarget} ${locale === 'zh' ? '次/周' : 'x/wk'}`
+                          : p.todayGrams > 0
+                            ? `${p.todayGrams}g / ${p.targetGrams}g`
+                            : `0 / ${p.targetGrams}g`
+                        }
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          p.met ? 'bg-green-400' : barPct >= 60 ? 'bg-amber-400' : barPct > 0 ? 'bg-orange-300' : 'bg-gray-200'
+                        }`}
+                        style={{ width: `${Math.max(barPct, p.todayGrams > 0 || (isWeekly && p.weeklyCount > 0) ? 4 : 0)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-0.5">
+                      <span className="text-[10px] text-gray-300">
+                        {locale === 'zh' ? p.targetLabel : p.targetLabelEn}
+                      </span>
+                      {p.met && (
+                        <span className="text-[10px] text-green-500 font-medium">✓ {locale === 'zh' ? '达标' : 'met'}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* 缺失类别建议 */}
-            {medSuggestions.length > 0 && (
-              <div className="px-4 py-3 space-y-1.5 border-t border-gray-50">
-                {medSuggestions.map(s => (
-                  <div key={s.category} className="flex items-start gap-2 text-xs text-gray-500">
-                    <span className="shrink-0 mt-0.5">{s.icon}</span>
-                    <span>
-                      <span className="font-medium text-gray-700">
-                        {locale === 'zh' ? s.label : s.labelEn}
+            {/* 滚动提醒：N天未吃提示 */}
+            {categoryAlerts.length > 0 && (
+              <div className="border-t border-gray-50 px-4 py-3 space-y-2">
+                <div className="text-xs font-medium text-gray-500 mb-1">
+                  💡 {locale === 'zh' ? '建议今天加入' : 'Suggested for today'}
+                </div>
+                {categoryAlerts.slice(0, 3).map(alert => (
+                  <div key={alert.category} className={`flex items-start gap-2 text-xs rounded-xl px-3 py-2 ${
+                    alert.severity === 'moderate'
+                      ? 'bg-orange-50 text-orange-700'
+                      : 'bg-amber-50 text-amber-700'
+                  }`}>
+                    <span className="shrink-0 mt-0.5">{alert.icon}</span>
+                    <div className="min-w-0">
+                      <span className="font-semibold">
+                        {locale === 'zh' ? alert.label : alert.labelEn}
                       </span>
-                      {' — '}
-                      {locale === 'zh' ? s.suggestion : s.suggestionEn}
-                    </span>
+                      <span className="text-opacity-80">
+                        {' · '}{locale === 'zh' ? alert.message : alert.messageEn}
+                      </span>
+                      <div className="text-[10px] mt-0.5 opacity-75">
+                        {locale === 'zh' ? alert.suggestion : alert.suggestionEn}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {medSuggestions.length === 0 && (
-              <div className="px-4 py-3 text-xs text-green-600 font-medium text-center">
-                🎉 {locale === 'zh' ? '今天所有食物类别都覆盖了，太棒了！' : 'All food groups covered today — great job!'}
+            {categoryAlerts.length === 0 && dailyProgress.every(p => p.met) && (
+              <div className="border-t border-gray-50 px-4 py-3 text-xs text-green-600 font-medium text-center">
+                🎉 {locale === 'zh' ? '今天各类食物都达标了，太棒了！' : 'All food groups met today — great job!'}
               </div>
             )}
           </div>
