@@ -252,8 +252,8 @@ export function getCategoryAlerts(
     if (target.weeklyServings !== null) {
       const weekCount = rolling.weeklyCount[cat];
       const remaining = target.weeklyServings - weekCount;
-      message = `本周还差 ${remaining} 次，上次吃是 ${daysGap} 天前`;
-      messageEn = `${remaining} more serving${remaining > 1 ? 's' : ''} needed this week · last eaten ${daysGap}d ago`;
+      message = `过去7天吃了 ${weekCount} 次，目标 ${target.weeklyServings} 次`;
+      messageEn = `${weekCount}/${target.weeklyServings} servings in the past 7 days`;
     } else if (daysSince === null) {
       message = `近7天内未吃过`;
       messageEn = 'Not eaten in the past 7 days';

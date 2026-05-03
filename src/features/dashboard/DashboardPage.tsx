@@ -527,81 +527,105 @@ export function DashboardPage({
           </button>
         </div>
 
-        {/* Calorie Ring */}
+        {/* ── 热量环 + 宏量 · 合并卡片 ── */}
         {ns && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-4">
-            <div className="flex items-center justify-center gap-8">
-              <ProgressRing percent={ns.caloriePercent} size={140}>
-                <div className="text-3xl font-bold text-gray-900">{ns.consumedCalories}</div>
-                <div className="text-xs text-gray-400">/ {ns.targetCalories} {localizeUnit('kcal', locale)}</div>
-              </ProgressRing>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-gray-500">{t('remaining')}</span>
-                  <div className={`text-lg font-bold ${ns.isOverCalorie ? 'text-red-500' : 'text-green-600'}`}>
-                    {ns.isOverCalorie ? '+' : ''}{Math.abs(ns.remainingCalories)} {localizeUnit('kcal', locale)}
-                  </div>
+          <div className="bg-white rounded-2xl px-5 py-5 shadow-sm border border-gray-100 mb-4">
+            <div className="flex items-center gap-5">
+              {/* 左：热量环 */}
+              <div className="flex flex-col items-center shrink-0">
+                <ProgressRing percent={ns.caloriePercent} size={120}>
+                  <div className="text-2xl font-bold text-gray-900 leading-tight">{ns.consumedCalories}</div>
+                  <div className="text-[10px] text-gray-400">/ {ns.targetCalories}</div>
+                  <div className="text-[10px] text-gray-400">{localizeUnit('kcal', locale)}</div>
+                </ProgressRing>
+                <div className={`mt-2 text-sm font-semibold ${ns.isOverCalorie ? 'text-red-500' : 'text-green-600'}`}>
+                  {ns.isOverCalorie ? '+' : '−'}{Math.abs(ns.remainingCalories)} kcal
                 </div>
-                {ns.isOverCalorie && (
-                  <div className="text-red-500 text-xs">{t('overTarget')}</div>
-                )}
+                <div className="text-[10px] text-gray-400">
+                  {ns.isOverCalorie ? t('overTarget') : t('remaining')}
+                </div>
+              </div>
+
+              {/* 右：蛋白 / 碳水 / 脂肪 / 膳食纤维 */}
+              <div className="flex-1 space-y-2.5 min-w-0">
+                {[
+                  { label: t('protein'), m: ns.macros.protein, color: 'bg-blue-500'  },
+                  { label: t('carbs'),   m: ns.macros.carbs,   color: 'bg-amber-400' },
+                  { label: t('fat'),     m: ns.macros.fat,     color: 'bg-red-400'   },
+                  { label: t('fiber'),   m: ns.fiber,          color: 'bg-green-400' },
+                ].map(({ label, m, color }) => (
+                  <div key={label}>
+                    <div className="flex justify-between items-baseline mb-0.5">
+                      <span className="text-xs text-gray-600 font-medium">{label}</span>
+                      <span className="text-[10px] text-gray-400 tabular-nums">
+                        {m.consumed}<span className="text-gray-300">/{m.target}g</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${color} transition-all`}
+                        style={{ width: `${Math.min(100, m.percent)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         )}
 
-        {/* Macros */}
-        {ns && (
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <MacroCard
-              label={t('protein')}
-              consumed={ns.macros.protein.consumed}
-              target={ns.macros.protein.target}
-              percent={ns.macros.protein.percent}
-              color="#3b82f6"
-            />
-            <MacroCard
-              label={t('carbs')}
-              consumed={ns.macros.carbs.consumed}
-              target={ns.macros.carbs.target}
-              percent={ns.macros.carbs.percent}
-              color="#f59e0b"
-            />
-            <MacroCard
-              label={t('fat')}
-              consumed={ns.macros.fat.consumed}
-              target={ns.macros.fat.target}
-              percent={ns.macros.fat.percent}
-              color="#ef4444"
-            />
-          </div>
-        )}
-
-        {/* Advanced Nutrition */}
+        {/* ── 进阶指标 · 3列格子 ── */}
         {ns?.advanced && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('advancedNutrition')}</h3>
-            <div className="space-y-2 text-sm">
-              <AdvancedRow
-                label={t('addedSugar')}
-                consumed={ns.advanced.sugar.consumed}
-                limit={`< ${ns.advanced.sugar.max}g`}
-                status={ns.advanced.sugar.status}
-              />
-              <AdvancedRow
-                label={t('sodium')}
-                consumed={ns.advanced.sodium.consumed}
-                limit={`< ${ns.advanced.sodium.max}mg`}
-                status={ns.advanced.sodium.status}
-                unit="mg"
-              />
-              <AdvancedRow
-                label="Omega-3"
-                consumed={ns.advanced.omega3.consumed}
-                limit={`≥ ${ns.advanced.omega3.min}mg`}
-                status={ns.advanced.omega3.status}
-                unit="mg"
-              />
+          <div className="bg-white rounded-2xl px-4 py-4 shadow-sm border border-gray-100 mb-4">
+            <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">{t('advancedNutrition')}</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                {
+                  icon: '🍬', label: t('addedSugar'),
+                  value: ns.advanced.sugar.consumed, unit: 'g',
+                  limit: `< ${ns.advanced.sugar.max}g`,
+                  status: ns.advanced.sugar.status,
+                  pct: Math.min(100, Math.round(ns.advanced.sugar.consumed / ns.advanced.sugar.max * 100)),
+                  inverse: true,   // 越低越好
+                },
+                {
+                  icon: '🧂', label: t('sodium'),
+                  value: ns.advanced.sodium.consumed, unit: 'mg',
+                  limit: `< ${ns.advanced.sodium.max}mg`,
+                  status: ns.advanced.sodium.status,
+                  pct: Math.min(100, Math.round(ns.advanced.sodium.consumed / ns.advanced.sodium.max * 100)),
+                  inverse: true,
+                },
+                {
+                  icon: '🐟', label: 'Omega-3',
+                  value: ns.advanced.omega3.consumed, unit: 'mg',
+                  limit: `≥ ${ns.advanced.omega3.min}mg`,
+                  status: ns.advanced.omega3.status,
+                  pct: Math.min(100, Math.round(ns.advanced.omega3.consumed / ns.advanced.omega3.min * 100)),
+                  inverse: false,  // 越高越好
+                },
+              ].map(item => {
+                const good = item.status === 'good';
+                const warn = item.status === 'warning';
+                const statusColor = good ? 'text-green-600' : warn ? 'text-amber-500' : 'text-red-500';
+                const barColor   = good
+                  ? (item.inverse ? 'bg-green-400' : 'bg-green-400')
+                  : warn ? 'bg-amber-400' : 'bg-red-400';
+                return (
+                  <div key={item.label} className="bg-gray-50 rounded-xl p-3">
+                    <div className="text-base leading-none mb-1">{item.icon}</div>
+                    <div className="text-[10px] text-gray-500 mb-1 truncate">{item.label}</div>
+                    <div className={`text-sm font-bold ${statusColor} leading-tight`}>
+                      {item.value}{item.unit === 'mg' ? '' : item.unit}
+                      <span className="text-[10px] font-normal text-gray-300 ml-0.5">{item.unit === 'mg' ? 'mg' : ''}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-300 mb-1.5">{item.limit}</div>
+                    <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${item.pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -648,7 +672,7 @@ export function DashboardPage({
                       </div>
                       <span className="text-xs text-gray-400">
                         {isWeekly
-                          ? `${p.weeklyCount}/${p.weeklyTarget} ${locale === 'zh' ? '次/周' : 'x/wk'}`
+                          ? `${p.weeklyCount}/${p.weeklyTarget} ${locale === 'zh' ? '次/近7天' : 'x/7d'}`
                           : p.todayGrams > 0
                             ? `${p.todayGrams}g / ${p.targetGrams}g`
                             : `0 / ${p.targetGrams}g`
