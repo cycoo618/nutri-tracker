@@ -546,8 +546,9 @@ export function DashboardPage({
                 </div>
               </div>
 
-              {/* 右：蛋白 / 碳水 / 脂肪 / 膳食纤维 */}
-              <div className="flex-1 space-y-2.5 min-w-0">
+              {/* 右：宏量 + 进阶指标 */}
+              <div className="flex-1 min-w-0 flex flex-col gap-2">
+                {/* 蛋白 / 碳水 / 脂肪 / 膳食纤维 */}
                 {[
                   { label: t('protein'), m: ns.macros.protein, color: 'bg-blue-500'  },
                   { label: t('carbs'),   m: ns.macros.carbs,   color: 'bg-amber-400' },
@@ -562,70 +563,67 @@ export function DashboardPage({
                       </span>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${color} transition-all`}
-                        style={{ width: `${Math.min(100, m.percent)}%` }}
-                      />
+                      <div className={`h-full rounded-full ${color} transition-all`}
+                        style={{ width: `${Math.min(100, m.percent)}%` }} />
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* ── 进阶指标 · 3列格子 ── */}
-        {ns?.advanced && (
-          <div className="bg-white rounded-2xl px-4 py-4 shadow-sm border border-gray-100 mb-4">
-            <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">{t('advancedNutrition')}</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                {
-                  icon: '🍬', label: t('addedSugar'),
-                  value: ns.advanced.sugar.consumed, unit: 'g',
-                  limit: `< ${ns.advanced.sugar.max}g`,
-                  status: ns.advanced.sugar.status,
-                  pct: Math.min(100, Math.round(ns.advanced.sugar.consumed / ns.advanced.sugar.max * 100)),
-                  inverse: true,   // 越低越好
-                },
-                {
-                  icon: '🧂', label: t('sodium'),
-                  value: ns.advanced.sodium.consumed, unit: 'mg',
-                  limit: `< ${ns.advanced.sodium.max}mg`,
-                  status: ns.advanced.sodium.status,
-                  pct: Math.min(100, Math.round(ns.advanced.sodium.consumed / ns.advanced.sodium.max * 100)),
-                  inverse: true,
-                },
-                {
-                  icon: '🐟', label: 'Omega-3',
-                  value: ns.advanced.omega3.consumed, unit: 'mg',
-                  limit: `≥ ${ns.advanced.omega3.min}mg`,
-                  status: ns.advanced.omega3.status,
-                  pct: Math.min(100, Math.round(ns.advanced.omega3.consumed / ns.advanced.omega3.min * 100)),
-                  inverse: false,  // 越高越好
-                },
-              ].map(item => {
-                const good = item.status === 'good';
-                const warn = item.status === 'warning';
-                const statusColor = good ? 'text-green-600' : warn ? 'text-amber-500' : 'text-red-500';
-                const barColor   = good
-                  ? (item.inverse ? 'bg-green-400' : 'bg-green-400')
-                  : warn ? 'bg-amber-400' : 'bg-red-400';
-                return (
-                  <div key={item.label} className="bg-gray-50 rounded-xl p-3">
-                    <div className="text-base leading-none mb-1">{item.icon}</div>
-                    <div className="text-[10px] text-gray-500 mb-1 truncate">{item.label}</div>
-                    <div className={`text-sm font-bold ${statusColor} leading-tight`}>
-                      {item.value}{item.unit === 'mg' ? '' : item.unit}
-                      <span className="text-[10px] font-normal text-gray-300 ml-0.5">{item.unit === 'mg' ? 'mg' : ''}</span>
+                {/* 分隔线 + 进阶指标（糖/钠/Omega-3）紧凑单行 */}
+                {ns.advanced && (
+                  <>
+                    <div className="border-t border-gray-100 pt-1.5 space-y-1.5">
+                      {[
+                        {
+                          icon: '🍬', label: t('addedSugar'),
+                          display: `${ns.advanced.sugar.consumed}g`,
+                          limit: `<${ns.advanced.sugar.max}g`,
+                          status: ns.advanced.sugar.status,
+                          pct: Math.min(100, Math.round(ns.advanced.sugar.consumed / ns.advanced.sugar.max * 100)),
+                          barColor: ns.advanced.sugar.status === 'good' ? 'bg-green-400' : ns.advanced.sugar.status === 'warning' ? 'bg-amber-400' : 'bg-red-400',
+                        },
+                        {
+                          icon: '🧂', label: t('sodium'),
+                          display: ns.advanced.sodium.consumed >= 1000
+                            ? `${(ns.advanced.sodium.consumed/1000).toFixed(1)}g`
+                            : `${ns.advanced.sodium.consumed}mg`,
+                          limit: `<${ns.advanced.sodium.max/1000}g`,
+                          status: ns.advanced.sodium.status,
+                          pct: Math.min(100, Math.round(ns.advanced.sodium.consumed / ns.advanced.sodium.max * 100)),
+                          barColor: ns.advanced.sodium.status === 'good' ? 'bg-green-400' : ns.advanced.sodium.status === 'warning' ? 'bg-amber-400' : 'bg-red-400',
+                        },
+                        {
+                          icon: '🫙', label: 'Omega-3',
+                          display: `${ns.advanced.omega3.consumed}mg`,
+                          limit: `≥${ns.advanced.omega3.min}mg`,
+                          status: ns.advanced.omega3.status,
+                          pct: Math.min(100, Math.round(ns.advanced.omega3.consumed / ns.advanced.omega3.min * 100)),
+                          barColor: ns.advanced.omega3.status === 'good' ? 'bg-green-400' : 'bg-amber-400',
+                        },
+                      ].map(item => (
+                        <div key={item.label}>
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <span className="text-[10px] text-gray-500">
+                              {item.icon} {item.label}
+                            </span>
+                            <span className="text-[10px] tabular-nums">
+                              <span className={
+                                item.status === 'good' ? 'text-green-600' :
+                                item.status === 'warning' ? 'text-amber-500' : 'text-red-500'
+                              }>{item.display}</span>
+                              <span className="text-gray-300"> {item.limit}</span>
+                            </span>
+                          </div>
+                          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${item.barColor} transition-all`}
+                              style={{ width: `${item.pct}%` }} />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="text-[10px] text-gray-300 mb-1.5">{item.limit}</div>
-                    <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${item.pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -647,53 +645,48 @@ export function DashboardPage({
               </span>
             </div>
 
-            {/* 每类别进度条 */}
-            <div className="px-4 pb-3 space-y-3">
+            {/* 每类别进度条 · 两栏 */}
+            <div className="px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-3">
               {dailyProgress.map(p => {
                 const isWeekly = p.weeklyTarget !== null;
                 const barPct = p.percent;
+                const daysSince = rolling.daysSinceLastEaten[p.category];
+                const showDaysChip = daysSince !== null && daysSince > 0 && p.todayGrams === 0 && !isWeekly;
                 return (
                   <div key={p.category}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-base leading-none">{p.icon}</span>
-                        <span className="text-xs font-medium text-gray-700">
-                          {locale === 'zh' ? p.label : p.labelEn}
-                        </span>
-                        {/* 滚动天数提示 */}
-                        {rolling.daysSinceLastEaten[p.category] !== null &&
-                         rolling.daysSinceLastEaten[p.category]! > 0 &&
-                         p.todayGrams === 0 && !isWeekly && (
-                          <span className="text-[10px] text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full">
-                            {rolling.daysSinceLastEaten[p.category]}
-                            {locale === 'zh' ? '天前' : 'd ago'}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {isWeekly
-                          ? `${p.weeklyCount}/${p.weeklyTarget} ${locale === 'zh' ? '次/近7天' : 'x/7d'}`
-                          : p.todayGrams > 0
-                            ? `${p.todayGrams}g / ${p.targetGrams}g`
-                            : `0 / ${p.targetGrams}g`
-                        }
+                    {/* 类别名 + 天数chip */}
+                    <div className="flex items-center gap-1 mb-0.5 flex-wrap">
+                      <span className="text-sm leading-none">{p.icon}</span>
+                      <span className="text-xs font-medium text-gray-700">
+                        {locale === 'zh' ? p.label : p.labelEn}
                       </span>
+                      {showDaysChip && (
+                        <span className="text-[9px] text-amber-500 bg-amber-50 px-1 py-0.5 rounded-full leading-none">
+                          {daysSince}{locale === 'zh' ? '天前' : 'd'}
+                        </span>
+                      )}
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    {/* 进度条 */}
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-0.5">
                       <div
                         className={`h-full rounded-full transition-all ${
                           p.met ? 'bg-green-400' : barPct >= 60 ? 'bg-amber-400' : barPct > 0 ? 'bg-orange-300' : 'bg-gray-200'
                         }`}
-                        style={{ width: `${Math.max(barPct, p.todayGrams > 0 || (isWeekly && p.weeklyCount > 0) ? 4 : 0)}%` }}
+                        style={{ width: `${Math.max(barPct, p.todayGrams > 0 || (isWeekly && p.weeklyCount > 0) ? 3 : 0)}%` }}
                       />
                     </div>
-                    <div className="flex justify-between mt-0.5">
-                      <span className="text-[10px] text-gray-300">
-                        {locale === 'zh' ? p.targetLabel : p.targetLabelEn}
+                    {/* 数值行 */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-400 tabular-nums">
+                        {isWeekly
+                          ? `${p.weeklyCount}/${p.weeklyTarget} ${locale === 'zh' ? '次/7天' : 'x/7d'}`
+                          : `${p.todayGrams}/${p.targetGrams}g`
+                        }
                       </span>
-                      {p.met && (
-                        <span className="text-[10px] text-green-500 font-medium">✓ {locale === 'zh' ? '达标' : 'met'}</span>
-                      )}
+                      {p.met
+                        ? <span className="text-[10px] text-green-500 font-medium">✓</span>
+                        : <span className="text-[10px] text-gray-300">{locale === 'zh' ? p.targetLabel : p.targetLabelEn}</span>
+                      }
                     </div>
                   </div>
                 );
