@@ -28,6 +28,7 @@ import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeServingLabel, localizeUnit } from '../../utils/servingLabels';
+import { getFoodWarning, getMediterraneanChecklist, getMissingMedSuggestions } from '../../utils/goalAlerts';
 
 interface DashboardPageProps {
   profile: UserProfile;
@@ -57,10 +58,11 @@ function fmtTime(iso?: string): string {
 }
 
 // ── 营养详情底部弹窗 ───────────────────────────────────────────────
-function NutritionDetailSheet({ item, onClose, onEdit }: {
+function NutritionDetailSheet({ item, onClose, onEdit, warning }: {
   item: MealItem;
   onClose: () => void;
   onEdit: (item: MealItem) => void;
+  warning?: import('../../utils/goalAlerts').FoodWarning | null;
 }) {
   const { locale } = useLocale();
   const n = item.nutrition;
@@ -95,9 +97,18 @@ function NutritionDetailSheet({ item, onClose, onEdit }: {
         </div>
         {/* Header */}
         <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start justify-between gap-3">
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="font-semibold text-gray-900 text-base">{item.foodName}</div>
             <div className="text-sm text-gray-400 mt-0.5">{localizeServingLabel(item.unit, locale)}</div>
+            {warning && (
+              <div className={`mt-2 text-xs px-3 py-1.5 rounded-lg ${
+                warning.level === 'warn'
+                  ? 'bg-red-50 text-red-600 border border-red-100'
+                  : 'bg-amber-50 text-amber-700 border border-amber-100'
+              }`}>
+                {warning.emoji} {locale === 'zh' ? warning.reason : warning.reasonEn}
+              </div>
+            )}
           </div>
           <button
             onClick={() => onEdit(item)}
@@ -132,9 +143,10 @@ interface SwipeableRowProps {
   item: MealItem;
   onRemove: (id: string) => void;
   onTap: (item: MealItem) => void;
+  warning?: import('../../utils/goalAlerts').FoodWarning | null;
 }
 
-function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
+function SwipeableRow({ item, onRemove, onTap, warning }: SwipeableRowProps) {
   const { locale } = useLocale();
   const rowRef   = useRef<HTMLDivElement>(null);
   const startX   = useRef(0);
@@ -222,6 +234,18 @@ function SwipeableRow({ item, onRemove, onTap }: SwipeableRowProps) {
             {time && <span className="text-xs text-gray-300 font-mono shrink-0">{time}</span>}
             <span className="text-sm font-medium text-gray-800 truncate">{item.foodName}</span>
             <GIBadge gi={item.gi} size="sm" />
+            {warning && (
+              <span
+                title={warning.reason}
+                className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${
+                  warning.level === 'warn'
+                    ? 'bg-red-100 text-red-600'
+                    : 'bg-amber-100 text-amber-600'
+                }`}
+              >
+                {warning.emoji}
+              </span>
+            )}
           </div>
           <span className="text-xs text-gray-400">{localizeServingLabel(item.unit, locale)}</span>
         </div>
@@ -292,6 +316,12 @@ export function DashboardPage({
         .flatMap(m => m.items)
         .sort((a, b) => (a.loggedAt || '').localeCompare(b.loggedAt || ''))
     : [];
+
+  // 目标警示 & 地中海打卡
+  const activeGoals = getActiveGoals(profile);
+  const showMedChecklist = activeGoals.includes('anti_inflammatory');
+  const medChecklist = showMedChecklist ? getMediterraneanChecklist(allItems) : [];
+  const medSuggestions = showMedChecklist ? getMissingMedSuggestions(medChecklist) : [];
 
   const openSearch = () => { lockBody(); setShowSearch(true); };
   const closeSearch = () => { setShowSearch(false); unlockBody(); };
@@ -551,6 +581,69 @@ export function DashboardPage({
           </div>
         )}
 
+        {/* ── 地中海饮食今日打卡 ── */}
+        {showMedChecklist && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
+            <div className="px-4 pt-4 pb-3 border-b border-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-base">🫒</span>
+                <span className="font-semibold text-gray-800 text-sm">
+                  {locale === 'zh' ? '地中海饮食 · 今日打卡' : 'Mediterranean Diet · Today'}
+                </span>
+              </div>
+              <span className="text-xs text-gray-400">
+                {medChecklist.filter(c => c.done).length}/{medChecklist.length}
+              </span>
+            </div>
+
+            {/* 食物类别格子 */}
+            <div className="grid grid-cols-4 gap-0 divide-x divide-y divide-gray-50">
+              {medChecklist.map(item => (
+                <div
+                  key={item.category}
+                  className={`flex flex-col items-center justify-center py-3 gap-0.5 ${
+                    item.done ? 'bg-green-50' : 'bg-white'
+                  }`}
+                >
+                  <span className={`text-xl ${item.done ? '' : 'grayscale opacity-40'}`}>
+                    {item.icon}
+                  </span>
+                  <span className={`text-xs font-medium ${item.done ? 'text-green-700' : 'text-gray-400'}`}>
+                    {locale === 'zh' ? item.label : item.labelEn}
+                  </span>
+                  {item.done && (
+                    <span className="text-[10px] text-green-500">✓</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* 缺失类别建议 */}
+            {medSuggestions.length > 0 && (
+              <div className="px-4 py-3 space-y-1.5 border-t border-gray-50">
+                {medSuggestions.map(s => (
+                  <div key={s.category} className="flex items-start gap-2 text-xs text-gray-500">
+                    <span className="shrink-0 mt-0.5">{s.icon}</span>
+                    <span>
+                      <span className="font-medium text-gray-700">
+                        {locale === 'zh' ? s.label : s.labelEn}
+                      </span>
+                      {' — '}
+                      {locale === 'zh' ? s.suggestion : s.suggestionEn}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {medSuggestions.length === 0 && (
+              <div className="px-4 py-3 text-xs text-green-600 font-medium text-center">
+                🎉 {locale === 'zh' ? '今天所有食物类别都覆盖了，太棒了！' : 'All food groups covered today — great job!'}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── 今日饮食时间线 ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
           <div className="flex items-center justify-between p-4 pb-3">
@@ -587,6 +680,7 @@ export function DashboardPage({
                   item={item}
                   onRemove={onRemoveFood}
                   onTap={setDetailItem}
+                  warning={getFoodWarning(item.foodName, activeGoals)}
                 />
               ))}
             </div>
@@ -709,6 +803,7 @@ export function DashboardPage({
           item={detailItem}
           onClose={() => setDetailItem(null)}
           onEdit={item => { setEditingItem(item); setDetailItem(null); }}
+          warning={getFoodWarning(detailItem.foodName, activeGoals)}
         />
       )}
 
