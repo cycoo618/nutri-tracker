@@ -33,6 +33,7 @@ import { getDailyProgress, analyzeRollingWindow, getCategoryAlerts, CATEGORY_INF
 import type { RollingStats } from '../../utils/nutritionTargets';
 import type { MedCategory } from '../../utils/goalAlerts';
 import { getDailyLogs } from '../../services/firestore';
+import { SCIENCE_ARTICLES } from '../../data/scienceArticles';
 
 interface DashboardPageProps {
   profile: UserProfile;
@@ -299,8 +300,9 @@ export function DashboardPage({
   const [weeklyRolling, setWeeklyRolling] = useState<RollingStats | null>(null);
   const [weeklyLogs, setWeeklyLogs] = useState<DailyLog[]>([]);
   const [infoCategory, setInfoCategory] = useState<MedCategory | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'food' | 'weekly' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'weekly' | 'science' | 'profile'>('overview');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [scienceArticleId, setScienceArticleId] = useState<string | null>(null);
 
   // Profile tab form state
   const [tabGoals, setTabGoals] = useState<GoalType[]>(getActiveGoals(profile));
@@ -477,7 +479,7 @@ export function DashboardPage({
 
       <main className="max-w-lg mx-auto px-4 pb-32">
         {/* Date Navigator — shown on overview & food tabs only */}
-        {(activeTab === 'overview' || activeTab === 'food') && (
+        {activeTab === 'overview' && (
           <div className="flex items-center justify-center gap-4 py-4">
             <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
               ← {t('prevDay')}
@@ -597,7 +599,7 @@ export function DashboardPage({
               <div className="flex items-center gap-1.5">
                 <span className="text-base">🫒</span>
                 <span className="font-semibold text-gray-800 text-sm">
-                  {locale === 'zh' ? '地中海饮食目标' : 'Mediterranean Goals'}
+                  {locale === 'zh' ? '食物多样性' : 'Food Diversity'}
                 </span>
               </div>
               <span className="text-xs text-gray-400">
@@ -701,13 +703,11 @@ export function DashboardPage({
           </div>
         )}
 
-        {/* ══════════════ FOOD TAB ══════════════ */}
-        {activeTab === 'food' && (
+        {/* ── 今日食物时间线（overview 底部）── */}
+        {activeTab === 'overview' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
             <div className="flex items-center justify-between p-4 pb-3">
-              <h3 className="font-semibold text-gray-800">
-                {locale === 'zh' ? '今日食物' : "Today's Food"}
-              </h3>
+              <h3 className="font-semibold text-gray-800">{t('todaysFoodLog')}</h3>
               <div className="flex items-center gap-2">
                 {allItems.length > 0 && (
                   <span className="text-sm text-gray-400">
@@ -932,7 +932,13 @@ export function DashboardPage({
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {getDailyProgress(allItems, rolling).map(p => (
+                    {getDailyProgress(allItems, rolling).map(p => {
+                      // 7天tab：每日平均克数（周次数类型仍用次数）
+                      const daysEaten = rolling.weeklyCount[p.category];
+                      const avgG = daysEaten > 0
+                        ? Math.round(rolling.weeklyGrams[p.category] / daysEaten)
+                        : 0;
+                      return (
                       <div key={p.category} className="flex items-center gap-3">
                         <span className="text-base w-6 text-center shrink-0">{p.icon}</span>
                         <div className="flex-1 min-w-0">
@@ -942,8 +948,10 @@ export function DashboardPage({
                             </span>
                             <span className="text-xs text-gray-400 tabular-nums shrink-0 ml-1">
                               {p.weeklyTarget !== null
-                                ? `${rolling.weeklyCount[p.category]}/${p.weeklyTarget} ${locale === 'zh' ? '次' : 'x'}`
-                                : `${rolling.weeklyGrams[p.category]}g`
+                                ? `${daysEaten}/${p.weeklyTarget} ${locale === 'zh' ? '次/7天' : 'x/7d'}`
+                                : avgG > 0
+                                  ? `${locale === 'zh' ? '均' : 'avg'} ${avgG}g/天`
+                                  : locale === 'zh' ? '未记录' : 'none'
                               }
                             </span>
                           </div>
@@ -956,7 +964,7 @@ export function DashboardPage({
                         </div>
                         {p.met && <span className="text-xs text-green-500 shrink-0">✓</span>}
                       </div>
-                    ))}
+                    ); })}
                   </div>
                 </div>
               )}
@@ -967,6 +975,125 @@ export function DashboardPage({
                   {locale === 'zh' ? '暂无近7天数据，开始记录饮食吧' : 'No data for the past 7 days yet — start logging!'}
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* ══════════════ SCIENCE TAB ══════════════ */}
+        {activeTab === 'science' && (() => {
+          const article = scienceArticleId
+            ? SCIENCE_ARTICLES.find(a => a.id === scienceArticleId)
+            : null;
+
+          if (article) {
+            // 文章详情页
+            return (
+              <div className="pt-4">
+                {/* Back */}
+                <button
+                  onClick={() => setScienceArticleId(null)}
+                  className="flex items-center gap-1.5 text-sm text-green-600 hover:text-green-700 mb-4"
+                >
+                  ← {locale === 'zh' ? '返回' : 'Back'}
+                </button>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  {/* Header */}
+                  <div className="px-5 pt-5 pb-4 border-b border-gray-50">
+                    <span className="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">
+                      {locale === 'zh' ? article.tag : article.tagEn}
+                    </span>
+                    <h2 className="text-base font-bold text-gray-900 mt-3 leading-snug">
+                      {locale === 'zh' ? article.title.zh : article.title.en}
+                    </h2>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                      <span>📖 {article.readMinutes} {locale === 'zh' ? '分钟' : 'min read'}</span>
+                      <span>·</span>
+                      <span>{article.source.split(';')[0].trim()}</span>
+                    </div>
+                  </div>
+                  {/* Body */}
+                  <div className="px-5 py-4 space-y-5">
+                    {article.body.map((para, i) => {
+                      const text = locale === 'zh' ? para.zh : para.en;
+                      const parts = text.split('\n\n');
+                      return (
+                        <div key={i} className="space-y-2">
+                          {parts.map((part, j) => {
+                            if (part.startsWith('**') && part.includes('**\n\n')) {
+                              const [title, ...rest] = part.split('**\n\n');
+                              return (
+                                <div key={j}>
+                                  <div className="font-semibold text-gray-900 text-sm mb-1">
+                                    {title.replace(/\*\*/g, '')}
+                                  </div>
+                                  <p className="text-sm text-gray-700 leading-relaxed">{rest.join('**\n\n')}</p>
+                                </div>
+                              );
+                            }
+                            if (part.startsWith('**')) {
+                              const cleaned = part.replace(/\*\*/g, '');
+                              const colonIdx = cleaned.indexOf('\n');
+                              if (colonIdx > -1) {
+                                return (
+                                  <div key={j}>
+                                    <div className="font-semibold text-gray-900 text-sm mb-1">{cleaned.slice(0, colonIdx)}</div>
+                                    <p className="text-sm text-gray-700 leading-relaxed">{cleaned.slice(colonIdx + 1)}</p>
+                                  </div>
+                                );
+                              }
+                            }
+                            return <p key={j} className="text-sm text-gray-700 leading-relaxed">{part.replace(/\*\*/g, '')}</p>;
+                          })}
+                        </div>
+                      );
+                    })}
+                    <div className="pt-3 border-t border-gray-100 text-xs text-gray-400 leading-relaxed">
+                      <span className="font-medium">📚 {locale === 'zh' ? '参考来源' : 'Sources'}：</span>{article.source}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // 文章列表页
+          return (
+            <div className="pt-4 space-y-3">
+              <div className="text-sm font-semibold text-gray-800 px-1 mb-1">
+                {locale === 'zh' ? '🔬 营养科学' : '🔬 Nutrition Science'}
+              </div>
+              <div className="text-xs text-gray-400 px-1 mb-3">
+                {locale === 'zh'
+                  ? '基于 NEJM、Lancet、Cell 等顶级期刊的营养学研究精读'
+                  : 'Key findings from top journals: NEJM, Lancet, Cell, and more'}
+              </div>
+              {SCIENCE_ARTICLES.map(art => (
+                <button
+                  key={art.id}
+                  onClick={() => setScienceArticleId(art.id)}
+                  className="w-full text-left bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:border-green-200 active:bg-gray-50 transition-all"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                          {locale === 'zh' ? art.tag : art.tagEn}
+                        </span>
+                        <span className="text-[10px] text-gray-300">
+                          {art.readMinutes} {locale === 'zh' ? '分钟' : 'min'}
+                        </span>
+                      </div>
+                      <div className="font-semibold text-gray-900 text-sm leading-snug mb-1.5">
+                        {locale === 'zh' ? art.title.zh : art.title.en}
+                      </div>
+                      <div className="text-xs text-gray-500 leading-relaxed line-clamp-2">
+                        {locale === 'zh' ? art.summary.zh : art.summary.en}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-gray-300 text-sm mt-1">›</span>
+                  </div>
+                </button>
+              ))}
             </div>
           );
         })()}
@@ -1151,29 +1278,7 @@ export function DashboardPage({
             <span className="text-[10px] font-medium">{locale === 'zh' ? '总览' : 'Overview'}</span>
           </button>
 
-          {/* Tab 2 — 食物 */}
-          <button
-            onClick={() => { setActiveTab('food'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${activeTab === 'food' ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
-            </svg>
-            <span className="text-[10px] font-medium">{locale === 'zh' ? '食物' : 'Food'}</span>
-          </button>
-
-          {/* 中间 + 按钮 */}
-          <div className="flex flex-col items-center justify-end pb-3 px-3">
-            <button
-              onClick={openSearch}
-              className="w-13 h-13 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 active:scale-95 transition-all -translate-y-3"
-              style={{ width: '52px', height: '52px' }}
-            >
-              +
-            </button>
-          </div>
-
-          {/* Tab 3 — 7 Days */}
+          {/* Tab 2 — 7 Days */}
           <button
             onClick={() => { setActiveTab('weekly'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${activeTab === 'weekly' ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
@@ -1183,6 +1288,29 @@ export function DashboardPage({
               <path d="M7 13h2v5H7z"/><path d="M11 15h2v3h-2z"/><path d="M15 12h2v6h-2z"/>
             </svg>
             <span className="text-[10px] font-medium">{locale === 'zh' ? '7天' : '7 Days'}</span>
+          </button>
+
+          {/* 中间 + 按钮 */}
+          <div className="flex flex-col items-center justify-end pb-3 px-3">
+            <button
+              onClick={openSearch}
+              className="bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 active:scale-95 transition-all -translate-y-3"
+              style={{ width: '52px', height: '52px' }}
+            >
+              +
+            </button>
+          </div>
+
+          {/* Tab 3 — 科学 */}
+          <button
+            onClick={() => { setActiveTab('science'); setScienceArticleId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${activeTab === 'science' ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v11m0 0H5m4 0h10m0-11v11m0 0h-4M9 14v7m0 0H5m4 0h4m2 0v-7"/>
+              <circle cx="17" cy="18" r="3"/><path d="m21 22-1.5-1.5"/>
+            </svg>
+            <span className="text-[10px] font-medium">{locale === 'zh' ? '科学' : 'Science'}</span>
           </button>
 
           {/* Tab 4 — 我的 */}

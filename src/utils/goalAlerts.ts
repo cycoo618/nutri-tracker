@@ -14,10 +14,19 @@ export interface FoodWarning {
   reasonEn: string;             // 英文
 }
 
+/** 全谷物/健康版覆盖词——含这些词时跳过精制谷物 caution */
+const WHOLE_GRAIN_OVERRIDES = ['全麦', '燕麦', '糙米', '全谷', '杂粮', '藜麦', '荞麦', 'whole grain', 'whole wheat', 'oat', 'brown rice'];
+
 /** 关键词匹配（食物名称小写后判断） */
 function matchAny(name: string, keywords: string[]): boolean {
   const lower = name.toLowerCase();
   return keywords.some(k => lower.includes(k));
+}
+
+/** 精制谷物警示时，若名称含全谷物关键词则豁免 */
+function matchAnyNotWhole(name: string, keywords: string[]): boolean {
+  if (WHOLE_GRAIN_OVERRIDES.some(o => name.toLowerCase().includes(o.toLowerCase()))) return false;
+  return matchAny(name, keywords);
 }
 
 // ── 抗炎目标警示词库 ────────────────────────────────────────────────
@@ -83,7 +92,7 @@ export function getFoodWarning(foodName: string, goals: GoalType[]): FoodWarning
         reason: '含炸/加工食品/酒精/高糖，不利于抗炎',
         reasonEn: 'Fried/processed/alcohol/high-sugar — not anti-inflammatory',
       });
-    } else if (matchAny(foodName, ANTI_INFLAM_CAUTION)) {
+    } else if (matchAnyNotWhole(foodName, ANTI_INFLAM_CAUTION)) {
       warnings.push({
         level: 'caution',
         emoji: '⚠️',
@@ -119,7 +128,7 @@ export function getFoodWarning(foodName: string, goals: GoalType[]): FoodWarning
         reason: '高GI/高糖食物，会导致血糖快速升高',
         reasonEn: 'High-GI/high-sugar food — causes rapid blood sugar spikes',
       });
-    } else if (matchAny(foodName, BLOOD_SUGAR_CAUTION)) {
+    } else if (matchAnyNotWhole(foodName, BLOOD_SUGAR_CAUTION)) {
       warnings.push({
         level: 'caution',
         emoji: '⚠️',
