@@ -6,8 +6,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
-import type { UserProfile } from '../../types/user';
-import { GOAL_LABELS, GOAL_ICONS, getActiveGoals } from '../../types/user';
+import type { UserProfile, GoalType } from '../../types/user';
+import { GOAL_LABELS, GOAL_ICONS, GOAL_MUTEX_GROUPS, getActiveGoals } from '../../types/user';
 import type { DailyLog, MealItem } from '../../types/log';
 import type { FoodItem } from '../../types/food';
 import type { NutritionStatus } from '../../hooks/useNutrition';
@@ -282,8 +282,7 @@ export function DashboardPage({
   const [showSearch, setShowSearch] = useState(false);
   const [showPantry, setShowPantry] = useState(false);
   const [showFamily, setShowFamily] = useState(false);
-  const [showMenu,   setShowMenu]   = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showMenu,   setShowMenu]   = useState(false); // kept for potential future use
   const [showInsights, setShowInsights] = useState(false);
   const [fontSize, setFontSizeState] = useState<FontSize>(getFontSize());
   const { locale, changeLocale, t } = useLocale();
@@ -298,7 +297,17 @@ export function DashboardPage({
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quickEntry, setQuickEntry] = useState<RecentFoodEntry | null>(null);
   const [weeklyRolling, setWeeklyRolling] = useState<RollingStats | null>(null);
+  const [weeklyLogs, setWeeklyLogs] = useState<DailyLog[]>([]);
   const [infoCategory, setInfoCategory] = useState<MedCategory | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'food' | 'weekly' | 'profile'>('overview');
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+
+  // Profile tab form state
+  const [tabGoals, setTabGoals] = useState<GoalType[]>(getActiveGoals(profile));
+  const [tabWeight, setTabWeight] = useState(String(profile.bodyMetrics?.weight ?? ''));
+  const [tabBodyFat, setTabBodyFat] = useState(String(profile.bodyMetrics?.bodyFat ?? ''));
+  const [tabTargetCal, setTabTargetCal] = useState(String(profile.targetCalories));
+  const [tabSaving, setTabSaving] = useState(false);
 
   const anyModalOpen = showSearch || showPantry || showFamily || !!selectedFood || !!infoCategory;
 
@@ -327,18 +336,18 @@ export function DashboardPage({
   const activeGoals = getActiveGoals(profile);
   const showMedChecklist = activeGoals.includes('anti_inflammatory');
 
-  // 拉取最近7天历史记录，计算滚动窗口统计
+  // 拉取最近7天历史记录，计算滚动窗口统计（7 Days tab 和地中海打卡均需要）
   useEffect(() => {
-    if (!showMedChecklist) return;
     const end = currentDate;
     const startDate = new Date(currentDate + 'T00:00:00');
     startDate.setDate(startDate.getDate() - 6);
     const pad = (n: number) => String(n).padStart(2, '0');
     const start = `${startDate.getFullYear()}-${pad(startDate.getMonth()+1)}-${pad(startDate.getDate())}`;
     getDailyLogs(profile.uid, start, end).then(logs => {
+      setWeeklyLogs(logs);
       setWeeklyRolling(analyzeRollingWindow(logs, currentDate));
     }).catch(() => {/* 静默失败，不影响主功能 */});
-  }, [profile.uid, currentDate, showMedChecklist]);
+  }, [profile.uid, currentDate]);
 
   // 今日各类别进度 & 滚动提醒
   const emptyRolling: RollingStats = {
@@ -365,6 +374,35 @@ export function DashboardPage({
     setSelectedFood(entry.food);
     setShowSearch(false);
     // body 已锁，从 search → addModal 不需要重新 lock/unlock
+  };
+
+  const toggleTabGoal = (g: GoalType) => {
+    setTabGoals(prev => {
+      if (prev.includes(g)) {
+        if (prev.length === 1) return prev;
+        return prev.filter(x => x !== g);
+      }
+      const mutex = GOAL_MUTEX_GROUPS.find(group => group.includes(g));
+      const toRemove = mutex ? mutex.filter(x => x !== g) : [];
+      return [...prev.filter(x => !toRemove.includes(x)), g];
+    });
+  };
+
+  const handleTabProfileSave = async () => {
+    setTabSaving(true);
+    const activeGoals = tabGoals.length > 0 ? tabGoals : ['anti_inflammatory' as GoalType];
+    await onProfileUpdate({
+      goal: activeGoals[0],
+      goals: activeGoals,
+      targetCalories: Number(tabTargetCal) || profile.targetCalories,
+      targetCaloriesMode: 'manual',
+      bodyMetrics: {
+        ...(profile.bodyMetrics ?? { height: 170, age: 30, gender: 'female', activityLevel: 'moderate' }),
+        weight: Number(tabWeight) || (profile.bodyMetrics?.weight ?? 60),
+        bodyFat: tabBodyFat ? Number(tabBodyFat) : undefined,
+      },
+    });
+    setTabSaving(false);
   };
 
   return (
@@ -408,94 +446,14 @@ export function DashboardPage({
                 {syncStatus === 'error' ? t('reSync') : t('syncNow')}
               </button>
             )}
-            {/* 汉堡菜单 */}
-            <div className="relative">
-              <button
-                onClick={() => setShowMenu(v => !v)}
-                className="w-8 h-8 flex flex-col items-center justify-center gap-1.5 text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label="菜单"
-              >
-                <span className="block w-4.5 h-0.5 bg-current rounded-full" />
-                <span className="block w-4.5 h-0.5 bg-current rounded-full" />
-                <span className="block w-4.5 h-0.5 bg-current rounded-full" />
-              </button>
-
-              {showMenu && (
-                <>
-                  {/* 点击背景关闭 */}
-                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-50">
-                    <button
-                      onClick={() => { setShowMenu(false); setShowProfile(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                    >
-                      <span>📊</span>
-                      <span>{t('myData')}</span>
-                    </button>
-                    <div className="h-px bg-gray-100 mx-3" />
-                    <button
-                      onClick={() => { setShowMenu(false); setShowInsights(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                    >
-                      <span>🔍</span>
-                      <span>{locale === 'zh' ? '饮食分析' : 'Nutrition Insights'}</span>
-                    </button>
-                    <div className="h-px bg-gray-100 mx-3" />
-                    {/* 字体大小 */}
-                    <div className="px-4 py-2.5">
-                      <div className="text-xs text-gray-400 mb-1.5">{t('fontSize')}</div>
-                      <div className="flex gap-1">
-                        {(['small', 'standard', 'large'] as FontSize[]).map((s, i) => (
-                          <button
-                            key={s}
-                            onClick={() => handleFontSize(s)}
-                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                              fontSize === s ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                            }`}
-                          >
-                            {[t('fontSmall'), t('fontStandard'), t('fontLarge')][i]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="h-px bg-gray-100 mx-3" />
-                    {/* 语言切换 */}
-                    <div className="px-4 py-2.5">
-                      <div className="text-xs text-gray-400 mb-1.5">{t('language')}</div>
-                      <div className="flex gap-1">
-                        {(['zh', 'en'] as const).map(l => (
-                          <button
-                            key={l}
-                            onClick={() => changeLocale(l)}
-                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                              locale === l ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                            }`}
-                          >
-                            {l === 'zh' ? '中文' : 'EN'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="h-px bg-gray-100 mx-3" />
-                    <button
-                      onClick={() => { setShowMenu(false); openFamily(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                    >
-                      <span>👨‍👩‍👧</span>
-                      <span>{t('familyShare')}</span>
-                    </button>
-                    <div className="h-px bg-gray-100 mx-3" />
-                    <button
-                      onClick={() => { setShowMenu(false); onLogout(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-500 hover:bg-red-50 active:bg-red-100 transition-colors"
-                    >
-                      <span>🚪</span>
-                      <span>{t('logout')}</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* 食材库快捷入口 */}
+            <button
+              onClick={openPantry}
+              className="text-gray-400 hover:text-gray-600 transition-colors text-sm"
+              title={t('pantryTitle')}
+            >
+              📦
+            </button>
           </div>
         </div>
         {/* 同步错误详情横幅 */}
@@ -518,19 +476,22 @@ export function DashboardPage({
       </header>
 
       <main className="max-w-lg mx-auto px-4 pb-32">
-        {/* Date Navigator */}
-        <div className="flex items-center justify-center gap-4 py-4">
-          <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
-            ← {t('prevDay')}
-          </button>
-          <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
-          <button onClick={() => navigateDate(1)} className="text-gray-400 hover:text-gray-600 p-1">
-            {t('nextDay')} →
-          </button>
-        </div>
+        {/* Date Navigator — shown on overview & food tabs only */}
+        {(activeTab === 'overview' || activeTab === 'food') && (
+          <div className="flex items-center justify-center gap-4 py-4">
+            <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
+              ← {t('prevDay')}
+            </button>
+            <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
+            <button onClick={() => navigateDate(1)} className="text-gray-400 hover:text-gray-600 p-1">
+              {t('nextDay')} →
+            </button>
+          </div>
+        )}
 
+        {/* ══════════════ OVERVIEW TAB ══════════════ */}
         {/* ── 热量环 + 宏量 · 合并卡片 ── */}
-        {ns && (
+        {activeTab === 'overview' && ns && (
           <div className="bg-white rounded-2xl px-5 py-5 shadow-sm border border-gray-100 mb-4">
             <div className="flex items-center gap-5">
               {/* 左：热量环 */}
@@ -629,7 +590,7 @@ export function DashboardPage({
         )}
 
         {/* ── 地中海饮食 · 量化目标进度 ── */}
-        {showMedChecklist && (
+        {activeTab === 'overview' && showMedChecklist && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
             {/* 标题 */}
             <div className="px-4 pt-4 pb-3 flex items-center justify-between">
@@ -740,86 +701,499 @@ export function DashboardPage({
           </div>
         )}
 
-        {/* ── 今日饮食时间线 ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
-          <div className="flex items-center justify-between p-4 pb-3">
-            <h3 className="font-semibold text-gray-800">{t('todaysFoodLog')}</h3>
-            <div className="flex items-center gap-2">
-              {allItems.length > 0 && (
-                <span className="text-sm text-gray-400">
-                  {allItems.reduce((s, i) => s + i.calories, 0)} kcal
-                </span>
-              )}
-              <button
-                onClick={openSearch}
-                className="w-7 h-7 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-lg hover:bg-green-200 transition-colors"
-              >
-                +
-              </button>
+        {/* ══════════════ FOOD TAB ══════════════ */}
+        {activeTab === 'food' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
+            <div className="flex items-center justify-between p-4 pb-3">
+              <h3 className="font-semibold text-gray-800">
+                {locale === 'zh' ? '今日食物' : "Today's Food"}
+              </h3>
+              <div className="flex items-center gap-2">
+                {allItems.length > 0 && (
+                  <span className="text-sm text-gray-400">
+                    {allItems.reduce((s, i) => s + i.calories, 0)} kcal
+                  </span>
+                )}
+                <button
+                  onClick={openSearch}
+                  className="w-7 h-7 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-lg hover:bg-green-200 transition-colors"
+                >
+                  +
+                </button>
+              </div>
             </div>
-          </div>
 
-          {allItems.length === 0 ? (
-            <div className="px-4 pb-4">
+            {allItems.length === 0 ? (
+              <div className="px-4 pb-4">
+                <button
+                  onClick={openSearch}
+                  className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors"
+                >
+                  {t('logFood')}
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {allItems.map(item => {
+                  const warn = getFoodWarning(item.foodName, activeGoals);
+                  const isExpanded = expandedItemId === item.id;
+                  const n = item.nutrition;
+                  const nutriRows = [
+                    { label: tStatic('protein'), value: n.protein, unit: 'g' },
+                    { label: tStatic('carbs'),   value: n.carbs,   unit: 'g' },
+                    { label: tStatic('fat'),      value: n.fat,     unit: 'g' },
+                    { label: tStatic('fiber'),    value: n.fiber,   unit: 'g' },
+                    ...(n.sugar  != null ? [{ label: tStatic('sugar'),  value: n.sugar,  unit: 'g'  }] : []),
+                    ...(n.sodium != null ? [{ label: tStatic('sodium'), value: n.sodium, unit: 'mg' }] : []),
+                  ];
+                  return (
+                    <div key={item.id}>
+                      {/* Row header — tap to expand */}
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-gray-50 transition-colors"
+                        onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                      >
+                        {warn && (
+                          <span className={`shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-md ${
+                            warn.level === 'warn'
+                              ? 'bg-red-100 text-red-600'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>{warn.emoji}</span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-800 text-sm truncate">{item.foodName}</div>
+                          <div className="text-xs text-gray-400">{localizeServingLabel(item.unit, locale)}</div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="font-semibold text-gray-800 text-sm">{item.calories} kcal</div>
+                          <div className="text-xs text-gray-400">{fmtTime(item.loggedAt)}</div>
+                        </div>
+                        <span className={`shrink-0 text-gray-300 text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                      </button>
+
+                      {/* Expandable nutrition detail */}
+                      {isExpanded && (
+                        <div className="px-4 pb-3 bg-gray-50 border-t border-gray-100">
+                          {warn && (
+                            <div className={`mt-2 mb-3 text-xs px-3 py-2 rounded-xl ${
+                              warn.level === 'warn'
+                                ? 'bg-red-50 text-red-600 border border-red-100'
+                                : 'bg-amber-50 text-amber-700 border border-amber-100'
+                            }`}>
+                              {warn.emoji} {locale === 'zh' ? warn.reason : warn.reasonEn}
+                            </div>
+                          )}
+                          <div className="grid grid-cols-3 gap-2 mt-2">
+                            {nutriRows.map(r => (
+                              <div key={r.label} className="bg-white rounded-xl px-3 py-2 text-center shadow-sm">
+                                <div className="text-xs text-gray-400">{r.label}</div>
+                                <div className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{localizeUnit(r.unit, locale)}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => { setEditingItem(item); setExpandedItemId(null); }}
+                              className="flex-1 text-xs text-blue-500 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl font-medium transition-colors"
+                            >
+                              {tStatic('editAmount')}
+                            </button>
+                            <button
+                              onClick={() => { onRemoveFood(item.id); setExpandedItemId(null); }}
+                              className="flex-1 text-xs text-red-400 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl font-medium transition-colors"
+                            >
+                              {locale === 'zh' ? '删除' : 'Remove'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════ 7 DAYS TAB ══════════════ */}
+        {activeTab === 'weekly' && (() => {
+          const today = new Date(currentDate + 'T00:00:00');
+          const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(today);
+            d.setDate(d.getDate() - (6 - i));
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            const log = weeklyLogs.find(l => l.date === dateStr);
+            return { dateStr, kcal: log?.totalCalories ?? 0, log };
+          });
+          const maxKcal = Math.max(...days.map(d => d.kcal), 500);
+          const avgKcal = days.filter(d => d.kcal > 0).reduce((s, d) => s + d.kcal, 0)
+            / Math.max(1, days.filter(d => d.kcal > 0).length);
+
+          const dayLabels = locale === 'zh'
+            ? ['日','一','二','三','四','五','六']
+            : ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+          // Weekly average macros
+          const logsWithData = days.filter(d => d.log && d.kcal > 0);
+          const avgMacros = logsWithData.length > 0 ? {
+            protein: logsWithData.reduce((s, d) => s + (d.log!.totalNutrition.protein ?? 0), 0) / logsWithData.length,
+            carbs:   logsWithData.reduce((s, d) => s + (d.log!.totalNutrition.carbs ?? 0), 0) / logsWithData.length,
+            fat:     logsWithData.reduce((s, d) => s + (d.log!.totalNutrition.fat ?? 0), 0) / logsWithData.length,
+            fiber:   logsWithData.reduce((s, d) => s + (d.log!.totalNutrition.fiber ?? 0), 0) / logsWithData.length,
+          } : null;
+
+          return (
+            <div className="space-y-4 pt-4">
+              {/* 7-day calorie bar chart */}
+              <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-semibold text-gray-800 text-sm">
+                    {locale === 'zh' ? '近7天热量' : '7-Day Calories'}
+                  </span>
+                  {avgKcal > 0 && (
+                    <span className="text-xs text-gray-400">
+                      {locale === 'zh' ? '均' : 'avg'} {Math.round(avgKcal)} kcal
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-end gap-1.5 h-20">
+                  {days.map(({ dateStr, kcal }) => {
+                    const pct = kcal > 0 ? Math.max(8, Math.round((kcal / maxKcal) * 100)) : 4;
+                    const isToday = dateStr === currentDate;
+                    const d = new Date(dateStr + 'T00:00:00');
+                    const dow = d.getDay();
+                    return (
+                      <div key={dateStr} className="flex-1 flex flex-col items-center gap-1">
+                        <div className="text-[9px] text-gray-400 tabular-nums">
+                          {kcal > 0 ? kcal : ''}
+                        </div>
+                        <div className="w-full flex items-end justify-center" style={{ height: '52px' }}>
+                          <div
+                            className={`w-full rounded-t-md transition-all ${isToday ? 'bg-green-500' : 'bg-green-200'}`}
+                            style={{ height: `${pct}%` }}
+                          />
+                        </div>
+                        <div className={`text-[10px] font-medium ${isToday ? 'text-green-600' : 'text-gray-400'}`}>
+                          {dayLabels[dow]}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {ns && (
+                  <div className="mt-2 pt-2 border-t border-gray-50 flex items-center gap-1.5 text-xs text-gray-400">
+                    <div className="w-2.5 h-2.5 rounded-sm bg-green-100 border border-green-300 inline-block" />
+                    {locale === 'zh' ? `目标 ${ns.targetCalories} kcal/天` : `Target ${ns.targetCalories} kcal/day`}
+                  </div>
+                )}
+              </div>
+
+              {/* Weekly average macros */}
+              {avgMacros && ns && (
+                <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+                  <div className="font-semibold text-gray-800 text-sm mb-3">
+                    {locale === 'zh' ? '近7天平均营养' : '7-Day Average Nutrition'}
+                  </div>
+                  <div className="space-y-2.5">
+                    {[
+                      { label: t('protein'), avg: avgMacros.protein, target: ns.macros.protein.target, color: 'bg-blue-500' },
+                      { label: t('carbs'),   avg: avgMacros.carbs,   target: ns.macros.carbs.target,   color: 'bg-amber-400' },
+                      { label: t('fat'),     avg: avgMacros.fat,     target: ns.macros.fat.target,     color: 'bg-red-400'   },
+                      { label: t('fiber'),   avg: avgMacros.fiber,   target: ns.fiber.target,          color: 'bg-green-400' },
+                    ].map(({ label, avg, target, color }) => {
+                      const pct = target > 0 ? Math.min(100, Math.round((avg / target) * 100)) : 0;
+                      return (
+                        <div key={label}>
+                          <div className="flex justify-between items-baseline mb-1">
+                            <span className="text-xs text-gray-600 font-medium">{label}</span>
+                            <span className="text-xs text-gray-400 tabular-nums">
+                              {Math.round(avg)}g <span className="text-gray-300">/ {target}g</span>
+                            </span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${color} transition-all`}
+                              style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Mediterranean weekly progress */}
+              {showMedChecklist && (
+                <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span>🫒</span>
+                    <span className="font-semibold text-gray-800 text-sm">
+                      {locale === 'zh' ? '近7天食物多样性' : '7-Day Food Diversity'}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {getDailyProgress(allItems, rolling).map(p => (
+                      <div key={p.category} className="flex items-center gap-3">
+                        <span className="text-base w-6 text-center shrink-0">{p.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <span className="text-xs font-medium text-gray-700 truncate">
+                              {locale === 'zh' ? p.label : p.labelEn}
+                            </span>
+                            <span className="text-xs text-gray-400 tabular-nums shrink-0 ml-1">
+                              {p.weeklyTarget !== null
+                                ? `${rolling.weeklyCount[p.category]}/${p.weeklyTarget} ${locale === 'zh' ? '次' : 'x'}`
+                                : `${rolling.weeklyGrams[p.category]}g`
+                              }
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${p.met ? 'bg-green-400' : p.percent >= 60 ? 'bg-amber-400' : p.percent > 0 ? 'bg-orange-300' : 'bg-gray-200'}`}
+                              style={{ width: `${Math.max(p.percent, p.percent > 0 ? 3 : 0)}%` }}
+                            />
+                          </div>
+                        </div>
+                        {p.met && <span className="text-xs text-green-500 shrink-0">✓</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No data state */}
+              {weeklyLogs.length === 0 && (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  {locale === 'zh' ? '暂无近7天数据，开始记录饮食吧' : 'No data for the past 7 days yet — start logging!'}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ══════════════ MY DATA TAB ══════════════ */}
+        {activeTab === 'profile' && (
+          <div className="space-y-5 pt-4">
+            {/* Goals */}
+            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+              <div className="text-sm font-semibold text-gray-800 mb-1">{t('myGoal')}</div>
+              <div className="text-xs text-gray-400 mb-3">
+                {locale === 'zh' ? '可多选，减脂和增肌不能同时选' : 'Multiple allowed — fat loss and muscle gain are mutually exclusive'}
+              </div>
+              <div className="space-y-2">
+                {(['fat_loss', 'muscle_gain', 'anti_inflammatory', 'blood_sugar'] as GoalType[]).map(g => {
+                  const selected = tabGoals.includes(g);
+                  const disabledBy = GOAL_MUTEX_GROUPS.find(
+                    group => group.includes(g) && group.some(x => x !== g && tabGoals.includes(x))
+                  );
+                  return (
+                    <button
+                      key={g}
+                      onClick={() => !disabledBy && toggleTabGoal(g)}
+                      disabled={!!disabledBy}
+                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                        selected
+                          ? 'bg-green-50 border-green-400 text-green-800'
+                          : disabledBy
+                            ? 'bg-gray-50 border-gray-100 opacity-40 cursor-not-allowed'
+                            : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span>{GOAL_ICONS[g]}</span>
+                          <span className="font-medium text-sm">{t(`goal_${g}`)}</span>
+                        </div>
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-green-500 bg-green-500' : 'border-gray-300'}`}>
+                          {selected && <span className="text-white text-[10px]">✓</span>}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5 pl-6">{t(`goal_${g}_desc`)}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Body data */}
+            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+              <div className="text-sm font-semibold text-gray-800 mb-3">{t('bodyData')}</div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">{t('bodyWeight')} (kg)</label>
+                  <input
+                    type="number"
+                    value={tabWeight}
+                    onChange={e => setTabWeight(e.target.value)}
+                    placeholder="65"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">
+                    {t('bodyFat')} (%) <span className="text-gray-300">{t('optional')}</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={tabBodyFat}
+                    onChange={e => setTabBodyFat(e.target.value)}
+                    placeholder="22"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Calorie target */}
+            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+              <div className="text-sm font-semibold text-gray-800 mb-3">{t('calorieTarget')}</div>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={tabTargetCal}
+                  onChange={e => setTabTargetCal(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-14 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">kcal</span>
+              </div>
+            </div>
+
+            {/* Settings */}
+            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100 space-y-4">
+              <div className="text-sm font-semibold text-gray-800">{locale === 'zh' ? '设置' : 'Settings'}</div>
+              <div>
+                <div className="text-xs text-gray-400 mb-1.5">{t('fontSize')}</div>
+                <div className="flex gap-1">
+                  {(['small', 'standard', 'large'] as FontSize[]).map((s, i) => (
+                    <button
+                      key={s}
+                      onClick={() => handleFontSize(s)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-medium transition-colors ${
+                        fontSize === s ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      {[t('fontSmall'), t('fontStandard'), t('fontLarge')][i]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 mb-1.5">{t('language')}</div>
+                <div className="flex gap-1">
+                  {(['zh', 'en'] as const).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => changeLocale(l)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-medium transition-colors ${
+                        locale === l ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      {l === 'zh' ? '中文' : 'EN'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Insights + Family */}
+            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
               <button
-                onClick={openSearch}
-                className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors"
+                onClick={() => setShowInsights(true)}
+                className="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
-                {t('logFood')}
+                <span>🔍</span>
+                <span className="font-medium">{locale === 'zh' ? '饮食分析' : 'Nutrition Insights'}</span>
+                <span className="ml-auto text-gray-300">›</span>
+              </button>
+              <div className="h-px bg-gray-100 mx-4" />
+              <button
+                onClick={openFamily}
+                className="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                <span>👨‍👩‍👧</span>
+                <span className="font-medium">{t('familyShare')}</span>
+                <span className="ml-auto text-gray-300">›</span>
               </button>
             </div>
-          ) : (
-            <div className="px-4 pb-3 divide-y divide-gray-50">
-              {allItems.map(item => (
-                <SwipeableRow
-                  key={item.id}
-                  item={item}
-                  onRemove={onRemoveFood}
-                  onTap={setDetailItem}
-                  warning={getFoodWarning(item.foodName, activeGoals)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+
+            {/* Save button */}
+            <button
+              onClick={handleTabProfileSave}
+              disabled={tabSaving}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-2xl transition-colors"
+            >
+              {tabSaving ? t('savingEllipsis') : t('save')}
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={onLogout}
+              className="w-full text-center text-sm text-red-400 hover:text-red-500 py-3 transition-colors"
+            >
+              🚪 {t('logout')}
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-20 safe-area-inset-bottom">
         <div className="max-w-lg mx-auto flex items-end h-16">
-          {/* 今日 tab */}
+
+          {/* Tab 1 — 总览 */}
           <button
-            onClick={() => {
-              const today = getTodayString();
-              if (currentDate !== today) {
-                onDateChange(today);
-              } else {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
-            }}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-green-600"
+            onClick={() => { setActiveTab('overview'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${activeTab === 'overview' ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            <span className="text-xl">📊</span>
-            <span className="text-xs font-medium">{t('today')}</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 7.07 17.07"/><path d="M12 12 7 7"/>
+            </svg>
+            <span className="text-[10px] font-medium">{locale === 'zh' ? '总览' : 'Overview'}</span>
+          </button>
+
+          {/* Tab 2 — 食物 */}
+          <button
+            onClick={() => { setActiveTab('food'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${activeTab === 'food' ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
+            </svg>
+            <span className="text-[10px] font-medium">{locale === 'zh' ? '食物' : 'Food'}</span>
           </button>
 
           {/* 中间 + 按钮 */}
-          <div className="flex flex-col items-center justify-end pb-3 px-4">
+          <div className="flex flex-col items-center justify-end pb-3 px-3">
             <button
               onClick={openSearch}
-              className="w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 active:scale-95 transition-all -translate-y-3"
+              className="w-13 h-13 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 active:scale-95 transition-all -translate-y-3"
+              style={{ width: '52px', height: '52px' }}
             >
               +
             </button>
           </div>
 
-          {/* 食材库 tab */}
+          {/* Tab 3 — 7 Days */}
           <button
-            onClick={openPantry}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 text-gray-400 hover:text-green-600 transition-colors"
+            onClick={() => { setActiveTab('weekly'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${activeTab === 'weekly' ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            <span className="text-xl">📦</span>
-            <span className="text-xs font-medium">{t('pantryTitle')}</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/>
+              <path d="M7 13h2v5H7z"/><path d="M11 15h2v3h-2z"/><path d="M15 12h2v6h-2z"/>
+            </svg>
+            <span className="text-[10px] font-medium">{locale === 'zh' ? '7天' : '7 Days'}</span>
+          </button>
+
+          {/* Tab 4 — 我的 */}
+          <button
+            onClick={() => { setActiveTab('profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 pb-2 pt-1 transition-colors ${activeTab === 'profile' ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span className="text-[10px] font-medium">{locale === 'zh' ? '我的' : 'Me'}</span>
           </button>
 
         </div>
@@ -934,14 +1308,6 @@ export function DashboardPage({
           />
         );
       })()}
-
-      {showProfile && (
-        <ProfileEditorModal
-          profile={profile}
-          onSave={onProfileUpdate}
-          onClose={() => setShowProfile(false)}
-        />
-      )}
 
       {showInsights && (
         <InsightsPage
