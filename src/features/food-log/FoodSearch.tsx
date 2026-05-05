@@ -209,6 +209,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         onConfirm={food => onSelect(food)}
         onBack={() => setView('search')}
         onClose={onClose}
+        userId={userId}
       />
     );
   }
@@ -218,6 +219,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       <RecipeBuilder
         onClose={onClose}
         onSaved={food => onSelect(food)}
+        userId={userId}
       />
     );
   }
@@ -227,6 +229,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       <NutritionLabelScanner
         onClose={onClose}
         onSaved={food => onSelect(food)}
+        userId={userId}
       />
     );
   }

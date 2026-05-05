@@ -6,23 +6,25 @@
 import { useState, useMemo } from 'react';
 import type { FoodItem, FoodCategory } from '../../types/food';
 import { FOOD_CATEGORY_LABELS } from '../../types/food';
-import { generateId } from '../../utils/calculator';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeUnit } from '../../utils/servingLabels';
+import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
+import { saveUserFood } from '../../services/firestore';
 
 interface ManualFoodEntryProps {
   initialName?: string;
   onConfirm: (food: FoodItem) => void;
   onBack: () => void;
   onClose: () => void;
+  userId?: string;
 }
 
 const INPUT_CLS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white';
 
-export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }: ManualFoodEntryProps) {
+export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, userId }: ManualFoodEntryProps) {
   const { t, locale } = useLocale();
   const [name, setName] = useState(initialName);
   const [category, setCategory] = useState<FoodCategory>('other');
@@ -52,10 +54,11 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
   const handleSubmit = () => {
     if (!isValid) return;
     const giVal = gi ? Number(gi) : undefined;
-    const food: FoodItem = {
-      id: `user_${generateId()}`,
+    const record = saveCustomFood({
       name: name.trim(),
-      category,
+      pantrySource: 'manual',
+      ingredients: [],
+      totalGrams: 100,
       per100g: {
         calories: Number(calories) || 0,
         protein:  Number(protein)  || 0,
@@ -63,14 +66,17 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose }
         fat:      Number(fat)      || 0,
         fiber:    Number(fiber)    || 0,
       },
+      servingSizes: servingLabel && servingGrams
+        ? [{ label: servingLabel, grams: Number(servingGrams) }]
+        : [],
+    });
+    if (userId) saveUserFood(userId, record).catch(() => {});
+    const food: FoodItem = {
+      ...recordToFoodItem(record),
       gi: giVal,
       giLevel: giVal !== undefined
         ? giVal <= 55 ? 'low' : giVal <= 69 ? 'medium' : 'high'
         : undefined,
-      servingSizes: servingLabel && servingGrams
-        ? [{ label: servingLabel, grams: Number(servingGrams) }]
-        : undefined,
-      source: 'user_added',
     };
     onConfirm(food);
   };

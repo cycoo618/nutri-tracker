@@ -252,6 +252,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
         onClose={() => { setSubView('list'); setEditingRecipe(null); }}
         onSaved={record => { setEditingRecipe(null); handleSaved(record); }}
         existingRecord={editingRecipe ?? undefined}
+        userId={userId}
       />
     );
   }

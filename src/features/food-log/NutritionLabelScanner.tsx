@@ -9,6 +9,7 @@ import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
+import { saveUserFood } from '../../services/firestore';
 import { getGroqKey, saveGroqKey, isKeyFromEnv } from '../../services/nutrition-vision';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeUnit } from '../../utils/servingLabels';
@@ -88,11 +89,12 @@ function compressImage(dataUrl: string): Promise<string> {
 interface NutritionLabelScannerProps {
   onSaved: (food: FoodItem) => void;
   onClose: () => void;
+  userId?: string;
 }
 
 // ── Component ───────────────────────────────
 
-export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScannerProps) {
+export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLabelScannerProps) {
   const { t, locale } = useLocale();
   // Build localized nutrient fields
   const NUTRIENT_FIELDS: Field[] = NUTRIENT_FIELD_DEFS.map(f => ({ ...f, label: t(f.key) }));
@@ -218,6 +220,8 @@ export function NutritionLabelScanner({ onSaved, onClose }: NutritionLabelScanne
             : [],
         imageDataUrl: compressedImage ?? undefined,
       });
+      // 同步到 Firestore，跨设备可用
+      if (userId) saveUserFood(userId, record).catch(() => {});
       const foodItem = recordToFoodItem(record);
       onSaved(foodItem);
     } catch (err) {

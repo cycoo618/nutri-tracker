@@ -11,6 +11,7 @@ import type { FoodItem } from '../../types/food';
 import { searchBuiltinFoods } from '../../services/food-lookup';
 import { searchCustomFoods, calcRecipeNutrition, saveCustomFood, updateCustomFood, recordToFoodItem } from '../../utils/customFoods';
 import type { RecipeIngredient, CustomFoodRecord } from '../../utils/customFoods';
+import { saveUserFood } from '../../services/firestore';
 import { formatNumber } from '../../utils/calculator';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeUnit } from '../../utils/servingLabels';
@@ -19,6 +20,7 @@ interface RecipeBuilderProps {
   onClose: () => void;
   onSaved: (foodItem: FoodItem) => void;
   existingRecord?: CustomFoodRecord;
+  userId?: string;
 }
 
 // 快捷克数选项
@@ -93,7 +95,7 @@ function GramInput({
 }
 
 // ── 主组件 ─────────────────────────────────────────────────────────
-export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilderProps) {
+export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: RecipeBuilderProps) {
   const { t, locale } = useLocale();
   const [name, setName] = useState(existingRecord?.name ?? '');
   const [servingLabel, setServingLabel] = useState(existingRecord?.servingSizes?.[0]?.label ?? '');
@@ -180,8 +182,10 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord }: RecipeBuilde
     if (existingRecord) {
       updateCustomFood(existingRecord.id, updates);
       foodItem = recordToFoodItem({ ...existingRecord, ...updates });
+      if (userId) saveUserFood(userId, { ...existingRecord, ...updates }).catch(() => {});
     } else {
       const record = saveCustomFood(updates);
+      if (userId) saveUserFood(userId, record).catch(() => {});
       foodItem = recordToFoodItem(record);
     }
 
