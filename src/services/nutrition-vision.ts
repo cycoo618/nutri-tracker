@@ -29,28 +29,33 @@ export function clearGroqKey() {
   localStorage.removeItem(LOCAL_KEY);
 }
 
-const PROMPT = `你是一个专业的营养成分表识别助手。
-如果标签上同时有英文和法文（或其他语言），优先读取英文内容。
-请识别图片中食品包装上的营养成分表，提取所有能读取到的数据，以 JSON 格式返回（均为每100g的数据）：
+const PROMPT = `You are a nutrition label reader. Read the label in the image.
+If the label has multiple languages, prefer English.
+
+Step 1: Find the serving size (e.g. "1 serving (85g)", "per 28g", "每份 30g"). Extract the serving weight in grams as "serving_g". If no serving is listed, use 100.
+Step 2: Read ALL nutrient values EXACTLY as printed for that serving size. Do NOT convert to per-100g — return the raw numbers from the label.
+Step 3: Extract the food name from the package.
+
+Return ONLY this JSON:
 {
-  "name": "食物名称（从包装上识别，若无法识别填'扫描食物'）",
-  "calories": 数字（kcal，若标注kJ请除以4.184换算）,
-  "protein": 数字（g）,
-  "carbs": 数字（g，即碳水化合物）,
-  "fat": 数字（g）,
-  "fiber": 数字（g，若无此项填0）,
-  "sodium": 数字（mg，若标注g请乘以1000），
-  "sugar": 数字（g，糖，若有则填，否则省略此字段）,
-  "saturatedFat": 数字（g，饱和脂肪，若有则填，否则省略此字段）,
-  "calcium": 数字（mg，钙，若标注%NRV且无绝对值则省略，否则填mg数值），
-  "iron": 数字（mg，铁，同上）,
-  "potassium": 数字（mg，钾，同上）,
-  "vitaminC": 数字（mg，维生素C，同上）,
-  "omega3": 数字（mg，omega-3，若有则填，否则省略此字段）,
-  "servingLabel": "参考份量描述，如'1袋'（若有，否则省略此字段）",
-  "servingGrams": 数字（参考份量的克数，若有，否则省略此字段）
+  "name": "product name (or '扫描食物' if unreadable)",
+  "serving_g": number (grams per serving from the label),
+  "serving_label": "serving description e.g. '1片' or '1 cup'" (omit if none),
+  "calories": number (kcal for the serving; if kJ divide by 4.184),
+  "protein": number (g),
+  "carbs": number (g, total carbohydrate),
+  "fat": number (g, total fat),
+  "fiber": number (g, 0 if not listed),
+  "sodium": number (mg; if listed in g multiply by 1000),
+  "sugar": number (g, omit if not listed),
+  "saturatedFat": number (g, omit if not listed),
+  "calcium": number (mg absolute value, omit if only %DV listed),
+  "iron": number (mg, omit if only %DV),
+  "potassium": number (mg, omit if only %DV),
+  "vitaminC": number (mg, omit if only %DV),
+  "omega3": number (mg, omit if not listed)
 }
-只返回 JSON，不要任何解释。若图片不是营养成分表，返回：{"error": "无法识别"}`;
+Only JSON. If not a nutrition label return: {"error": "无法识别"}`;
 
 // USDA 营养素 ID 映射（每 100g）
 const USDA_NUTRIENT_IDS = {
@@ -280,24 +285,27 @@ export async function analyzeNutritionLabel(imageBase64: string): Promise<Extrac
   const parsed = JSON.parse(jsonMatch[0]);
   if (parsed.error) throw new Error(parsed.error);
 
-  const maybeNum = (v: unknown) => (v != null && v !== '' ? Number(v) : undefined);
+  const servingG = Number(parsed.serving_g) || 100;
+  // Scale raw per-serving values to per-100g — we do the math, not the AI
+  const per100 = (v: unknown) => v != null && v !== '' ? Math.round(Number(v) / servingG * 100 * 10) / 10 : undefined;
+  const per100req = (v: unknown) => Math.round((Number(v) || 0) / servingG * 100 * 10) / 10;
 
   return {
     name:         parsed.name        ?? '扫描食物',
-    calories:     Number(parsed.calories)  || 0,
-    protein:      Number(parsed.protein)   || 0,
-    carbs:        Number(parsed.carbs)     || 0,
-    fat:          Number(parsed.fat)       || 0,
-    fiber:        Number(parsed.fiber)     || 0,
-    sodium:       Number(parsed.sodium)    || 0,
-    sugar:        maybeNum(parsed.sugar),
-    saturatedFat: maybeNum(parsed.saturatedFat),
-    calcium:      maybeNum(parsed.calcium),
-    iron:         maybeNum(parsed.iron),
-    potassium:    maybeNum(parsed.potassium),
-    vitaminC:     maybeNum(parsed.vitaminC),
-    omega3:       maybeNum(parsed.omega3),
-    servingLabel: parsed.servingLabel || undefined,
-    servingGrams: parsed.servingGrams ? Number(parsed.servingGrams) : undefined,
+    calories:     per100req(parsed.calories),
+    protein:      per100req(parsed.protein),
+    carbs:        per100req(parsed.carbs),
+    fat:          per100req(parsed.fat),
+    fiber:        per100req(parsed.fiber),
+    sodium:       per100req(parsed.sodium),
+    sugar:        per100(parsed.sugar),
+    saturatedFat: per100(parsed.saturatedFat),
+    calcium:      per100(parsed.calcium),
+    iron:         per100(parsed.iron),
+    potassium:    per100(parsed.potassium),
+    vitaminC:     per100(parsed.vitaminC),
+    omega3:       per100(parsed.omega3),
+    servingLabel: parsed.serving_label || undefined,
+    servingGrams: servingG !== 100 ? servingG : undefined,
   };
 }

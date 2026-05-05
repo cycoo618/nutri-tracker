@@ -793,13 +793,13 @@ export function DashboardPage({
                           </div>
                           <div className="flex gap-2 mt-2">
                             <button
-                              onClick={() => { setEditingItem(item); setExpandedItemId(null); }}
+                              onClick={e => { e.stopPropagation(); setEditingItem(item); setExpandedItemId(null); }}
                               className="flex-1 text-xs text-blue-500 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl font-medium transition-colors"
                             >
                               {tStatic('editAmount')}
                             </button>
                             <button
-                              onClick={() => { onRemoveFood(item.id); setExpandedItemId(null); }}
+                              onClick={e => { e.stopPropagation(); onRemoveFood(item.id); setExpandedItemId(null); }}
                               className="flex-1 text-xs text-red-400 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl font-medium transition-colors"
                             >
                               {locale === 'zh' ? '删除' : 'Remove'}
