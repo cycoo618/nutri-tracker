@@ -171,7 +171,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     if (!userId) return;
     setCloudStatus('syncing');
     try {
-      await saveUserFood(userId, record as unknown as DocumentData);
+      const { imageDataUrl: _img, ...recordForCloud } = record;
+      await saveUserFood(userId, recordForCloud as unknown as DocumentData);
       setCloudStatus('synced');
     } catch {
       setCloudStatus('error');
@@ -220,7 +221,10 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     try {
       // 1. 把本地所有 push 上去
       const all = getAllCustomFoods();
-      await Promise.all(all.map(r => saveUserFood(userId, r as unknown as DocumentData)));
+      await Promise.all(all.map(r => {
+        const { imageDataUrl: _img, ...rForCloud } = r;
+        return saveUserFood(userId, rForCloud as unknown as DocumentData);
+      }));
       // 2. 再 pull 合并
       const data = await getUserFoods(userId);
       if (data.length > 0) mergeCustomFoods(data as CustomFoodRecord[]);
@@ -242,6 +246,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       <NutritionLabelScanner
         onClose={() => setSubView('list')}
         onSaved={handleSaved}
+        userId={userId}
       />
     );
   }

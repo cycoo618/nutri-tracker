@@ -182,10 +182,16 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
     if (existingRecord) {
       updateCustomFood(existingRecord.id, updates);
       foodItem = recordToFoodItem({ ...existingRecord, ...updates });
-      if (userId) saveUserFood(userId, { ...existingRecord, ...updates }).catch(() => {});
+      if (userId) {
+        const { imageDataUrl: _img, ...forCloud } = { ...existingRecord, ...updates };
+        saveUserFood(userId, forCloud).catch(() => {});
+      }
     } else {
       const record = saveCustomFood(updates);
-      if (userId) saveUserFood(userId, record).catch(() => {});
+      if (userId) {
+        const { imageDataUrl: _img, ...forCloud } = record;
+        saveUserFood(userId, forCloud).catch(() => {});
+      }
       foodItem = recordToFoodItem(record);
     }
 

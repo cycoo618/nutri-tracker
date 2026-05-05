@@ -221,7 +221,10 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
         imageDataUrl: compressedImage ?? undefined,
       });
       // 同步到 Firestore，跨设备可用
-      if (userId) saveUserFood(userId, record).catch(() => {});
+      if (userId) {
+        const { imageDataUrl: _img, ...recordForCloud } = record;
+        saveUserFood(userId, recordForCloud).catch(() => {});
+      }
       const foodItem = recordToFoodItem(record);
       onSaved(foodItem);
     } catch (err) {
