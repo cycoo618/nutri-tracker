@@ -51,25 +51,34 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
     { label: t('giOptional'),value: gi,       onChange: setGi,       unit: '',                          placeholder: '如 27' },
   ], [t, locale, calories, protein, carbs, fat, fiber, gi]);
 
+  const [saveError, setSaveError] = useState('');
+
   const handleSubmit = () => {
     if (!isValid) return;
+    setSaveError('');
     const giVal = gi ? Number(gi) : undefined;
-    const record = saveCustomFood({
-      name: name.trim(),
-      pantrySource: 'manual',
-      ingredients: [],
-      totalGrams: 100,
-      per100g: {
-        calories: Number(calories) || 0,
-        protein:  Number(protein)  || 0,
-        carbs:    Number(carbs)    || 0,
-        fat:      Number(fat)      || 0,
-        fiber:    Number(fiber)    || 0,
-      },
-      servingSizes: servingLabel && servingGrams
-        ? [{ label: servingLabel, grams: Number(servingGrams) }]
-        : [],
-    });
+    let record;
+    try {
+      record = saveCustomFood({
+        name: name.trim(),
+        pantrySource: 'manual',
+        ingredients: [],
+        totalGrams: 100,
+        per100g: {
+          calories: Number(calories) || 0,
+          protein:  Number(protein)  || 0,
+          carbs:    Number(carbs)    || 0,
+          fat:      Number(fat)      || 0,
+          fiber:    Number(fiber)    || 0,
+        },
+        servingSizes: servingLabel && servingGrams
+          ? [{ label: servingLabel, grams: Number(servingGrams) }]
+          : [],
+      });
+    } catch {
+      setSaveError(t('saveFailed'));
+      return;
+    }
     if (userId) saveUserFood(userId, record).catch(() => {});
     const food: FoodItem = {
       ...recordToFoodItem(record),
@@ -190,6 +199,9 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
             </div>
           </div>
 
+          {saveError && (
+            <div className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{saveError}</div>
+          )}
           <button
             onMouseDown={e => e.preventDefault()}
             onClick={handleSubmit}

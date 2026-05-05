@@ -179,20 +179,26 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
     };
 
     let foodItem: FoodItem;
-    if (existingRecord) {
-      updateCustomFood(existingRecord.id, updates);
-      foodItem = recordToFoodItem({ ...existingRecord, ...updates });
-      if (userId) {
-        const { imageDataUrl: _img, ...forCloud } = { ...existingRecord, ...updates };
-        saveUserFood(userId, forCloud).catch(() => {});
+    try {
+      if (existingRecord) {
+        updateCustomFood(existingRecord.id, updates);
+        foodItem = recordToFoodItem({ ...existingRecord, ...updates });
+        if (userId) {
+          const { imageDataUrl: _img, ...forCloud } = { ...existingRecord, ...updates };
+          saveUserFood(userId, forCloud).catch(() => {});
+        }
+      } else {
+        const record = saveCustomFood(updates);
+        if (userId) {
+          const { imageDataUrl: _img, ...forCloud } = record;
+          saveUserFood(userId, forCloud).catch(() => {});
+        }
+        foodItem = recordToFoodItem(record);
       }
-    } else {
-      const record = saveCustomFood(updates);
-      if (userId) {
-        const { imageDataUrl: _img, ...forCloud } = record;
-        saveUserFood(userId, forCloud).catch(() => {});
-      }
-      foodItem = recordToFoodItem(record);
+    } catch {
+      setError(t('saveFailed'));
+      setSaving(false);
+      return;
     }
 
     setSaving(false);

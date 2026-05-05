@@ -110,9 +110,10 @@ function load(): CustomFoodRecord[] {
 }
 
 function save(records: CustomFoodRecord[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  } catch (e) { console.warn('[customFoods] localStorage save failed:', e); }
+  // Strip imageDataUrl before persisting — thumbnails can be 30-100KB each and
+  // quickly exhaust the 5MB localStorage quota, causing silent save failures.
+  const slim = records.map(({ imageDataUrl: _, ...r }) => r);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(slim)); // throws on quota exceeded
 }
 
 export function getAllCustomFoods(): CustomFoodRecord[] {
