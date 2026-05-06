@@ -474,6 +474,9 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
         {/* Footer Buttons */}
         {step === 'confirm' && (
           <div className="px-4 pt-4 border-t border-gray-100 space-y-2 shrink-0">
+            {errorMsg && (
+              <div className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2 text-center">{errorMsg}</div>
+            )}
             <button
               onMouseDown={e => e.preventDefault()}
               onClick={handleSave}

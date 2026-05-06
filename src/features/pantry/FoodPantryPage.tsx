@@ -128,6 +128,11 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     setRecords(getAllCustomFoods());
   }, []);
 
+  // Refresh whenever scanner/recipe sub-view closes back to list
+  useEffect(() => {
+    if (subView === 'list') refresh();
+  }, [subView, refresh]);
+
   // ── 打开时从 Firestore 拉取并合并 ─────────────────────────────────
   useEffect(() => {
     if (!userId) return;
