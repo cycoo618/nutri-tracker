@@ -479,7 +479,8 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
             )}
             <button
               onMouseDown={e => e.preventDefault()}
-              onClick={handleSave}
+              onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); if (!saving) handleSave(); }}
+              onClick={() => { if (!saving) handleSave(); }}
               disabled={saving}
               className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
             >
