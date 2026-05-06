@@ -192,7 +192,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     refresh();
     setSubView('list');
     setAddedId(food.id);
-    setTimeout(() => setAddedId(null), 2000);
+    setTimeout(() => setAddedId(null), 30000);
 
     // 找到刚保存的 record 推到云端
     const allRecords = getAllCustomFoods();

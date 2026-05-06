@@ -107,6 +107,7 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
   const [keyInput, setKeyInput]       = useState('');
+  const [tapLog, setTapLog]           = useState<string[]>([]);
 
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -190,10 +191,14 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
 
   // ── 保存到食物库 ─────────────────────────
 
+  const addLog = (msg: string) => setTapLog(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${msg}`]);
+
   const handleSave = async () => {
-    if (!extracted) return;
+    addLog('handleSave called');
+    if (!extracted) { addLog('extracted is null, abort'); return; }
     setSaving(true);
     try {
+      addLog('calling saveCustomFood');
       const record = saveCustomFood({
         name: extracted.name || '扫描食物',
         pantrySource: 'scanned',
@@ -225,11 +230,14 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
         const { imageDataUrl: _img, ...recordForCloud } = record;
         saveUserFood(userId, recordForCloud).catch(() => {});
       }
+      addLog(`saved: ${record.name}`);
       const foodItem = recordToFoodItem(record);
+      addLog('calling onSaved');
       onSaved(foodItem);
     } catch (err) {
       console.warn('Save failed:', err);
-      setErrorMsg(t('saveFailed'));
+      addLog(`error: ${err}`);
+      setErrorMsg(`${t('saveFailed')}: ${err}`);
     } finally {
       setSaving(false);
     }
@@ -474,13 +482,21 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
         {/* Footer Buttons */}
         {step === 'confirm' && (
           <div className="px-4 pt-4 border-t border-gray-100 space-y-2 shrink-0">
+            {/* 诊断日志 */}
+            {tapLog.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800 space-y-0.5">
+                {tapLog.map((l, i) => <div key={i}>{l}</div>)}
+              </div>
+            )}
+            <div className="text-center text-xs text-gray-300">v2025-05-06</div>
             {errorMsg && (
               <div className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2 text-center">{errorMsg}</div>
             )}
             <button
               onMouseDown={e => e.preventDefault()}
-              onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); if (!saving) handleSave(); }}
-              onClick={() => { if (!saving) handleSave(); }}
+              onTouchStart={() => addLog('touchstart on button')}
+              onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); addLog('touchend on button'); if (!saving) handleSave(); }}
+              onClick={() => { addLog('click on button'); if (!saving) handleSave(); }}
               disabled={saving}
               className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
             >
