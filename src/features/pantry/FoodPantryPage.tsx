@@ -166,7 +166,10 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
         return getFamilyMemberFoods(memberUids, userId);
       })
       .then(rawFoods => {
-        setFamilyRecords(rawFoods as CustomFoodRecord[]);
+        const sorted = (rawFoods as CustomFoodRecord[]).sort(
+          (a, b) => b.createdAt.localeCompare(a.createdAt)
+        );
+        setFamilyRecords(sorted);
       })
       .catch(() => {
         setFamilyRecords([]);
