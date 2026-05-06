@@ -125,7 +125,9 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>('idle');
 
   const refresh = useCallback(() => {
-    setRecords(getAllCustomFoods());
+    const foods = getAllCustomFoods();
+    console.log('[FoodPantry] refresh → records count:', foods.length, foods.map(r => r.name));
+    setRecords(foods);
   }, []);
 
   // Refresh whenever scanner/recipe sub-view closes back to list
@@ -186,6 +188,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
 
   // ── 回调：保存后刷新 + 推 Firestore ──────────────────────────────
   const handleSaved = useCallback((food: FoodItem) => {
+    console.log('[FoodPantry] handleSaved called, food.id:', food.id, 'name:', food.name);
     refresh();
     setSubView('list');
     setAddedId(food.id);
@@ -321,6 +324,14 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
 
       {/* 食物列表 */}
       <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-4 pb-4">
+
+        {/* ── 诊断 banner（addedId 存在时说明 handleSaved 已运行） ── */}
+        {addedId && (
+          <div className="mt-3 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-700 flex items-center gap-2">
+            <span>✓</span>
+            <span>已保存（食材总数: {records.length}）—— 请在列表最上方查找</span>
+          </div>
+        )}
 
         {/* ── 你的食材库 ───────────────────────────────────────────── */}
         <div className="pt-2">

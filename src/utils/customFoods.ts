@@ -155,6 +155,8 @@ export function saveCustomFood(record: Omit<CustomFoodRecord, 'id' | 'createdAt'
   };
   records.unshift(newRecord);
   save(records);
+  const verify = load();
+  console.log('[customFoods] saved', newRecord.name, '| total in localStorage:', verify.length, '| found:', verify.some(r => r.id === newRecord.id));
   return newRecord;
 }
 
