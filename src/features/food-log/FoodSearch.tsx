@@ -246,7 +246,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       <div
         ref={cardRef}
         className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
-        style={{ maxHeight: 'calc(var(--vvh, 90vh) - 60px)' }}
+        style={{ height: 'calc(var(--vvh, 90vh) - 60px)' }}
         onClick={e => e.stopPropagation()}
         {...cardDragHandlers}
       >
@@ -313,7 +313,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         </div>
 
         {/* 结果列表 */}
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(var(--vvh, 90vh) - 160px)' }}>
+        <div className="flex-1 overflow-y-auto">
 
 
           {/* 无结果 */}
