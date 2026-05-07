@@ -36,6 +36,12 @@ Step 1: Find the serving size (e.g. "1 serving (85g)", "per 28g", "每份 30g").
 Step 2: Read ALL nutrient values EXACTLY as printed for that serving size. Do NOT convert to per-100g — return the raw numbers from the label.
 Step 3: Extract the food name from the package.
 
+CRITICAL RULES:
+- "fat" = TOTAL fat (the main "Fat" / "Total Fat" row). Do NOT use the saturated fat sub-row for this field.
+- "saturatedFat" = the "Saturated" / "Saturated Fat" sub-row only.
+- These are two separate rows on the label. Read each independently.
+- If a bilingual label shows the same nutrient twice (e.g. English + French), read it once.
+
 Return ONLY this JSON:
 {
   "name": "product name (or '扫描食物' if unreadable)",
@@ -44,11 +50,11 @@ Return ONLY this JSON:
   "calories": number (kcal for the serving; if kJ divide by 4.184),
   "protein": number (g),
   "carbs": number (g, total carbohydrate),
-  "fat": number (g, total fat),
+  "fat": number (g, TOTAL fat — not saturated fat),
   "fiber": number (g, 0 if not listed),
   "sodium": number (mg; if listed in g multiply by 1000),
   "sugar": number (g, omit if not listed),
-  "saturatedFat": number (g, omit if not listed),
+  "saturatedFat": number (g, saturated fat sub-row only, omit if not listed),
   "calcium": number (mg absolute value, omit if only %DV listed),
   "iron": number (mg, omit if only %DV),
   "potassium": number (mg, omit if only %DV),
