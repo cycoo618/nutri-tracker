@@ -1616,12 +1616,21 @@ export const FOOD_DATABASE: FoodItem[] = [
   },
   {
     id: 'nut-008', name: '葵花籽', nameEn: 'Sunflower Seeds',
-    aliases: ['瓜子', '瓜子仁'],
+    aliases: ['瓜子', '瓜子仁', '向日葵籽'],
     category: 'nut',
     per100g: { calories: 584, protein: 20.8, carbs: 20.0, fat: 51.5, fiber: 8.6, potassium: 645, calcium: 78, iron: 5.3 },
     gi: 35, giLevel: 'low',
     servingSizes: [{ label: '1把(约20g仁)', grams: 20 }],
     source: 'builtin', tags: ['低GI', '高蛋白'],
+  },
+  {
+    id: 'nut-011', name: '南瓜籽', nameEn: 'Pumpkin Seeds',
+    aliases: ['南瓜子', '白瓜子', 'pepitas'],
+    category: 'nut',
+    per100g: { calories: 559, protein: 30.2, carbs: 10.7, fat: 49.1, fiber: 6.0, potassium: 809, calcium: 46, iron: 8.8, omega3: 170 },
+    gi: 25, giLevel: 'low',
+    servingSizes: [{ label: '1把(约20g)', grams: 20 }],
+    source: 'builtin', tags: ['低GI', '高蛋白', '高锌'],
   },
   {
     id: 'nut-009', name: '奇亚籽', nameEn: 'Chia Seeds',
