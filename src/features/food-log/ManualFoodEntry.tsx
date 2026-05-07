@@ -62,6 +62,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
       record = saveCustomFood({
         name: name.trim(),
         pantrySource: 'manual',
+        category,
         ingredients: [],
         totalGrams: 100,
         per100g: {
