@@ -407,6 +407,8 @@ export function DashboardPage({
     setTabSaving(false);
   };
 
+  const todayStr = getTodayString();
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Bar */}
@@ -486,9 +488,9 @@ export function DashboardPage({
             </button>
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
-              {currentDate !== getTodayString() && (
+              {currentDate !== todayStr && (
                 <button
-                  onClick={() => onDateChange(getTodayString())}
+                  onClick={() => onDateChange(todayStr)}
                   className="text-xs text-green-600 bg-green-50 hover:bg-green-100 border border-green-200 px-2 py-0.5 rounded-full transition-colors"
                 >
                   {t('today')}
