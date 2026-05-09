@@ -1,6 +1,6 @@
 platform :ios, '15.0'
-use_frameworks!
 
+# No CocoaPods dependencies — Capacitor v8 uses Swift Package Manager.
+# Google Sign-In is handled via PKCE OAuth flow in JS, no native plugin needed.
 target 'App' do
-  pod 'CodetrixStudioCapacitorGoogleAuth', :path => '../../node_modules/@codetrix-studio/capacitor-google-auth'
 end

@@ -5,11 +5,6 @@ const config: CapacitorConfig = {
   appName: 'NutriTrack',
   webDir: 'dist',
   plugins: {
-    GoogleAuth: {
-      scopes: ['profile', 'email'],
-      serverClientId: '402005388165-203h6epfni2jecb42d7dv6h7okeh4pr7.apps.googleusercontent.com',
-      forceCodeForRefreshToken: true,
-    },
     SplashScreen: {
       launchShowDuration: 1500,
       launchAutoHide: true,

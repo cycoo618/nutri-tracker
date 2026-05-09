@@ -19,6 +19,8 @@ dist-ssr
 
 # Capacitor iOS
 ios/App/Pods/
+ios/App/Pods.bak/
+ios/App/Podfile.lock.bak
 ios/.xcode.env.local
 ios/App/App/GoogleService-Info.plist
 
