@@ -484,7 +484,17 @@ export function DashboardPage({
             <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
               ← {t('prevDay')}
             </button>
-            <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
+              {currentDate !== getTodayString() && (
+                <button
+                  onClick={() => onDateChange(getTodayString())}
+                  className="text-xs text-green-600 bg-green-50 hover:bg-green-100 border border-green-200 px-2 py-0.5 rounded-full transition-colors"
+                >
+                  {t('today')}
+                </button>
+              )}
+            </div>
             <button onClick={() => navigateDate(1)} className="text-gray-400 hover:text-gray-600 p-1">
               {t('nextDay')} →
             </button>
