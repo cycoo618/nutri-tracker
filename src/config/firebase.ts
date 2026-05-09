@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import {
-  getAuth,
-  setPersistence,
+  initializeAuth,
   browserLocalPersistence,
+  browserPopupRedirectResolver,
   GoogleAuthProvider,
   OAuthProvider,
 } from 'firebase/auth';
@@ -18,15 +18,20 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app, 'default');
 
-// iOS Safari 的 ITP（Intelligent Tracking Prevention）会阻断 Firebase 默认的
-// indexedDB 跨域 iframe 方案，导致 session 无法持久化（每次打开都要重新登录）。
-// 强制使用 localStorage 存储 token，绕过 ITP 限制。
-setPersistence(auth, browserLocalPersistence).catch(err =>
-  console.warn('[Auth] setPersistence failed:', err)
-);
+// 用 initializeAuth 代替 getAuth + setPersistence：
+// getAuth 初始化时默认先尝试 indexedDB（依赖跨域 iframe），
+// 在 WKWebView（Capacitor）和 iOS Safari 中 ITP 会阻断该 iframe，
+// 导致 onAuthStateChanged 永远不触发（一直 loading）。
+// initializeAuth 直接指定 browserLocalPersistence，完全跳过 iframe 路径。
+// 不在这里传 popupRedirectResolver：
+// resolver 初始化时会加载 authDomain 的跨域 iframe，WKWebView ITP 会阻断它，
+// 导致 onAuthStateChanged 永远不触发（一直 loading）。
+// 改为在每次 signInWithRedirect / getRedirectResult 调用时按需传入。
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence,
+});
+export const db = getFirestore(app, 'default');
 
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');

@@ -53,8 +53,10 @@ export function useAuth() {
       setState(s => ({ ...s, error: null }));
       await signInWithGoogle();
     } catch (err) {
-      setState(s => ({ ...s, error: '登录失败，请重试' }));
-      console.error(err);
+      const code = (err as { code?: string }).code ?? '';
+      const msg = (err as { message?: string }).message ?? '';
+      setState(s => ({ ...s, error: `登录失败: ${code} ${msg}` }));
+      console.error('[loginWithGoogle]', err);
     }
   }, []);
 

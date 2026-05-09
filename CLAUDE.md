@@ -7,12 +7,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev          # start Vite dev server
 npm run build        # tsc -b && vite build  ← ALWAYS run before pushing
+npm run build:ios    # build + sync to Xcode project
+npm run open:ios     # open Xcode
 npm run lint         # ESLint
 npm run test         # Vitest (single run)
 npm run test:watch   # Vitest watch mode
 ```
 
 **Always run `npm run build` before `git push`.** The CI/CD pipeline runs the same build and will fail the GitHub Pages deployment if there are TypeScript errors.
+
+## iOS / Capacitor
+
+The app is wrapped with Capacitor. The `ios/` directory contains the Xcode project.
+
+### Build and run
+
+```bash
+npm run build:ios    # tsc + vite build + cap sync ios
+npm run open:ios     # opens Xcode
+# In Xcode: select simulator or device, press Cmd+R
+```
+
+For JS-only changes: re-run `build:ios` then re-run in Xcode (no native recompile needed).
+
+### Project structure
+
+- `capacitor.config.ts` — appId, webDir, plugin config
+- `ios/` — Xcode project (commit everything except `ios/App/Pods/`)
+- `ios/App/App/Info.plist` — camera permissions, URL schemes for Firebase OAuth
+- `ios/App/App/App.entitlements` — Sign in with Apple entitlement
+
+### Auth on native iOS
+
+`signInWithPopup` is blocked by WKWebView. `src/services/auth.ts` detects `Capacitor.isNativePlatform()` and uses `signInWithRedirect` instead. Firebase + `@capacitor/browser` automatically opens a SFSafariViewController for the OAuth flow, then redirects back via the registered URL scheme in `Info.plist`.
+
+### Xcode one-time setup (after first `cap add ios`)
+
+1. Set Bundle ID = `com.yc.nutritrack` and select Apple Developer account
+2. Target → Signing & Capabilities → add "Sign in with Apple"
+3. Download `GoogleService-Info.plist` from Firebase Console → drag into `ios/App/App/` in Xcode
+4. Add to `Info.plist`:
+   - `NSCameraUsageDescription` — camera permission string
+   - `NSPhotoLibraryUsageDescription` — photo library permission string
+   - `CFBundleURLTypes` with `com.yc.nutritrack` and `REVERSED_CLIENT_ID` from GoogleService-Info.plist
+
+### Safe area
+
+`viewport-fit=cover` is set in `index.html`. Use `env(safe-area-inset-top/bottom)` for content near the notch/home indicator (already applied to `body` in `index.css`).
+
+### Never use `h-screen` or `100vh` on modal overlays
+
+Use `style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}` (existing pattern — works in both Safari and WKWebView).
 
 ## Architecture
 

@@ -17,6 +17,11 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Capacitor iOS
+ios/App/Pods/
+ios/.xcode.env.local
+ios/App/App/GoogleService-Info.plist
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

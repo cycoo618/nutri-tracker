@@ -16,6 +16,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f9fafb;
   margin: 0;
+  /* iOS notch / dynamic island safe area */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* 隐藏 number input 的上下箭头 */

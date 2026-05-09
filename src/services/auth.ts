@@ -1,51 +1,72 @@
 // ============================================
 // 认证服务
 // 支持 Google / Apple 登录，未来可扩展邮箱密码
-// popup 被拦截时自动降级为 redirect
 // ============================================
 
 import {
   signInWithPopup,
   signInWithRedirect,
+  signInWithCredential,
   getRedirectResult,
+  browserPopupRedirectResolver,
+  GoogleAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   type User,
   type AuthProvider,
 } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
 import { auth, googleProvider, appleProvider } from '../config/firebase';
 
 export type AuthUser = User;
 
-// 只有我们自己发起了 redirect 登录，才处理 redirect 结果，
-// 避免 getRedirectResult 在每次 App 启动时自动把用户重新登录
 const REDIRECT_PENDING_KEY = 'nt_auth_redirect_pending';
 
-/** 通用登录：优先 popup，被拦截时降级为 redirect */
-async function signInWith(provider: AuthProvider): Promise<User | null> {
+/** Google 登录：原生 iOS 用 capacitor-google-auth 拿 token 再 signInWithCredential，
+ *  绕过 Firebase 的域名检查；Web 用 signInWithPopup */
+export async function signInWithGoogle(): Promise<User | null> {
+  if (Capacitor.isNativePlatform()) {
+    const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+    const googleUser = await GoogleAuth.signIn();
+    const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+    const result = await signInWithCredential(auth, credential);
+    return result.user;
+  }
+
   try {
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
     return result.user;
   } catch (err: unknown) {
     const code = (err as { code?: string }).code;
     if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
-      // 降级为 redirect：记录标志，页面跳走前存入 sessionStorage
       sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
-      await signInWithRedirect(auth, provider);
+      await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
       return null;
     }
     throw err;
   }
 }
 
-/** Google 登录 */
-export async function signInWithGoogle(): Promise<User | null> {
-  return signInWith(googleProvider);
-}
-
-/** Apple 登录 */
+/** Apple 登录：原生和 Web 都走 Firebase redirect/popup（Apple 没有类似 Google 的原生 Capacitor 插件） */
 export async function signInWithApple(): Promise<User | null> {
-  return signInWith(appleProvider);
+  if (Capacitor.isNativePlatform()) {
+    sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
+    await signInWithRedirect(auth, appleProvider, browserPopupRedirectResolver);
+    return null;
+  }
+
+  try {
+    const result = await signInWithPopup(auth, appleProvider, browserPopupRedirectResolver);
+    return result.user;
+  } catch (err: unknown) {
+    const code = (err as { code?: string }).code;
+    if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+      sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
+      await signInWithRedirect(auth, appleProvider, browserPopupRedirectResolver);
+      return null;
+    }
+    throw err;
+  }
 }
 
 /** 登出 */
@@ -53,12 +74,14 @@ export async function signOut(): Promise<void> {
   await firebaseSignOut(auth);
 }
 
-/** 监听认证状态变化（仅在我们主动发起 redirect 时才处理 redirect 结果） */
+/** 监听认证状态变化 */
 export function onAuthChange(callback: (user: User | null) => void): () => void {
   if (sessionStorage.getItem(REDIRECT_PENDING_KEY)) {
-    // 消费一次后立即清除标志，防止下次启动再次触发
     sessionStorage.removeItem(REDIRECT_PENDING_KEY);
-    getRedirectResult(auth).catch(() => {});
+    getRedirectResult(auth, browserPopupRedirectResolver).catch(() => {});
   }
   return onAuthStateChanged(auth, callback);
 }
+
+// 兼容旧调用方（如果有其他地方调用了 signInWith 通用函数）
+export { googleProvider as _googleProvider, appleProvider as _appleProvider };
