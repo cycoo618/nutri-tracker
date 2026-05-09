@@ -87,9 +87,9 @@ function inferCategory(name: string): FoodCategory {
   const n = name.toLowerCase();
   if (/籽|仁|坚果|核桃|杏仁|腰果|花生|开心果|榛子|松子|碧根果|夏威夷果|巴旦木|扁桃|瓜子|芝麻/.test(n)) return 'nut';
   if (/鱼|虾|蟹|贝|牡蛎|扇贝|蛤|蚌|鲑|鳕|三文|沙丁|鲭|金枪|墨鱼|鱿鱼|章鱼|海参|海带/.test(n)) return 'seafood';
-  if (/(?:^|[^花生豆腐干])豆(?!腐|浆|沙|沙|花)|扁豆|鹰嘴豆|蚕豆|毛豆|豌豆|黑豆|红豆|绿豆|芸豆|黄豆/.test(n)) return 'legume';
-  if (/糙米|燕麦|全麦|全谷|荞麦|藜麦|黑米|紫米|玉米/.test(n)) return 'whole_grain';
-  if (/酸奶|泡菜|味噌|纳豆|开菲尔|kefir|kombucha|康普茶/.test(n)) return 'fermented';
+  if (/扁豆|鹰嘴豆|蚕豆|毛豆|豌豆|黑豆|红豆|绿豆|芸豆|黄豆|豆浆|豆腐|豆/.test(n)) return 'soy';
+  if (/糙米|燕麦|全麦|全谷|荞麦|藜麦|黑米|紫米|玉米/.test(n)) return 'grain';
+  if (/酸奶|泡菜|味噌|纳豆|开菲尔|kefir|kombucha|康普茶/.test(n)) return 'dairy';
   if (/苹果|香蕉|橙|橘|葡萄|草莓|蓝莓|西瓜|桃|梨|芒果|菠萝|樱桃|柚|柠檬|荔枝|龙眼|火龙果|猕猴桃/.test(n)) return 'fruit';
   if (/菠菜|西兰花|花椰菜|番茄|胡萝卜|黄瓜|生菜|白菜|芹菜|洋葱|蒜|韭菜|茄子|南瓜(?!籽|子)|冬瓜|丝瓜|苦瓜|青椒|辣椒/.test(n)) return 'vegetable';
   return 'other';
