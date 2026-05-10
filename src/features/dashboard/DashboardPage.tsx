@@ -264,6 +264,44 @@ function SwipeableRow({ item, onRemove, onTap, warning }: SwipeableRowProps) {
   );
 }
 
+function MiniDayPane({ log, date, targetCalories, locale }: {
+  log: DailyLog | null;
+  date: string;
+  targetCalories: number;
+  locale: string;
+}) {
+  const items = log ? log.meals.flatMap(m => m.items) : [];
+  const calories = log?.totalCalories ?? 0;
+  const pct = Math.min(100, Math.round((calories / Math.max(1, targetCalories)) * 100));
+  return (
+    <div className="pt-2 opacity-75">
+      <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100 mb-4">
+        <div className="text-xs text-gray-400 mb-3">{formatDate(date, locale)}</div>
+        <div className="flex items-center gap-4">
+          <ProgressRing percent={pct} size={72}>
+            <div className="text-base font-bold text-gray-800 leading-tight">{calories}</div>
+            <div className="text-[9px] text-gray-400">kcal</div>
+          </ProgressRing>
+          <div className="flex-1 min-w-0">
+            {items.length === 0 ? (
+              <span className="text-xs text-gray-300">{locale === 'zh' ? '暂无记录' : 'No entries'}</span>
+            ) : (
+              <>
+                {items.slice(0, 5).map(item => (
+                  <div key={item.id} className="truncate text-xs text-gray-500 leading-5">{item.foodName}</div>
+                ))}
+                {items.length > 5 && (
+                  <div className="text-xs text-gray-300">+{items.length - 5}</div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage({
   profile,
   dailyLog,
@@ -304,6 +342,16 @@ export function DashboardPage({
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [scienceArticleId, setScienceArticleId] = useState<string | null>(null);
 
+  // Adjacent day logs for 3-pane swipe carousel
+  const [adjLogs, setAdjLogs] = useState<{ prev: DailyLog | null; next: DailyLog | null }>({ prev: null, next: null });
+  // Swipe carousel refs
+  const trackRef = useRef<HTMLDivElement>(null);
+  const swipeZoneRef = useRef<HTMLDivElement>(null);
+  const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
+  const swipeDragAxis = useRef<'h' | 'v' | null>(null);
+  const swipeDx = useRef(0);
+  const swipeAnimating = useRef(false);
+
   // Profile tab form state
   const [tabGoals, setTabGoals] = useState<GoalType[]>(getActiveGoals(profile));
   const [tabWeight, setTabWeight] = useState(String(profile.bodyMetrics?.weight ?? ''));
@@ -320,11 +368,31 @@ export function DashboardPage({
 
   const ns = nutritionStatus;
 
-  const navigateDate = (offset: number) => {
-    const d = new Date(currentDate + 'T00:00:00');
+  const shiftDate = (base: string, offset: number): string => {
+    const d = new Date(base + 'T00:00:00');
     d.setDate(d.getDate() + offset);
-    const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), da = String(d.getDate()).padStart(2,'0');
-    onDateChange(`${y}-${mo}-${da}`);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  const prevDate = shiftDate(currentDate, -1);
+  const nextDate = shiftDate(currentDate, 1);
+
+  const trackTo = (pct: string, animated: boolean) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.style.transition = animated ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
+    el.style.transform = `translateX(${pct})`;
+  };
+
+  const navigateDate = (offset: number) => {
+    if (swipeAnimating.current) return;
+    swipeAnimating.current = true;
+    trackTo(offset > 0 ? '-66.666667%' : '0%', true);
+    setTimeout(() => {
+      const newDate = shiftDate(currentDate, offset);
+      trackTo('-33.333333%', false);
+      onDateChange(newDate);
+      swipeAnimating.current = false;
+    }, 310);
   };
 
   // 所有食物条目按 loggedAt 排序（旧数据无 loggedAt 时保留原顺序）
@@ -350,6 +418,70 @@ export function DashboardPage({
       setWeeklyRolling(analyzeRollingWindow(logs, currentDate));
     }).catch(() => {/* 静默失败，不影响主功能 */});
   }, [profile.uid, currentDate]);
+
+  // Fetch adjacent day logs for the swipe carousel panes
+  useEffect(() => {
+    if (activeTab !== 'overview') return;
+    getDailyLogs(profile.uid, prevDate, nextDate).then(logs => {
+      setAdjLogs({
+        prev: logs.find(l => l.date === prevDate) ?? null,
+        next: logs.find(l => l.date === nextDate) ?? null,
+      });
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.uid, currentDate, activeTab]);
+
+  // Native touchmove listener (non-passive) for horizontal swipe detection
+  useEffect(() => {
+    const el = swipeZoneRef.current;
+    if (!el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (!swipeTouchStart.current || swipeAnimating.current) return;
+      const dx = e.touches[0].clientX - swipeTouchStart.current.x;
+      const dy = e.touches[0].clientY - swipeTouchStart.current.y;
+      if (!swipeDragAxis.current) {
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        swipeDragAxis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      }
+      if (swipeDragAxis.current !== 'h') return;
+      e.preventDefault();
+      swipeDx.current = dx;
+      const track = trackRef.current;
+      if (!track) return;
+      track.style.transition = 'none';
+      track.style.transform = `translateX(calc(-33.333333% + ${dx}px))`;
+    };
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onTouchMove);
+  }, []);
+
+  const handleSwipeTouchStart = (e: React.TouchEvent) => {
+    if (swipeAnimating.current) return;
+    swipeTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    swipeDragAxis.current = null;
+    swipeDx.current = 0;
+  };
+
+  const handleSwipeTouchEnd = () => {
+    if (!swipeTouchStart.current || swipeDragAxis.current !== 'h') {
+      swipeTouchStart.current = null;
+      swipeDragAxis.current = null;
+      return;
+    }
+    swipeTouchStart.current = null;
+    swipeDragAxis.current = null;
+    const dx = swipeDx.current;
+    const threshold = window.innerWidth * 0.28;
+    if (Math.abs(dx) > threshold) {
+      navigateDate(dx < 0 ? 1 : -1);
+    } else {
+      const el = trackRef.current;
+      if (el) {
+        el.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        el.style.transform = 'translateX(-33.333333%)';
+      }
+    }
+  };
 
   // 今日各类别进度 & 滚动提醒
   const emptyRolling: RollingStats = {
@@ -479,10 +611,10 @@ export function DashboardPage({
         )}
       </header>
 
-      <main className="max-w-lg mx-auto px-4 pb-32">
-        {/* Date Navigator — shown on overview & food tabs only */}
+      <main className="max-w-lg mx-auto pb-32">
+        {/* Date Navigator — above swipe zone */}
         {activeTab === 'overview' && (
-          <div className="flex items-center justify-center gap-4 py-4">
+          <div className="px-4 flex items-center justify-center gap-4 py-4">
             <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
               ← {t('prevDay')}
             </button>
@@ -503,9 +635,38 @@ export function DashboardPage({
           </div>
         )}
 
-        {/* ══════════════ OVERVIEW TAB ══════════════ */}
+        {/* ══════════════ OVERVIEW TAB — 3-pane swipe carousel ══════════════ */}
+        {activeTab === 'overview' && (
+          <div
+            ref={swipeZoneRef}
+            style={{ overflow: 'hidden' }}
+            onTouchStart={handleSwipeTouchStart}
+            onTouchEnd={handleSwipeTouchEnd}
+          >
+            <div
+              ref={trackRef}
+              style={{
+                display: 'flex',
+                width: '300%',
+                transform: 'translateX(-33.333333%)',
+                willChange: 'transform',
+              }}
+            >
+              {/* Left pane: previous day */}
+              <div style={{ width: '33.333333%' }} className="px-4">
+                <MiniDayPane
+                  log={adjLogs.prev}
+                  date={prevDate}
+                  targetCalories={profile.targetCalories}
+                  locale={locale}
+                />
+              </div>
+
+              {/* Center pane: current day */}
+              <div style={{ width: '33.333333%' }} className="px-4">
+
         {/* ── 热量环 + 宏量 · 合并卡片 ── */}
-        {activeTab === 'overview' && ns && (
+        {ns && (
           <div className="bg-white rounded-2xl px-5 py-5 shadow-sm border border-gray-100 mb-4">
             <div className="flex items-center gap-5">
               {/* 左：热量环 */}
@@ -604,7 +765,7 @@ export function DashboardPage({
         )}
 
         {/* ── 地中海饮食 · 量化目标进度 ── */}
-        {activeTab === 'overview' && showMedChecklist && (
+        {showMedChecklist && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
             {/* 标题 */}
             <div className="px-4 pt-4 pb-3 flex items-center justify-between">
@@ -716,8 +877,7 @@ export function DashboardPage({
         )}
 
         {/* ── 今日食物时间线（overview 底部）── */}
-        {activeTab === 'overview' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
             <div className="flex items-center justify-between p-4 pb-3">
               <h3 className="font-semibold text-gray-800">{t('todaysFoodLog')}</h3>
               <div className="flex items-center gap-2">
@@ -825,8 +985,24 @@ export function DashboardPage({
               </div>
             )}
           </div>
-        )}
 
+              </div>{/* end center pane */}
+
+              {/* Right pane: next day */}
+              <div style={{ width: '33.333333%' }} className="px-4">
+                <MiniDayPane
+                  log={adjLogs.next}
+                  date={nextDate}
+                  targetCalories={profile.targetCalories}
+                  locale={locale}
+                />
+              </div>
+
+            </div>{/* end track */}
+          </div>
+        )}{/* end carousel overview */}
+
+        <div className="px-4">
         {/* ══════════════ 7 DAYS TAB ══════════════ */}
         {activeTab === 'weekly' && (() => {
           const today = new Date(currentDate + 'T00:00:00');
@@ -1273,6 +1449,7 @@ export function DashboardPage({
             </button>
           </div>
         )}
+        </div>{/* end px-4 wrapper for non-overview tabs */}
       </main>
 
       {/* Bottom Tab Bar */}
