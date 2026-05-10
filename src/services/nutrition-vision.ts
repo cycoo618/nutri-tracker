@@ -241,6 +241,68 @@ export async function estimateFoodNutrition(foodName: string): Promise<Extracted
   throw new Error('无法获取该食物的营养数据，请手动添加');
 }
 
+// ── 食物照片识别 ──────────────────────────────────────────────────────
+
+export interface RecognizedFood {
+  foodName: string;
+  estimatedGrams: number;
+  portionDescription: string;
+}
+
+const FOOD_PHOTO_PROMPT = `你是食物识别专家。分析图片中的食物。
+
+返回 ONLY JSON，不要其他文字：
+{
+  "foodName": "食物中文名（如：白米饭、烤鸡腿、苹果）",
+  "estimatedGrams": 估算克数（整数）,
+  "portionDescription": "简短份量描述（如：一碗、半盘、1只）"
+}
+
+估算规则：
+- 普通碗装米饭 ≈ 150-200g；炒菜一人份 ≈ 150-250g；餐厅主菜 ≈ 200-350g
+- 多种食物时，取最主要的一种或整体命名
+- 无法识别时返回 {"error": "无法识别食物"}`;
+
+export async function recognizeFoodPhoto(imageBase64: string): Promise<RecognizedFood> {
+  const apiKey = getGroqKey();
+  if (!apiKey) throw new Error('请先填入 Groq API Key');
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      max_tokens: 200,
+      messages: [{ role: 'user', content: [
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+        { type: 'text', text: FOOD_PHOTO_PROMPT },
+      ]}],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as { error?: { message?: string } }).error?.message || `API 错误 ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text: string = data.choices?.[0]?.message?.content ?? '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('API 返回格式异常');
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (parsed.error) throw new Error(parsed.error);
+
+  const foodName = String(parsed.foodName ?? '').trim();
+  const estimatedGrams = Math.round(Number(parsed.estimatedGrams) || 150);
+  const portionDescription = String(parsed.portionDescription ?? '1份').trim();
+
+  if (!foodName) throw new Error('无法识别食物名称');
+  if (estimatedGrams < 1 || estimatedGrams > 5000) throw new Error('重量估算异常，请重试');
+
+  return { foodName, estimatedGrams, portionDescription };
+}
+
 export async function analyzeNutritionLabel(imageBase64: string): Promise<ExtractedNutrition> {
   const apiKey = getGroqKey();
   if (!apiKey) {

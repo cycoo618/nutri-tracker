@@ -228,6 +228,21 @@ const translations: Record<string, Record<Locale, string>> = {
   recognitionFailed:     { zh: '识别失败',      en: 'Recognition Failed' },
   saveFailed:            { zh: '保存失败，请重试', en: 'Save failed, please retry' },
   recognitionFailedNote: { zh: '识别失败，请重试', en: 'Recognition failed, please retry' },
+
+  // 食物照片识别
+  identifyFood:           { zh: '识别食物',                              en: 'Identify Food' },
+  identifyFoodShort:      { zh: '🍽️ 识别食物',                         en: '🍽️ Identify' },
+  identifyFoodBtn:        { zh: '识别实物食物（拍照估算）',               en: 'Photo Food Recognition' },
+  photoInstruction:       { zh: '拍摄盘中食物，AI 自动识别名称并估算份量', en: 'Take a photo of your food; AI will identify it and estimate the portion.' },
+  takePhotoOfFood:        { zh: '拍摄食物照片',                          en: 'Take a Food Photo' },
+  aiIdentifying:          { zh: 'AI 正在识别食物…',                      en: 'AI is identifying food…' },
+  identifiedFoodName:     { zh: 'AI 识别的食物',                         en: 'AI Identified Food' },
+  estimatedPortion:       { zh: '估算份量',                              en: 'Estimated Portion' },
+  portionDescPlaceholder: { zh: '如：一碗、半盘',                        en: 'e.g. one bowl' },
+  nutritionLookupNote:    { zh: '确认后将自动查询营养数据',               en: 'Nutrition data will be looked up on confirm.' },
+  lookingUpNutrition:     { zh: '查询营养数据中…',                       en: 'Looking up nutrition…' },
+  confirmAndAdd:          { zh: '确认并添加',                            en: 'Confirm & Add' },
+
   notDetected:           { zh: '未检测到',      en: 'Not detected' },
   foodNameLabel:         { zh: '食物名称',      en: 'Food Name' },
   foodNameRequired:      { zh: '请输入食物名称', en: 'Please enter a food name' },

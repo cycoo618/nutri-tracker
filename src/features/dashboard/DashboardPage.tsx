@@ -27,6 +27,7 @@ import { t as tStatic } from '../../i18n';
 import { setFontSize, getFontSize } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { useLocale } from '../../i18n/useLocale';
+import type { Locale } from '../../i18n/index';
 import { localizeServingLabel, localizeUnit } from '../../utils/servingLabels';
 import { getFoodWarning } from '../../utils/goalAlerts';
 import { getDailyProgress, analyzeRollingWindow, getCategoryAlerts, CATEGORY_INFO } from '../../utils/nutritionTargets';
@@ -264,6 +265,70 @@ function SwipeableRow({ item, onRemove, onTap, warning }: SwipeableRowProps) {
   );
 }
 
+function MiniDayPane({ log, profile, locale, t }: {
+  log: DailyLog | null;
+  profile: UserProfile;
+  locale: Locale;
+  t: (key: string) => string;
+}) {
+  const items = log
+    ? log.meals.flatMap(m => m.items).sort((a, b) => (a.loggedAt || '').localeCompare(b.loggedAt || ''))
+    : [];
+  const calories = log?.totalCalories ?? 0;
+  const n = log?.totalNutrition ?? { protein: 0, carbs: 0, fat: 0, fiber: 0 };
+  const pct = Math.min(100, Math.round((calories / profile.targetCalories) * 100));
+
+  return (
+    <div className="px-4">
+      <div className="bg-white rounded-2xl px-5 py-5 shadow-sm border border-gray-100 mb-4">
+        <div className="flex items-center gap-5">
+          <div className="flex flex-col items-center shrink-0">
+            <ProgressRing percent={pct} size={100}>
+              <div className="text-xl font-bold text-gray-900 leading-tight">{calories}</div>
+              <div className="text-[10px] text-gray-400">/ {profile.targetCalories}</div>
+              <div className="text-[10px] text-gray-400">{localizeUnit('kcal', locale)}</div>
+            </ProgressRing>
+          </div>
+          <div className="flex-1 space-y-2">
+            {[
+              { label: t('protein'), v: n.protein, color: 'bg-blue-500' },
+              { label: t('carbs'),   v: n.carbs,   color: 'bg-amber-400' },
+              { label: t('fat'),     v: n.fat,     color: 'bg-red-400' },
+              { label: t('fiber'),   v: n.fiber,   color: 'bg-green-400' },
+            ].map(({ label, v, color }) => (
+              <div key={label}>
+                <div className="flex justify-between items-baseline mb-0.5">
+                  <span className="text-[10px] text-gray-600">{label}</span>
+                  <span className="text-[10px] text-gray-400 tabular-nums">{Math.round(v)}g</span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${color}`} style={{ width: `${v > 0 ? Math.min(100, pct) : 0}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3">
+        {items.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-gray-300">
+            {locale === 'zh' ? '暂无记录' : 'Nothing logged'}
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {items.map(item => (
+              <div key={item.id} className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-sm text-gray-700 truncate flex-1 min-w-0 mr-2">{item.foodName}</span>
+                <span className="text-sm text-gray-400 shrink-0">{item.calories} kcal</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage({
   profile,
   dailyLog,
@@ -320,11 +385,47 @@ export function DashboardPage({
 
   const ns = nutritionStatus;
 
+  // Adjacent day logs for the 3-pane swipe
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [prevLog, setPrevLog] = useState<DailyLog | null>(null);
+  const [nextLog, setNextLog] = useState<DailyLog | null>(null);
+
+  const getOffsetDate = (base: string, offset: number) => {
+    const d = new Date(base + 'T00:00:00');
+    d.setDate(d.getDate() + offset);
+    const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), da = String(d.getDate()).padStart(2,'0');
+    return `${y}-${mo}-${da}`;
+  };
+  const prevDate = getOffsetDate(currentDate, -1);
+  const nextDate = getOffsetDate(currentDate, 1);
+
+  // 3-pane track animation helpers
+  const trackTo = (pos: string, animated: boolean) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.style.transition = animated ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
+    el.style.transform = `translateX(${pos})`;
+  };
+
   const navigateDate = (offset: number) => {
     const d = new Date(currentDate + 'T00:00:00');
     d.setDate(d.getDate() + offset);
     const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), da = String(d.getDate()).padStart(2,'0');
-    onDateChange(`${y}-${mo}-${da}`);
+    const newDate = `${y}-${mo}-${da}`;
+    trackTo(offset > 0 ? '-66.666667%' : '0%', true);
+    setTimeout(() => {
+      trackTo('-33.333333%', false);
+      onDateChange(newDate);
+    }, 310);
+  };
+
+  const navigateToDate = (date: string) => {
+    const dir = date > currentDate ? 'next' : 'prev';
+    trackTo(dir === 'next' ? '-66.666667%' : '0%', true);
+    setTimeout(() => {
+      trackTo('-33.333333%', false);
+      onDateChange(date);
+    }, 310);
   };
 
   // 所有食物条目按 loggedAt 排序（旧数据无 loggedAt 时保留原顺序）
@@ -409,8 +510,83 @@ export function DashboardPage({
 
   const todayStr = getTodayString();
 
+  // 跟手滑动切换日期（仅 overview tab）
+  const mainRef = useRef<HTMLDivElement>(null);
+  const dragStartX = useRef(0);
+  const dragStartY = useRef(0);
+  const dragAxis = useRef<'h' | 'v' | null>(null);
+  const dragActive = useRef(false);
+
+  const slideInFrom = (dir: 'next' | 'prev') => {
+    const el = mainRef.current;
+    if (!el) return;
+    const from = dir === 'next' ? window.innerWidth : -window.innerWidth;
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${from}px)`;
+    // Force reflow
+    void el.offsetWidth;
+    el.style.transition = 'transform 0.22s ease-out';
+    el.style.transform = '';
+    setTimeout(() => { if (mainRef.current) mainRef.current.style.transition = ''; }, 250);
+  };
+
+  const handleMainTouchStart = (e: React.TouchEvent) => {
+    dragStartX.current = e.touches[0].clientX;
+    dragStartY.current = e.touches[0].clientY;
+    dragAxis.current = null;
+    dragActive.current = true;
+  };
+
+  const handleMainTouchMove = (e: React.TouchEvent) => {
+    if (!dragActive.current || activeTab !== 'overview' || anyModalOpen) return;
+    const dx = e.touches[0].clientX - dragStartX.current;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    // 第一次移动时判断滑动轴
+    if (dragAxis.current === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      dragAxis.current = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v';
+    }
+    if (dragAxis.current !== 'h') return;
+    const el = mainRef.current;
+    if (!el) return;
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${dx}px)`;
+  };
+
+  const handleMainTouchEnd = (e: React.TouchEvent) => {
+    dragActive.current = false;
+    if (dragAxis.current !== 'h' || activeTab !== 'overview' || anyModalOpen) {
+      dragAxis.current = null;
+      return;
+    }
+    dragAxis.current = null;
+    const dx = e.changedTouches[0].clientX - dragStartX.current;
+    const threshold = window.innerWidth * 0.28;
+    const el = mainRef.current;
+    if (!el) return;
+
+    if (Math.abs(dx) > threshold) {
+      // 超过阈值：完成切换
+      const dir = dx < 0 ? 'next' : 'prev';
+      el.style.transition = 'transform 0.18s ease-in';
+      el.style.transform = `translateX(${dx < 0 ? -window.innerWidth : window.innerWidth}px)`;
+      setTimeout(() => {
+        const offset = dir === 'next' ? 1 : -1;
+        const d = new Date(currentDate + 'T00:00:00');
+        d.setDate(d.getDate() + offset);
+        const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), da = String(d.getDate()).padStart(2,'0');
+        onDateChange(`${y}-${mo}-${da}`);
+        slideInFrom(dir);
+      }, 180);
+    } else {
+      // 未超过阈值：弹回
+      el.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      el.style.transform = '';
+      setTimeout(() => { if (mainRef.current) mainRef.current.style.transition = ''; }, 450);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ overflowX: 'hidden' }}>
       {/* Top Bar */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
@@ -479,7 +655,13 @@ export function DashboardPage({
         )}
       </header>
 
-      <main className="max-w-lg mx-auto px-4 pb-32">
+      <main
+        ref={mainRef}
+        className="max-w-lg mx-auto px-4 pb-32"
+        onTouchStart={handleMainTouchStart}
+        onTouchMove={handleMainTouchMove}
+        onTouchEnd={handleMainTouchEnd}
+      >
         {/* Date Navigator — shown on overview & food tabs only */}
         {activeTab === 'overview' && (
           <div className="flex items-center justify-center gap-4 py-4">
@@ -490,7 +672,7 @@ export function DashboardPage({
               <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
               {currentDate !== todayStr && (
                 <button
-                  onClick={() => onDateChange(todayStr)}
+                  onClick={() => navigateToDate(todayStr)}
                   className="text-xs text-green-600 bg-green-50 hover:bg-green-100 border border-green-200 px-2 py-0.5 rounded-full transition-colors"
                 >
                   {t('today')}
@@ -1276,7 +1458,7 @@ export function DashboardPage({
       </main>
 
       {/* Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-20 safe-area-inset-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-20" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="max-w-lg mx-auto flex items-end h-16">
 
           {/* Tab 1 — 总览 */}

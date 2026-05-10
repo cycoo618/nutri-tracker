@@ -13,6 +13,7 @@ import { saveUserFood } from '../../services/firestore';
 import { getGroqKey, saveGroqKey, isKeyFromEnv } from '../../services/nutrition-vision';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeUnit } from '../../utils/servingLabels';
+import { compressImage } from '../../utils/imageUtils';
 
 // ── 外部分析函数的接口定义 ──────────────────
 
@@ -64,25 +65,6 @@ const NUTRIENT_FIELD_DEFS: Omit<Field, 'label'>[] = [
   { key: 'potassium',    unit: 'mg',   type: 'number' },
   { key: 'vitaminC',     unit: 'mg',   type: 'number' },
 ];
-
-// 压缩图片到最大 400px 宽，JPEG 0.72，约 20-50KB
-function compressImage(dataUrl: string): Promise<string> {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      const MAX = 400;
-      const scale = Math.min(1, MAX / img.width);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.72));
-    };
-    img.src = dataUrl;
-  });
-}
 
 // ── Props ───────────────────────────────────
 

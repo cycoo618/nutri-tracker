@@ -18,6 +18,7 @@ import { GIBadge } from '../../components/ui/GIBadge';
 import { ManualFoodEntry } from './ManualFoodEntry';
 import { RecipeBuilder } from './RecipeBuilder';
 import { NutritionLabelScanner } from './NutritionLabelScanner';
+import { FoodPhotoScanner } from './FoodPhotoScanner';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import { estimateFoodNutrition, getGroqKey } from '../../services/nutrition-vision';
 import { useLocale } from '../../i18n/useLocale';
@@ -32,7 +33,7 @@ interface FoodSearchProps {
 }
 
 type SearchState = 'idle' | 'searching_online' | 'done';
-type View = 'search' | 'manual' | 'recipe' | 'scanner';
+type View = 'search' | 'manual' | 'recipe' | 'scanner' | 'food_photo';
 
 export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClose }: FoodSearchProps) {
   const { t, locale } = useLocale();
@@ -234,6 +235,16 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
     );
   }
 
+  if (view === 'food_photo') {
+    return (
+      <FoodPhotoScanner
+        onClose={onClose}
+        onSelect={food => onSelect(food)}
+        userId={userId}
+      />
+    );
+  }
+
   const noResults = searchState === 'done' && results.length === 0 && familyResults.length === 0;
   const hasLocalResults = results.length > 0 && !onlineSearched;
 
@@ -335,6 +346,14 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                 <span>📷</span> {t('scanPackageLabel')}
               </button>
 
+              {/* 识别食物 — 橙色 */}
+              <button
+                onClick={() => setView('food_photo')}
+                className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <span>🍽️</span> {t('identifyFoodBtn')}
+              </button>
+
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -407,6 +426,12 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
             <div className="px-4 pb-4 pt-1 border-t border-gray-50 space-y-2">
               <div className="flex gap-3">
                 <button
+                  onClick={() => setView('food_photo')}
+                  className="flex-1 py-2 text-sm text-gray-400 hover:text-orange-500 transition-colors text-center"
+                >
+                  {t('identifyFoodShort')}
+                </button>
+                <button
                   onClick={() => setView('scanner')}
                   className="flex-1 py-2 text-sm text-gray-400 hover:text-blue-600 transition-colors text-center"
                 >
@@ -432,16 +457,22 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           {!query && (
             <div className="p-4">
               {/* 快捷操作按钮组 */}
-              <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <button
+                  onClick={() => setView('food_photo')}
+                  className="py-3 flex items-center justify-center gap-1 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl text-sm text-orange-700 font-medium transition-colors"
+                >
+                  {t('identifyFoodShort')}
+                </button>
                 <button
                   onClick={() => setView('scanner')}
-                  className="py-3 flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-sm text-blue-700 font-medium transition-colors"
+                  className="py-3 flex items-center justify-center gap-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-sm text-blue-700 font-medium transition-colors"
                 >
                   {t('scanLabel')}
                 </button>
                 <button
                   onClick={() => setView('recipe')}
-                  className="py-3 flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl text-sm text-green-700 font-medium transition-colors"
+                  className="py-3 flex items-center justify-center gap-1 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl text-sm text-green-700 font-medium transition-colors"
                 >
                   {t('customFood')}
                 </button>
