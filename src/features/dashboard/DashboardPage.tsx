@@ -644,7 +644,8 @@ export function DashboardPage({
               <div style={{ width: '33.333333%' }} className="px-4">
 
         {/* Date Navigator — inside carousel, slides with content */}
-        <div className="flex items-center justify-center gap-4 py-4">
+        {/* stopPropagation: prevent swipe zone from treating nav button touches as swipe starts */}
+        <div className="flex items-center justify-center gap-4 py-4" onTouchStart={e => e.stopPropagation()}>
           <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">
             ← {t('prevDay')}
           </button>
