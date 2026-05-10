@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { UserProfile, GoalType } from '../../types/user';
@@ -346,11 +346,12 @@ export function DashboardPage({
   // Swipe carousel refs
   const trackRef = useRef<HTMLDivElement>(null);
   const navTrackRef = useRef<HTMLDivElement>(null);
-  const swipeZoneRef = useRef<HTMLDivElement>(null);
   const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
   const swipeDragAxis = useRef<'h' | 'v' | null>(null);
   const swipeDx = useRef(0);
   const swipeAnimating = useRef(false);
+  const swipeZoneCleanup = useRef<(() => void) | null>(null);
+  const navigateDateRef = useRef<(offset: number) => void>(() => {});
 
   // Profile tab form state
   const [tabGoals, setTabGoals] = useState<GoalType[]>(getActiveGoals(profile));
@@ -397,6 +398,62 @@ export function DashboardPage({
       swipeAnimating.current = false;
     }, 310);
   };
+  // Keep navigateDateRef current every render (avoids stale closure in callback ref)
+  navigateDateRef.current = navigateDate;
+
+  // Callback ref: attaches all native touch listeners the moment the swipe zone mounts.
+  // More reliable than useEffect([], []) which can miss the element on conditional renders.
+  const swipeZoneCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    if (swipeZoneCleanup.current) { swipeZoneCleanup.current(); swipeZoneCleanup.current = null; }
+    if (!el) return;
+    const onStart = (e: TouchEvent) => {
+      if (swipeAnimating.current) return;
+      swipeTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      swipeDragAxis.current = null;
+      swipeDx.current = 0;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!swipeTouchStart.current || swipeAnimating.current) return;
+      const dx = e.touches[0].clientX - swipeTouchStart.current.x;
+      const dy = e.touches[0].clientY - swipeTouchStart.current.y;
+      if (!swipeDragAxis.current) {
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        swipeDragAxis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      }
+      if (swipeDragAxis.current !== 'h') return;
+      e.preventDefault();
+      swipeDx.current = dx;
+      const xform = `translateX(calc(-33.333333% + ${dx}px))`;
+      for (const r of [trackRef, navTrackRef]) {
+        const t = r.current; if (!t) continue;
+        t.style.transition = 'none'; t.style.transform = xform;
+      }
+    };
+    const onEnd = () => {
+      if (!swipeTouchStart.current || swipeDragAxis.current !== 'h') {
+        swipeTouchStart.current = null; swipeDragAxis.current = null; return;
+      }
+      swipeTouchStart.current = null; swipeDragAxis.current = null;
+      const dx = swipeDx.current;
+      if (Math.abs(dx) > window.innerWidth * 0.28) {
+        navigateDateRef.current(dx < 0 ? 1 : -1);
+      } else {
+        for (const r of [trackRef, navTrackRef]) {
+          const t = r.current; if (!t) continue;
+          t.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          t.style.transform = 'translateX(-33.333333%)';
+        }
+      }
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    swipeZoneCleanup.current = () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, []); // stable: only reads refs, never stale
 
   // 所有食物条目按 loggedAt 排序（旧数据无 loggedAt 时保留原顺序）
   const allItems = dailyLog
@@ -432,61 +489,6 @@ export function DashboardPage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.uid, currentDate, activeTab]);
 
-  // Native touchmove listener (non-passive) for horizontal swipe detection
-  useEffect(() => {
-    const el = swipeZoneRef.current;
-    if (!el) return;
-    const onTouchMove = (e: TouchEvent) => {
-      if (!swipeTouchStart.current || swipeAnimating.current) return;
-      const dx = e.touches[0].clientX - swipeTouchStart.current.x;
-      const dy = e.touches[0].clientY - swipeTouchStart.current.y;
-      if (!swipeDragAxis.current) {
-        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-        swipeDragAxis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-      }
-      if (swipeDragAxis.current !== 'h') return;
-      e.preventDefault();
-      swipeDx.current = dx;
-      const xform = `translateX(calc(-33.333333% + ${dx}px))`;
-      for (const ref of [trackRef, navTrackRef]) {
-        const el = ref.current;
-        if (!el) continue;
-        el.style.transition = 'none';
-        el.style.transform = xform;
-      }
-    };
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => el.removeEventListener('touchmove', onTouchMove);
-  }, []);
-
-  const handleSwipeTouchStart = (e: React.TouchEvent) => {
-    if (swipeAnimating.current) return;
-    swipeTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    swipeDragAxis.current = null;
-    swipeDx.current = 0;
-  };
-
-  const handleSwipeTouchEnd = () => {
-    if (!swipeTouchStart.current || swipeDragAxis.current !== 'h') {
-      swipeTouchStart.current = null;
-      swipeDragAxis.current = null;
-      return;
-    }
-    swipeTouchStart.current = null;
-    swipeDragAxis.current = null;
-    const dx = swipeDx.current;
-    const threshold = window.innerWidth * 0.28;
-    if (Math.abs(dx) > threshold) {
-      navigateDate(dx < 0 ? 1 : -1);
-    } else {
-      for (const ref of [trackRef, navTrackRef]) {
-        const el = ref.current;
-        if (!el) continue;
-        el.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
-        el.style.transform = 'translateX(-33.333333%)';
-      }
-    }
-  };
 
   // 今日各类别进度 & 滚动提醒
   const emptyRolling: RollingStats = {
@@ -647,10 +649,8 @@ export function DashboardPage({
         {/* ══════════════ OVERVIEW TAB — 3-pane swipe carousel ══════════════ */}
         {activeTab === 'overview' && (
           <div
-            ref={swipeZoneRef}
+            ref={swipeZoneCallbackRef}
             style={{ overflow: 'hidden' }}
-            onTouchStart={handleSwipeTouchStart}
-            onTouchEnd={handleSwipeTouchEnd}
           >
             <div
               ref={trackRef}
