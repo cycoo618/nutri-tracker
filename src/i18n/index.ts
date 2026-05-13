@@ -81,7 +81,7 @@ const translations: Record<string, Record<Locale, string>> = {
   recentFoods:       { zh: '常用食物', en: 'Recent Foods' },
   aiEstimate:        { zh: '🤖 AI 估算营养数据', en: '🤖 AI Estimate Nutrition' },
   aiEstimating:      { zh: 'AI 估算中…', en: 'AI estimating…' },
-  scanLabel:         { zh: '📷 拍照识别', en: '📷 Scan Label' },
+  scanLabel:         { zh: '📷 扫营养价值表', en: '📷 Scan Label' },
   customFood:        { zh: '🧪 自定义食物', en: '🧪 Custom Food' },
   manualEntry:       { zh: '手动录入', en: 'Manual Entry' },
   onlineSearch:      { zh: '🌐 联网搜索更多结果', en: '🌐 Search Online' },
