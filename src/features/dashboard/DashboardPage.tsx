@@ -351,6 +351,7 @@ export function DashboardPage({
   const swipeAnimating = useRef(false);
   const swipeZoneCleanup = useRef<(() => void) | null>(null);
   const navigateDateRef = useRef<(offset: number) => void>(() => {});
+  const lastNavDirRef = useRef<'next' | 'prev' | null>(null);
 
   // Profile tab form state
   const [tabGoals, setTabGoals] = useState<GoalType[]>(getActiveGoals(profile));
@@ -377,8 +378,7 @@ export function DashboardPage({
   const nextDate = shiftDate(currentDate, 1);
 
   const trackTo = (pct: string, animated: boolean) => {
-    const el = trackRef.current;
-    if (!el) return;
+    const el = trackRef.current; if (!el) return;
     el.style.transition = animated ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
     el.style.transform = `translateX(${pct})`;
   };
@@ -386,12 +386,11 @@ export function DashboardPage({
   const navigateDate = (offset: number) => {
     if (swipeAnimating.current) return;
     swipeAnimating.current = true;
-    // Pre-populate the adjacent pane that will become the new center with current log,
-    // so there's no stale-data flash after the animation completes.
+    lastNavDirRef.current = offset > 0 ? 'next' : 'prev';
     if (offset > 0) {
-      setAdjLogs(prev => ({ prev: dailyLog, next: prev.next }));
+      setAdjLogs({ prev: dailyLog, next: null });
     } else {
-      setAdjLogs(prev => ({ prev: prev.prev, next: dailyLog }));
+      setAdjLogs({ prev: null, next: dailyLog });
     }
     trackTo(offset > 0 ? '-66.666667%' : '0%', true);
     setTimeout(() => {
@@ -476,9 +475,8 @@ export function DashboardPage({
     }).catch(() => {/* 静默失败，不影响主功能 */});
   }, [profile.uid, currentDate]);
 
-  // Fetch both adjacent day logs for carousel panes
+  // Fetch adjacent day logs for carousel panes (always, not gated on activeTab)
   useEffect(() => {
-    if (activeTab !== 'overview') return;
     getDailyLogs(profile.uid, prevDate, nextDate).then(logs => {
       setAdjLogs({
         prev: logs.find(l => l.date === prevDate) ?? null,
@@ -486,7 +484,7 @@ export function DashboardPage({
       });
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile.uid, currentDate, activeTab]);
+  }, [profile.uid, currentDate]);
 
 
   // 今日各类别进度 & 滚动提醒
@@ -619,28 +617,44 @@ export function DashboardPage({
 
       <main className="max-w-lg mx-auto pb-32">
 
+        {/* Date navigator — static row, date text updates instantly after swipe */}
+        {activeTab === 'overview' && (
+          <div className="flex items-center justify-center gap-4 py-4">
+            <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">← {t('prevDay')}</button>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
+              {currentDate !== todayStr && (
+                <button
+                  onClick={() => onDateChange(todayStr)}
+                  className="text-xs text-green-600 bg-green-50 hover:bg-green-100 border border-green-200 px-2 py-0.5 rounded-full transition-colors"
+                >
+                  {t('today')}
+                </button>
+              )}
+            </div>
+            <button onClick={() => navigateDate(1)} className="text-gray-400 hover:text-gray-600 p-1">{t('nextDay')} →</button>
+          </div>
+        )}
+
         {/* ══════════════ OVERVIEW TAB — 3-pane swipe carousel ══════════════ */}
         {activeTab === 'overview' && (
           <div
             ref={swipeZoneCallbackRef}
-            style={{ overflow: 'hidden' }}
+            style={{ clipPath: 'inset(0)' }}
           >
             <div
               ref={trackRef}
               style={{
                 display: 'flex',
                 width: '300%',
-                transform: 'translateX(-33.333333%)',
+                transform: 'translate3d(-33.333333%, 0, 0)',
                 willChange: 'transform',
               }}
             >
               {/* Left pane: previous day */}
               <div style={{ width: '33.333333%' }} className="px-4">
-                <div className="flex items-center justify-center py-4 text-sm font-medium text-gray-400">
-                  {formatDate(prevDate, locale)}
-                </div>
                 <MiniDayPane
-                  log={adjLogs.prev}
+                  log={adjLogs.prev ?? weeklyLogs.find(l => l.date === prevDate) ?? null}
                   date={prevDate}
                   targetCalories={profile.targetCalories}
                   locale={locale}
@@ -649,19 +663,6 @@ export function DashboardPage({
 
               {/* Center pane: current day */}
               <div style={{ width: '33.333333%' }} className="px-4">
-                {/* Date navigator — slides with content */}
-                <div className="flex items-center justify-center gap-4 py-4">
-                  <button onClick={() => navigateDate(-1)} className="text-gray-400 hover:text-gray-600 p-1">← {t('prevDay')}</button>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{formatDate(currentDate, locale)}</span>
-                    {currentDate !== todayStr && (
-                      <button onClick={() => onDateChange(todayStr)} className="text-xs text-green-600 bg-green-50 hover:bg-green-100 border border-green-200 px-2 py-0.5 rounded-full transition-colors">
-                        {t('today')}
-                      </button>
-                    )}
-                  </div>
-                  <button onClick={() => navigateDate(1)} className="text-gray-400 hover:text-gray-600 p-1">{t('nextDay')} →</button>
-                </div>
 
         {/* ── 热量环 + 宏量 · 合并卡片 ── */}
         {ns && (
