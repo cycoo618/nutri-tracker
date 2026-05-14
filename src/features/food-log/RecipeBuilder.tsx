@@ -3,18 +3,18 @@
 // 用户可以把多种食材按克数组合，生成一个新的自定义食物
 // ============================================
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import type { FoodItem } from '../../types/food';
-import { searchBuiltinFoods } from '../../services/food-lookup';
-import { searchCustomFoods, calcRecipeNutrition, saveCustomFood, updateCustomFood, recordToFoodItem } from '../../utils/customFoods';
+import { calcRecipeNutrition, saveCustomFood, updateCustomFood, recordToFoodItem } from '../../utils/customFoods';
 import type { RecipeIngredient, CustomFoodRecord } from '../../utils/customFoods';
 import { saveUserFood } from '../../services/firestore';
 import { formatNumber } from '../../utils/calculator';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeUnit } from '../../utils/servingLabels';
+import { FoodSearch } from './FoodSearch';
 
 interface RecipeBuilderProps {
   onClose: () => void;
@@ -101,11 +101,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
   const [servingLabel, setServingLabel] = useState(existingRecord?.servingSizes?.[0]?.label ?? '');
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(existingRecord?.ingredients ?? []);
 
-  const [ingQuery, setIngQuery] = useState('');
-  const [ingResults, setIngResults] = useState<FoodItem[]>([]);
-  const [showIngSearch, setShowIngSearch] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [showIngFoodSearch, setShowIngFoodSearch] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const [saving, setSaving] = useState(false);
@@ -114,30 +110,6 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
   const { per100g, totalGrams } = calcRecipeNutrition(ingredients);
   const totalCalories = Math.round(per100g.calories * totalGrams / 100);
-
-  // 食材搜索防抖
-  useEffect(() => {
-    const q = ingQuery.trim();
-    if (!q) { setIngResults([]); return; }
-    const timer = setTimeout(() => {
-      const builtin = searchBuiltinFoods(q);
-      const custom = searchCustomFoods(q);
-      setIngResults([...custom, ...builtin].slice(0, 12));
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [ingQuery]);
-
-  // 下拉出现时自动滚动，确保用户能看到结果
-  useEffect(() => {
-    if (ingResults.length > 0 && showIngSearch) {
-      setTimeout(() => {
-        searchContainerRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-      }, 80);
-    }
-  }, [ingResults.length, showIngSearch]);
 
   const addIngredient = (food: FoodItem) => {
     setIngredients(prev => {
@@ -149,9 +121,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
         per100g: food.per100g,
       }];
     });
-    setIngQuery('');
-    setIngResults([]);
-    setShowIngSearch(false);
+    setShowIngFoodSearch(false);
   };
 
   const updateGrams = (idx: number, val: number) => {
@@ -296,43 +266,14 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
               </div>
             )}
 
-            {/* 添加食材搜索框 */}
-            <div ref={searchContainerRef} className="relative">
-              <div className="flex items-center gap-2 border border-dashed border-green-400 rounded-xl px-4 py-2.5 bg-green-50 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
-                <span className="text-green-500 text-lg shrink-0">＋</span>
-                <input
-                  ref={searchRef}
-                  type="text"
-                  value={ingQuery}
-                  onChange={e => { setIngQuery(e.target.value); setShowIngSearch(true); }}
-                  onFocus={e => { setShowIngSearch(true); autoSelect(e); }}
-                  placeholder={t('addIngredientPlaceholder')}
-                  className="flex-1 bg-transparent text-sm focus:outline-none text-gray-700 placeholder-green-400"
-                />
-              </div>
-              {/* 搜索结果下拉 */}
-              {showIngSearch && ingResults.length > 0 && (
-                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                  {ingResults.map(food => (
-                    <button
-                      key={food.id}
-                      onClick={() => addIngredient(food)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-gray-800">{food.name}</div>
-                        <div className="text-xs text-gray-400">
-                          {food.per100g.calories} {localizeUnit('kcal', locale)}/100{localizeUnit('g', locale)} · {t('proteinShort')} {food.per100g.protein}{localizeUnit('g', locale)}
-                        </div>
-                      </div>
-                      {ingredients.some(i => i.foodId === food.id) && (
-                        <span className="text-xs text-green-500 shrink-0 ml-2">{t('alreadyAdded')}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* 添加食材 — 打开完整搜索弹窗 */}
+            <button
+              onClick={() => setShowIngFoodSearch(true)}
+              className="w-full flex items-center gap-2 border border-dashed border-green-400 rounded-xl px-4 py-2.5 bg-green-50 hover:bg-green-100 transition-colors text-left"
+            >
+              <span className="text-green-500 text-lg shrink-0">＋</span>
+              <span className="text-sm text-green-600">{t('addIngredientPlaceholder')}</span>
+            </button>
           </div>
 
           {/* 营养预览 */}
@@ -388,6 +329,15 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
 
         <BottomReturnButton onClick={onClose} />
       </div>
+
+      {/* 食材搜索弹窗 — 复用完整 FoodSearch（含 AI 估算、联网、自定义食物） */}
+      {showIngFoodSearch && (
+        <FoodSearch
+          userId={userId}
+          onSelect={food => addIngredient(food)}
+          onClose={() => setShowIngFoodSearch(false)}
+        />
+      )}
     </div>
   );
 }
