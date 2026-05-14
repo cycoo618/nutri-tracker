@@ -269,6 +269,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
         onSaved={record => { setEditingRecipe(null); handleSaved(record); }}
         existingRecord={editingRecipe ?? undefined}
         userId={userId}
+        familyId={familyId}
       />
     );
   }

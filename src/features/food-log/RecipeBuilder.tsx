@@ -21,6 +21,7 @@ interface RecipeBuilderProps {
   onSaved: (foodItem: FoodItem) => void;
   existingRecord?: CustomFoodRecord;
   userId?: string;
+  familyId?: string;
 }
 
 // 快捷克数选项
@@ -95,7 +96,7 @@ function GramInput({
 }
 
 // ── 主组件 ─────────────────────────────────────────────────────────
-export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: RecipeBuilderProps) {
+export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, familyId }: RecipeBuilderProps) {
   const { t, locale } = useLocale();
   const [name, setName] = useState(existingRecord?.name ?? '');
   const [servingLabel, setServingLabel] = useState(existingRecord?.servingSizes?.[0]?.label ?? '');
@@ -334,6 +335,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId }: Reci
       {showIngFoodSearch && (
         <FoodSearch
           userId={userId}
+          familyId={familyId}
           onSelect={food => addIngredient(food)}
           onClose={() => setShowIngFoodSearch(false)}
         />

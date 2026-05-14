@@ -221,6 +221,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         onClose={onClose}
         onSaved={food => onSelect(food)}
         userId={userId}
+        familyId={familyId}
       />
     );
   }
