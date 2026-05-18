@@ -3,7 +3,7 @@
 // 饮食记录以时间线形式展示，不再分早中晚餐
 // ============================================
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import type { UserProfile, GoalType } from '../../types/user';
@@ -343,15 +343,10 @@ export function DashboardPage({
 
   // Adjacent day logs for 3-pane swipe carousel
   const [adjLogs, setAdjLogs] = useState<{ prev: DailyLog | null; next: DailyLog | null }>({ prev: null, next: null });
-  // Swipe carousel refs
-  const trackRef = useRef<HTMLDivElement>(null);
-  const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
-  const swipeDragAxis = useRef<'h' | 'v' | null>(null);
-  const swipeDx = useRef(0);
-  const swipeAnimating = useRef(false);
-  const swipeZoneCleanup = useRef<(() => void) | null>(null);
-  const navigateDateRef = useRef<(offset: number) => void>(() => {});
-  const lastNavDirRef = useRef<'next' | 'prev' | null>(null);
+  // Native scroll-snap carousel refs
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const skipScrollRef = useRef(false);   // true while we programmatically reset to center
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Profile tab form state
   const [tabGoals, setTabGoals] = useState<GoalType[]>(getActiveGoals(profile));
@@ -377,79 +372,53 @@ export function DashboardPage({
   const prevDate = shiftDate(currentDate, -1);
   const nextDate = shiftDate(currentDate, 1);
 
-  const trackTo = (pct: string, animated: boolean) => {
-    const el = trackRef.current; if (!el) return;
-    el.style.transition = animated ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
-    el.style.transform = `translateX(${pct})`;
-  };
-
+  // navigateDate: for button clicks — scroll the native scroll-snap container
   const navigateDate = (offset: number) => {
-    if (swipeAnimating.current) return;
-    swipeAnimating.current = true;
-    lastNavDirRef.current = offset > 0 ? 'next' : 'prev';
-    if (offset > 0) {
-      setAdjLogs({ prev: dailyLog, next: null });
-    } else {
-      setAdjLogs({ prev: null, next: dailyLog });
-    }
-    trackTo(offset > 0 ? '-66.666667%' : '0%', true);
-    setTimeout(() => {
-      const newDate = shiftDate(currentDate, offset);
-      trackTo('-33.333333%', false);
-      onDateChange(newDate);
-      swipeAnimating.current = false;
-    }, 310);
+    const el = scrollRef.current; if (!el) return;
+    const w = el.offsetWidth;
+    el.scrollTo({ left: w + offset * w, behavior: 'smooth' });
+    // The scroll-end handler (below) will detect the snap position and call onDateChange
   };
-  // Keep navigateDateRef current every render (avoids stale closure in callback ref)
-  navigateDateRef.current = navigateDate;
 
-  // Callback ref: attaches all native touch listeners the moment the swipe zone mounts.
-  // More reliable than useEffect([], []) which can miss the element on conditional renders.
-  const swipeZoneCallbackRef = useCallback((el: HTMLDivElement | null) => {
-    if (swipeZoneCleanup.current) { swipeZoneCleanup.current(); swipeZoneCleanup.current = null; }
-    if (!el) return;
-    const onStart = (e: TouchEvent) => {
-      if (swipeAnimating.current) return;
-      swipeTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      swipeDragAxis.current = null;
-      swipeDx.current = 0;
+  // Reset scroll container to center pane whenever currentDate changes
+  useEffect(() => {
+    const el = scrollRef.current; if (!el) return;
+    skipScrollRef.current = true;
+    el.scrollTo({ left: el.offsetWidth, behavior: 'instant' as ScrollBehavior });
+    // Allow a bit of time for the instant scroll to fire its scroll events before re-enabling
+    const t = setTimeout(() => { skipScrollRef.current = false; }, 80);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate]);
+
+  // Detect when user has snapped to an adjacent pane and navigate
+  useEffect(() => {
+    const el = scrollRef.current; if (!el) return;
+    const onScroll = () => {
+      if (skipScrollRef.current) return;
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(() => {
+        if (skipScrollRef.current) return;
+        const w = el.offsetWidth;
+        if (w === 0) return;
+        const idx = Math.round(el.scrollLeft / w); // 0=prev, 1=center, 2=next
+        if (idx === 0) {
+          // Navigating to prev day — pass current dailyLog as adj for the new center
+          setAdjLogs(a => ({ prev: null, next: dailyLog ?? a.next }));
+          onDateChange(shiftDate(currentDate, -1));
+        } else if (idx === 2) {
+          setAdjLogs(a => ({ prev: dailyLog ?? a.prev, next: null }));
+          onDateChange(shiftDate(currentDate, 1));
+        }
+      }, 80);
     };
-    const onMove = (e: TouchEvent) => {
-      if (!swipeTouchStart.current || swipeAnimating.current) return;
-      const dx = e.touches[0].clientX - swipeTouchStart.current.x;
-      const dy = e.touches[0].clientY - swipeTouchStart.current.y;
-      if (!swipeDragAxis.current) {
-        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-        swipeDragAxis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-      }
-      if (swipeDragAxis.current !== 'h') return;
-      e.preventDefault();
-      swipeDx.current = dx;
-      const xform = `translateX(calc(-33.333333% + ${dx}px))`;
-      const t = trackRef.current; if (t) { t.style.transition = 'none'; t.style.transform = xform; }
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     };
-    const onEnd = () => {
-      if (!swipeTouchStart.current || swipeDragAxis.current !== 'h') {
-        swipeTouchStart.current = null; swipeDragAxis.current = null; return;
-      }
-      swipeTouchStart.current = null; swipeDragAxis.current = null;
-      const dx = swipeDx.current;
-      if (Math.abs(dx) > window.innerWidth * 0.28) {
-        navigateDateRef.current(dx < 0 ? 1 : -1);
-      } else {
-        const t = trackRef.current;
-        if (t) { t.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'; t.style.transform = 'translateX(-33.333333%)'; }
-      }
-    };
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchmove', onMove, { passive: false });
-    el.addEventListener('touchend', onEnd, { passive: true });
-    swipeZoneCleanup.current = () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove', onMove);
-      el.removeEventListener('touchend', onEnd);
-    };
-  }, []); // stable: only reads refs, never stale
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, dailyLog, onDateChange]);
 
   // 所有食物条目按 loggedAt 排序（旧数据无 loggedAt 时保留原顺序）
   const allItems = dailyLog
@@ -636,23 +605,26 @@ export function DashboardPage({
           </div>
         )}
 
-        {/* ══════════════ OVERVIEW TAB — 3-pane swipe carousel ══════════════ */}
+        {/* ══════════════ OVERVIEW TAB — native scroll-snap carousel ══════════════ */}
         {activeTab === 'overview' && (
           <div
-            ref={swipeZoneCallbackRef}
-            style={{ clipPath: 'inset(0)' }}
+            ref={scrollRef}
+            style={{
+              display: 'flex',
+              overflowX: 'scroll',
+              overflowY: 'clip',
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            } as React.CSSProperties}
+            className="[&::-webkit-scrollbar]:hidden"
           >
-            <div
-              ref={trackRef}
-              style={{
-                display: 'flex',
-                width: '300%',
-                transform: 'translate3d(-33.333333%, 0, 0)',
-                willChange: 'transform',
-              }}
-            >
-              {/* Left pane: previous day */}
-              <div style={{ width: '33.333333%' }} className="px-4">
+              {/* Left pane: prev day — native UIScrollView pre-renders this */}
+              <div style={{ flex: '0 0 100%', scrollSnapAlign: 'start', scrollSnapStop: 'always', minWidth: 0 }} className="px-4">
+                <div className="flex items-center justify-center py-4 text-sm font-medium text-gray-400">
+                  {formatDate(prevDate, locale)}
+                </div>
                 <MiniDayPane
                   log={adjLogs.prev ?? weeklyLogs.find(l => l.date === prevDate) ?? null}
                   date={prevDate}
@@ -662,7 +634,7 @@ export function DashboardPage({
               </div>
 
               {/* Center pane: current day */}
-              <div style={{ width: '33.333333%' }} className="px-4">
+              <div style={{ flex: '0 0 100%', scrollSnapAlign: 'start', scrollSnapStop: 'always', minWidth: 0 }} className="px-4">
 
         {/* ── 热量环 + 宏量 · 合并卡片 ── */}
         {ns && (
@@ -987,8 +959,8 @@ export function DashboardPage({
 
               </div>{/* end center pane */}
 
-              {/* Right pane: next day */}
-              <div style={{ width: '33.333333%' }} className="px-4">
+              {/* Right pane: next day — native UIScrollView pre-renders this */}
+              <div style={{ flex: '0 0 100%', scrollSnapAlign: 'start', scrollSnapStop: 'always', minWidth: 0 }} className="px-4">
                 <div className="flex items-center justify-center py-4 text-sm font-medium text-gray-400">
                   {formatDate(nextDate, locale)}
                 </div>
@@ -1000,9 +972,8 @@ export function DashboardPage({
                 />
               </div>
 
-            </div>{/* end track */}
           </div>
-        )}{/* end carousel overview */}
+        )}{/* end scroll-snap carousel overview */}
 
         <div className="px-4">
         {/* ══════════════ 7 DAYS TAB ══════════════ */}
