@@ -3,6 +3,7 @@ import type { UserProfile } from '../../types/user';
 import type { DailyLog } from '../../types/log';
 import { MEAL_LABELS, MEAL_ICONS } from '../../types/log';
 import type { NutritionStatus } from '../../hooks/useNutrition';
+import type { SyncStatus } from '../../hooks/useFoodLog';
 import { Bar } from './shared/Bar';
 import { RotatingBanner } from './shared/RotatingBanner';
 import { FOOD_GROUPS } from './tokens';
@@ -15,6 +16,8 @@ interface DiaryHomeProps {
   onDateChange: (date: string) => void;
   onNav: (tab: string) => void;
   onOpenAdd: () => void;
+  syncStatus?: SyncStatus;
+  onForceSync?: () => Promise<void>;
 }
 
 function getGreeting(): string {
@@ -41,14 +44,21 @@ function getDayNumber(dateStr: string, createdAt: string): number {
   return Math.max(1, Math.floor((now - start) / 86400000) + 1);
 }
 
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function offsetDate(dateStr: string, delta: number): string {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + delta);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateString(d);
 }
 
 function getTodayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalDateString(new Date());
 }
 
 type ExpandedPanel = 'macro' | 'diversity' | null;
@@ -74,7 +84,7 @@ function GoalChip({ goalKey }: { goalKey: string }) {
   );
 }
 
-export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd }: DiaryHomeProps) {
+export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, syncStatus, onForceSync }: DiaryHomeProps) {
   const [expanded, setExpanded] = useState<ExpandedPanel>(null);
   const today = getTodayString();
   const isToday = currentDate === today;
@@ -99,6 +109,25 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {goals.slice(0, 2).map(g => <GoalChip key={g} goalKey={g} />)}
+          {onForceSync && (
+            <button
+              onClick={onForceSync}
+              disabled={syncStatus === 'syncing'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                padding: '3px 9px', borderRadius: 999,
+                background: 'rgba(255,255,255,0.6)', border: '1px solid var(--line-soft)',
+                fontSize: 11, fontWeight: 500, cursor: syncStatus === 'syncing' ? 'default' : 'pointer',
+                color: syncStatus === 'error' ? 'var(--tomato)' : 'var(--ink-soft)',
+              }}
+            >
+              <span style={{
+                display: 'inline-block',
+                animation: syncStatus === 'syncing' ? 'spin 1s linear infinite' : 'none',
+              }}>⟳</span>
+              {syncStatus === 'syncing' ? '同步中' : syncStatus === 'error' ? '重试' : '同步'}
+            </button>
+          )}
           <button
             onClick={() => onNav('pantry')}
             style={{
@@ -205,16 +234,19 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
               <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>宏量手账</span>
               <span className="nt-display" style={{ fontSize: 18, color: 'var(--sage)', marginLeft: 'auto' }}>73<span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>分</span></span>
             </div>
-            {/* Preview: 4 tiny bars */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {/* Preview: 4 labeled bars */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {[
                 { label: '蛋白', v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)' },
                 { label: '碳水', v: nutritionStatus?.macros.carbs.consumed ?? 0, t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)' },
                 { label: '脂肪', v: nutritionStatus?.macros.fat.consumed ?? 0, t: nutritionStatus?.macros.fat.target ?? 65, c: 'var(--persimmon)' },
                 { label: '纤维', v: nutritionStatus?.fiber.consumed ?? 0, t: nutritionStatus?.fiber.target ?? 25, c: 'var(--sage)' },
               ].map(item => (
-                <div key={item.label}>
-                  <Bar value={item.v} target={item.t} color={item.c} height={4} />
+                <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontSize: 9, color: item.c, fontWeight: 700, width: 18, flexShrink: 0, fontFamily: 'Noto Serif SC, serif' }}>{item.label}</span>
+                  <div style={{ flex: 1 }}>
+                    <Bar value={item.v} target={item.t} color={item.c} height={4} />
+                  </div>
                 </div>
               ))}
             </div>

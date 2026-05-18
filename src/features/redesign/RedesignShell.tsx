@@ -34,7 +34,7 @@ export interface RedesignShellProps {
 }
 
 export function RedesignShell(props: RedesignShellProps) {
-  const { profile, dailyLog, nutritionStatus, currentDate, recentFoods, onDateChange, onAddFood, onLogout, onProfileUpdate } = props;
+  const { profile, dailyLog, nutritionStatus, currentDate, recentFoods, syncStatus, onForceSync, onDateChange, onAddFood, onLogout, onProfileUpdate } = props;
 
   const [activeTab, setActiveTab] = useState<TabKey>('总览');
   const [subView, setSubView] = useState<SubView>('main');
@@ -87,6 +87,8 @@ export function RedesignShell(props: RedesignShellProps) {
             onDateChange={onDateChange}
             onNav={handleNav}
             onOpenAdd={handleAdd}
+            syncStatus={syncStatus}
+            onForceSync={onForceSync}
           />
         );
       case '趋势':
