@@ -7,7 +7,6 @@ import type { SyncStatus } from '../../hooks/useFoodLog';
 import type { NutritionStatus } from '../../hooks/useNutrition';
 import { PaperDock } from './shared/PaperDock';
 import { DiaryHome } from './DiaryHome';
-import { GardenHome } from './GardenHome';
 import { SevenDayScreen } from './SevenDayScreen';
 import { ScienceScreen } from './ScienceScreen';
 import { DiversityScreen } from './DiversityScreen';
@@ -71,10 +70,6 @@ export function RedesignShell(props: RedesignShellProps) {
     setSheetOpen(false);
   };
 
-  // Determine home layout based on primary goal
-  const primaryGoal = profile.goals?.[0] ?? profile.goal;
-  const showGarden = primaryGoal === 'anti_inflammatory';
-
   const renderContent = () => {
     // Sub-views take precedence
     if (subView === 'diversity') {
@@ -83,15 +78,7 @@ export function RedesignShell(props: RedesignShellProps) {
 
     switch (activeTab) {
       case '总览':
-        return showGarden ? (
-          <GardenHome
-            profile={profile}
-            dailyLog={dailyLog}
-            nutritionStatus={nutritionStatus}
-            onOpenAdd={handleAdd}
-            onNav={handleNav}
-          />
-        ) : (
+        return (
           <DiaryHome
             profile={profile}
             dailyLog={dailyLog}
