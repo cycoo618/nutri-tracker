@@ -178,7 +178,7 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span className="nt-display" style={{ fontSize: 72, color: 'var(--tomato)', lineHeight: 1 }}>
-            {calorieRemain}
+            {calorieRemain.toLocaleString()}
           </span>
           <span className="nt-serif" style={{ fontSize: 18, color: 'var(--ink-mute)' }}>千卡</span>
         </div>
@@ -202,8 +202,8 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
             style={{ padding: '14px 16px', cursor: 'pointer' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <span style={{ fontSize: 16 }}>⚖️</span>
-              <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>宏量平衡</span>
+              <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>宏量手账</span>
+              <span className="nt-display" style={{ fontSize: 18, color: 'var(--sage)', marginLeft: 'auto' }}>73<span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>分</span></span>
             </div>
             {/* Preview: 4 tiny bars */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -250,8 +250,8 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
             style={{ padding: '14px 16px', cursor: 'pointer' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <span style={{ fontSize: 16 }}>🌈</span>
               <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>食物多样性</span>
+              <span className="nt-display" style={{ fontSize: 18, color: 'var(--sage)', marginLeft: 'auto' }}>{doneCount}<span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>/7</span></span>
             </div>
             {/* Preview: 7 emoji squares */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
@@ -345,7 +345,14 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span className="nt-serif" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{mealLabel}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="nt-serif" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{mealLabel}</span>
+                    {mealCal > 0 && (
+                      <span className="nt-caveat" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
+                        {meal.type === 'breakfast' ? '08:20' : meal.type === 'lunch' ? '12:45' : meal.type === 'dinner' ? '18:30' : '15:00'}
+                      </span>
+                    )}
+                  </div>
                   {mealCal > 0 && (
                     <span className="nt-caveat" style={{ fontSize: 13, color: 'var(--ink-mute)' }}>{mealCal} kcal</span>
                   )}
@@ -366,14 +373,11 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                     <span style={{ fontSize: 16 }}>＋</span> 记一笔
                   </button>
                 ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {meal.items.map(item => (
-                      <span
-                        key={item.id}
-                        className="nt-chip"
-                        style={{ fontSize: 11 }}
-                      >
-                        {item.foodName} <span style={{ color: 'var(--ink-faint)' }}>{item.calories}kcal</span>
+                  <div className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
+                    {meal.items.map((item, idx) => (
+                      <span key={item.id}>
+                        {item.foodName}
+                        {idx < meal.items.length - 1 ? '、' : ''}
                       </span>
                     ))}
                   </div>

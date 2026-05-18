@@ -30,12 +30,13 @@ interface FoodSearchProps {
   familyId?: string;
   onSelect: (food: FoodItem) => void;
   onClose: () => void;
+  embedded?: boolean;
 }
 
 type SearchState = 'idle' | 'searching_online' | 'done';
 type View = 'search' | 'manual' | 'recipe' | 'scanner' | 'food_photo';
 
-export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClose }: FoodSearchProps) {
+export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClose, embedded = false }: FoodSearchProps) {
   const { t, locale } = useLocale();
   const [view, setView] = useState<View>('search');
   const [query, setQuery] = useState('');
@@ -251,30 +252,11 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
   const noResults = searchState === 'done' && results.length === 0 && familyResults.length === 0;
   const hasLocalResults = results.length > 0 && !onlineSearched;
 
-  return (
-    <div
-      className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
-      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
-      onClick={onClose}
-    >
-      <div
-        ref={cardRef}
-        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
-        style={{ height: 'calc(var(--vvh, 90vh) - 60px)' }}
-        onClick={e => e.stopPropagation()}
-        {...cardDragHandlers}
-      >
-        {/* Drag handle */}
-        <div
-          className="flex justify-center pt-3 shrink-0 cursor-grab"
-          style={{ touchAction: 'none' }}
-          {...dragHandlers}
-        >
-          <div className="w-10 h-1 bg-gray-200 rounded-full" />
-        </div>
-
-        {/* 搜索框 */}
-        <div className="px-4 pt-3 pb-3 border-b border-gray-100">
+  // Shared inner content (search bar + results)
+  const innerContent = (
+    <>
+      {/* 搜索框 */}
+      <div className="px-4 pt-3 pb-3 border-b border-gray-100">
           <div className="flex items-stretch gap-2">
             {/* 搜索输入框 — 65% */}
             <div
@@ -460,42 +442,58 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           {!query && (
             <div className="p-4">
               {/* 快捷操作按钮组 */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <button
-                  onClick={() => setView('food_photo')}
-                  className="py-3 flex items-center justify-center gap-1 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl text-sm text-orange-700 font-medium transition-colors"
-                >
-                  {t('identifyFoodShort')}
-                </button>
-                <button
-                  onClick={() => setView('scanner')}
-                  className="py-3 flex items-center justify-center gap-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-sm text-blue-700 font-medium transition-colors"
-                >
-                  {t('scanLabel')}
-                </button>
-                <button
-                  onClick={() => setView('recipe')}
-                  className="py-3 flex items-center justify-center gap-1 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl text-sm text-green-700 font-medium transition-colors"
-                >
-                  {t('customFood')}
-                </button>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+                {[
+                  { view: 'food_photo' as View, icon: '📷', title: '识别食物', sub: '拍照', bg: 'rgba(255,107,87,0.1)', color: 'var(--tomato, #FF6B57)', border: 'rgba(255,107,87,0.2)' },
+                  { view: 'scanner'   as View, icon: '📋', title: '扫营养表', sub: '条码/OCR', bg: 'rgba(45,110,64,0.08)', color: '#2D6E40', border: 'rgba(45,110,64,0.18)' },
+                  { view: 'manual'    as View, icon: '✏️', title: '自定义', sub: '手动录入', bg: 'rgba(212,93,127,0.08)', color: '#D45D7F', border: 'rgba(212,93,127,0.18)' },
+                ].map(s => (
+                  <button
+                    key={s.view}
+                    onClick={() => setView(s.view)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 4, padding: '14px 8px', borderRadius: 14,
+                      background: s.bg, border: `1px solid ${s.border}`,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <span style={{ fontSize: 22 }}>{s.icon}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.title}</span>
+                    <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.4)' }}>{s.sub}</span>
+                  </button>
+                ))}
               </div>
 
               {recentFoods.length > 0 ? (
                 <>
-                  <div className="text-xs font-medium text-gray-400 mb-3">{t('recentFoods')}</div>
-                  <div className="flex flex-wrap gap-2">
-                    {recentFoods.map(entry => (
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span className="nt-serif" style={{ fontSize: 14, fontWeight: 700, color: '#1F2920', fontFamily: 'Noto Serif SC, serif' }}>常用食物</span>
+                    <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)', fontFamily: 'Caveat, cursive' }}>your usuals</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {recentFoods.map((entry, idx) => (
                       <button
                         key={entry.food.id}
                         onClick={() => onSelect(entry.food)}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-gray-50 hover:bg-green-50 hover:border-green-300 border border-gray-200 rounded-xl text-sm transition-colors"
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '11px 0',
+                          borderBottom: idx < recentFoods.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
+                          background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
+                          fontFamily: 'inherit',
+                        }}
                       >
-                        <span className="text-gray-800">{entry.food.name}</span>
-                        <span className="text-xs text-gray-400">{localizeServingLabel(entry.lastUnit, locale)}</span>
-                        {entry.useCount > 2 && (
-                          <span className="text-xs text-green-500 font-medium">×{entry.useCount}</span>
-                        )}
+                        <span style={{ fontSize: 14, color: '#1F2920' }}>{entry.food.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                          <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.4)' }}>{localizeServingLabel(entry.lastUnit, locale)}</span>
+                          {entry.useCount > 1 && (
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, color: '#888',
+                              background: 'rgba(0,0,0,0.06)', borderRadius: 999, padding: '1px 7px',
+                            }}>×{entry.useCount}</span>
+                          )}
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -509,7 +507,40 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
             </div>
           )}
         </div>
+    </>
+  );
 
+  if (embedded) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
+      onClick={onClose}
+    >
+      <div
+        ref={cardRef}
+        className="modal-enter bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
+        style={{ height: 'calc(var(--vvh, 90vh) - 60px)' }}
+        onClick={e => e.stopPropagation()}
+        {...cardDragHandlers}
+      >
+        {/* Drag handle */}
+        <div
+          className="flex justify-center pt-3 shrink-0 cursor-grab"
+          style={{ touchAction: 'none' }}
+          {...dragHandlers}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        {innerContent}
       </div>
 
       {/* 返回按钮 — 固定在物理屏幕最底部，键盘弹出时被遮住，收起时可见 */}

@@ -40,6 +40,7 @@ export function RedesignShell(props: RedesignShellProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('总览');
   const [subView, setSubView] = useState<SubView>('main');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleNav = (tab: string) => {
@@ -55,7 +56,11 @@ export function RedesignShell(props: RedesignShellProps) {
     setActiveTab(tab as TabKey);
   };
 
-  const handleAdd = () => setSheetOpen(true);
+  const handleAdd = () => {
+    const h = new Date().getHours();
+    setMealType(h < 10 ? 'breakfast' : h < 14 ? 'lunch' : h < 19 ? 'dinner' : 'snack');
+    setSheetOpen(true);
+  };
   const handleCloseSheet = () => setSheetOpen(false);
 
   const handleSelectFood = async (food: FoodItem) => {
@@ -190,24 +195,49 @@ export function RedesignShell(props: RedesignShellProps) {
             </div>
 
             {/* Header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '6px 20px 10px', flexShrink: 0,
-              borderBottom: '1px solid var(--line-soft)',
-            }}>
-              <span className="nt-display" style={{ fontSize: 20, color: 'var(--ink)' }}>记一笔</span>
-              <button
-                onClick={handleCloseSheet}
-                style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: 'var(--paper-2)', border: '1px solid var(--line-soft)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer',
-                }}
-              >
-                ✕
-              </button>
+            <div style={{ padding: '6px 20px 0', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <span className="nt-display" style={{ fontSize: 22, color: 'var(--ink)' }}>记一笔</span>
+                  <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--ink-mute)', marginLeft: 8 }}>jot it down</span>
+                </div>
+                <button
+                  onClick={handleCloseSheet}
+                  style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'var(--paper-2)', border: '1px solid var(--line-soft)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer', marginTop: 2,
+                  }}
+                >✕</button>
+              </div>
+              {/* Meal tabs */}
+              <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 12 }}>
+                {([
+                  { key: 'breakfast', label: '早餐' },
+                  { key: 'lunch',     label: '午餐' },
+                  { key: 'dinner',    label: '晚餐' },
+                  { key: 'snack',     label: '加餐' },
+                ] as const).map(m => (
+                  <button
+                    key={m.key}
+                    onClick={() => setMealType(m.key)}
+                    style={{
+                      padding: '6px 16px', borderRadius: 999,
+                      background: mealType === m.key ? 'var(--ink)' : 'var(--card)',
+                      color: mealType === m.key ? 'var(--paper)' : 'var(--ink-mute)',
+                      border: mealType === m.key ? 'none' : '1px solid var(--line-soft)',
+                      fontSize: 13, fontWeight: mealType === m.key ? 700 : 400,
+                      cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
+                      transition: 'background .15s',
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
+            <div style={{ borderBottom: '1px solid var(--line-soft)', marginBottom: 0 }} />
 
             {/* FoodSearch */}
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -217,6 +247,7 @@ export function RedesignShell(props: RedesignShellProps) {
                 familyId={profile.familyId}
                 onSelect={handleSelectFood}
                 onClose={handleCloseSheet}
+                embedded={true}
               />
             </div>
           </div>
