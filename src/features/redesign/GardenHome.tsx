@@ -12,11 +12,12 @@ interface GardenHomeProps {
   nutritionStatus: NutritionStatus | null;
   onOpenAdd: () => void;
   onNav: (tab: string) => void;
+  onOpenGoalSheet?: () => void;
 }
 
 type PlotKey = string;
 
-export function GardenHome({ profile, dailyLog, nutritionStatus, onOpenAdd, onNav }: GardenHomeProps) {
+export function GardenHome({ profile, dailyLog, nutritionStatus, onOpenAdd, onNav, onOpenGoalSheet }: GardenHomeProps) {
   const [selectedPlot, setSelectedPlot] = useState<PlotKey | null>(null);
 
   const calorieTarget = nutritionStatus?.targetCalories ?? profile.targetCalories ?? 2000;
@@ -31,10 +32,45 @@ export function GardenHome({ profile, dailyLog, nutritionStatus, onOpenAdd, onNa
   // Grid order for 4-col display
   const plotGroups = [...FOOD_GROUPS];
 
+  const goals = profile.goals ?? [profile.goal];
+
   return (
     <div style={{ padding: '0 0 8px' }}>
+      {/* Goal chips row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '6px 18px 0' }}>
+        <button
+          onClick={onOpenGoalSheet}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          }}
+        >
+          {goals.slice(0, 2).map(g => {
+            const chipMap: Record<string, { emoji: string; label: string; color: string; bg: string; border: string }> = {
+              fat_loss:          { emoji: '🔥', label: '减脂',  color: 'var(--tomato)', bg: 'rgba(255,107,87,0.1)', border: 'rgba(255,107,87,0.25)' },
+              anti_inflammatory: { emoji: '🫒', label: '抗炎',  color: 'var(--moss)',   bg: 'rgba(45,110,64,0.1)', border: 'rgba(45,110,64,0.25)' },
+              muscle_gain:       { emoji: '💪', label: '增肌',  color: 'var(--mustard)',bg: 'rgba(244,181,54,0.1)', border: 'rgba(244,181,54,0.25)' },
+              blood_sugar:       { emoji: '🩸', label: '控血糖', color: 'var(--plum)',   bg: 'rgba(212,93,127,0.1)', border: 'rgba(212,93,127,0.25)' },
+            };
+            const info = chipMap[g];
+            if (!info) return null;
+            return (
+              <span key={g} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                padding: '3px 8px', borderRadius: 999,
+                background: info.bg, border: `1px solid ${info.border}`,
+                fontSize: 11, color: info.color, fontWeight: 600,
+              }}>
+                {info.emoji} {info.label}
+              </span>
+            );
+          })}
+          <span style={{ fontSize: 10, color: 'var(--ink-faint)' }}>✎</span>
+        </button>
+      </div>
+
       {/* Slim energy strip */}
-      <div className="nt-card" style={{ margin: '12px 16px 8px', padding: '12px 18px' }}>
+      <div className="nt-card" style={{ margin: '8px 16px 8px', padding: '12px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>

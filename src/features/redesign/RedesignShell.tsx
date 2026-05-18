@@ -8,6 +8,8 @@ import type { NutritionStatus } from '../../hooks/useNutrition';
 import { PaperDock } from './shared/PaperDock';
 import { DiaryHome } from './DiaryHome';
 import { GardenHome } from './GardenHome';
+import { GoalPrioritySheet } from './GoalPrioritySheet';
+import type { GoalType } from '../../types/user';
 import { SevenDayScreen } from './SevenDayScreen';
 import { ScienceScreen } from './ScienceScreen';
 import { DiversityScreen } from './DiversityScreen';
@@ -40,6 +42,7 @@ export function RedesignShell(props: RedesignShellProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('总览');
   const [subView, setSubView] = useState<SubView>('main');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [goalSheetOpen, setGoalSheetOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleNav = (tab: string) => {
@@ -85,6 +88,7 @@ export function RedesignShell(props: RedesignShellProps) {
             nutritionStatus={nutritionStatus}
             onOpenAdd={handleAdd}
             onNav={handleNav}
+            onOpenGoalSheet={() => setGoalSheetOpen(true)}
           />
         ) : (
           <DiaryHome
@@ -95,6 +99,7 @@ export function RedesignShell(props: RedesignShellProps) {
             onDateChange={onDateChange}
             onNav={handleNav}
             onOpenAdd={handleAdd}
+            onOpenGoalSheet={() => setGoalSheetOpen(true)}
           />
         );
       case '趋势':
@@ -148,6 +153,17 @@ export function RedesignShell(props: RedesignShellProps) {
         onAdd={handleAdd}
         onNav={(tab) => { setSubView('main'); setActiveTab(tab); }}
       />
+
+      {/* Goal priority sheet */}
+      {goalSheetOpen && (
+        <GoalPrioritySheet
+          profile={profile}
+          onSave={async (goals: GoalType[]) => {
+            await onProfileUpdate({ goals, goal: goals[0] });
+          }}
+          onClose={() => setGoalSheetOpen(false)}
+        />
+      )}
 
       {/* Add food sheet */}
       {sheetOpen && (
