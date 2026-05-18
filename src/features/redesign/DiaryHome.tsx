@@ -419,12 +419,14 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                         </div>
                         {onRemoveFood && (
                           <button
+                            onMouseDown={e => e.preventDefault()}
+                            onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); onRemoveFood(item.id); }}
                             onClick={() => onRemoveFood(item.id)}
                             style={{
-                              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                              width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                               background: 'var(--paper)', border: '1px solid var(--line-soft)',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 10, color: 'var(--ink-mute)', cursor: 'pointer', lineHeight: 1,
+                              fontSize: 12, color: 'var(--ink-mute)', cursor: 'pointer', lineHeight: 1,
                             }}
                           >×</button>
                         )}
