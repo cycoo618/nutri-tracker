@@ -72,11 +72,12 @@ interface NutritionLabelScannerProps {
   onSaved: (food: FoodItem) => void;
   onClose: () => void;
   userId?: string;
+  familyId?: string;
 }
 
 // ── Component ───────────────────────────────
 
-export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLabelScannerProps) {
+export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: NutritionLabelScannerProps) {
   const { t, locale } = useLocale();
   // Build localized nutrient fields
   const NUTRIENT_FIELDS: Field[] = NUTRIENT_FIELD_DEFS.map(f => ({ ...f, label: t(f.key) }));
@@ -205,7 +206,7 @@ export function NutritionLabelScanner({ onSaved, onClose, userId }: NutritionLab
       // 同步到 Firestore，跨设备可用
       if (userId) {
         const { imageDataUrl: _img, ...recordForCloud } = record;
-        saveUserFood(userId, recordForCloud).catch(() => {});
+        saveUserFood(userId, recordForCloud, familyId).catch(() => {});
       }
       const foodItem = recordToFoodItem(record);
       onSaved(foodItem);

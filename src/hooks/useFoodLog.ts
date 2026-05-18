@@ -46,7 +46,7 @@ function loadFromLocal(userId: string, date: string): DailyLog | null {
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
-export function useFoodLog(userId: string | undefined) {
+export function useFoodLog(userId: string | undefined, familyId?: string) {
   const [currentDate, setCurrentDate] = useState(getTodayString());
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
   const [loading, setLoading] = useState(false);
@@ -255,7 +255,7 @@ export function useFoodLog(userId: string | undefined) {
       const localFoods = getAllCustomFoods();
       if (localFoods.length > 0) {
         await Promise.all(
-          localFoods.map(f => saveUserFood(userId, f as unknown as DocumentData))
+          localFoods.map(f => saveUserFood(userId, f as unknown as DocumentData, familyId))
         );
       }
       // Step 4: 从 Firestore 拉取食材库并合并

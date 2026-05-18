@@ -171,7 +171,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
         );
         setFamilyRecords(sorted);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[FoodPantry] 加载家庭成员食物失败:', err);
         setFamilyRecords([]);
       });
   }, [familyId, userId]);
@@ -182,7 +183,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     setCloudStatus('syncing');
     try {
       const { imageDataUrl: _img, ...recordForCloud } = record;
-      await saveUserFood(userId, recordForCloud as unknown as DocumentData);
+      await saveUserFood(userId, recordForCloud as unknown as DocumentData, familyId);
       setCloudStatus('synced');
     } catch {
       setCloudStatus('error');
@@ -234,7 +235,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       const all = getAllCustomFoods();
       await Promise.all(all.map(r => {
         const { imageDataUrl: _img, ...rForCloud } = r;
-        return saveUserFood(userId, rForCloud as unknown as DocumentData);
+        return saveUserFood(userId, rForCloud as unknown as DocumentData, familyId);
       }));
       // 2. 再 pull 合并
       const data = await getUserFoods(userId);

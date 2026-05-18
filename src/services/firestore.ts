@@ -107,9 +107,9 @@ export async function getUserFoods(userId: string) {
   return snap.docs.map(d => d.data());
 }
 
-export async function saveUserFood(userId: string, food: DocumentData): Promise<void> {
+export async function saveUserFood(userId: string, food: DocumentData, familyId?: string): Promise<void> {
   const docId = `${userId}_${food['id']}`;
-  await withTimeout(setDoc(doc(db, USER_FOODS_COLLECTION, docId), stripUndefined({ ...food, userId }) as DocumentData));
+  await withTimeout(setDoc(doc(db, USER_FOODS_COLLECTION, docId), stripUndefined({ ...food, userId, familyId }) as DocumentData));
 }
 
 export async function deleteUserFood(userId: string, foodId: string): Promise<void> {
@@ -167,6 +167,7 @@ export async function createFamily(
     createdBy: userId,
     inviteCode,
     members: [member],
+    memberUids: [userId],
     createdAt: new Date().toISOString(),
   };
   await withTimeout(setDoc(doc(db, FAMILIES_COLLECTION, familyId), stripUndefined(family) as DocumentData));
@@ -197,6 +198,7 @@ export async function joinFamilyByCode(
   const newMember: FamilyMember = { uid: userId, displayName: userName };
   await withTimeout(updateDoc(doc(db, FAMILIES_COLLECTION, family.id), {
     members: arrayUnion(newMember),
+    memberUids: arrayUnion(userId),
   }));
   await updateUserProfile(userId, { familyId: family.id });
   return family.id;
@@ -228,6 +230,7 @@ export async function leaveFamily(userId: string, familyId: string): Promise<voi
   } else {
     await withTimeout(updateDoc(doc(db, FAMILIES_COLLECTION, familyId), {
       members: arrayRemove(memberToRemove),
+      memberUids: arrayRemove(userId),
     }));
   }
   await updateUserProfile(userId, { familyId: undefined });

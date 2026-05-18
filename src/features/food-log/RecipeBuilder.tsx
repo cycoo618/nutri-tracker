@@ -156,13 +156,13 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
         foodItem = recordToFoodItem({ ...existingRecord, ...updates });
         if (userId) {
           const { imageDataUrl: _img, ...forCloud } = { ...existingRecord, ...updates };
-          saveUserFood(userId, forCloud).catch(() => {});
+          saveUserFood(userId, forCloud, familyId).catch(() => {});
         }
       } else {
         const record = saveCustomFood(updates);
         if (userId) {
           const { imageDataUrl: _img, ...forCloud } = record;
-          saveUserFood(userId, forCloud).catch(() => {});
+          saveUserFood(userId, forCloud, familyId).catch(() => {});
         }
         foodItem = recordToFoodItem(record);
       }

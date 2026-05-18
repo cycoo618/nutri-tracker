@@ -211,6 +211,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         onBack={() => setView('search')}
         onClose={onClose}
         userId={userId}
+        familyId={familyId}
       />
     );
   }
@@ -232,6 +233,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         onClose={onClose}
         onSaved={food => onSelect(food)}
         userId={userId}
+        familyId={familyId}
       />
     );
   }

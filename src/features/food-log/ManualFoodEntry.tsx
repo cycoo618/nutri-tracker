@@ -20,11 +20,12 @@ interface ManualFoodEntryProps {
   onBack: () => void;
   onClose: () => void;
   userId?: string;
+  familyId?: string;
 }
 
 const INPUT_CLS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white';
 
-export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, userId }: ManualFoodEntryProps) {
+export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, userId, familyId }: ManualFoodEntryProps) {
   const { t, locale } = useLocale();
   const [name, setName] = useState(initialName);
   const [category, setCategory] = useState<FoodCategory>('other');
@@ -80,7 +81,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
       setSaveError(t('saveFailed'));
       return;
     }
-    if (userId) saveUserFood(userId, record).catch(() => {});
+    if (userId) saveUserFood(userId, record, familyId).catch(() => {});
     const food: FoodItem = {
       ...recordToFoodItem(record),
       gi: giVal,
