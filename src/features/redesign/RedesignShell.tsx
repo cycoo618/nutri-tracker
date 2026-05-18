@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import type { UserProfile } from '../../types/user';
-import type { DailyLog } from '../../types/log';
+import type { DailyLog, MealType } from '../../types/log';
 import type { FoodItem } from '../../types/food';
+import { useSwipeDown } from '../../hooks/useSwipeDown';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import type { SyncStatus } from '../../hooks/useFoodLog';
 import type { NutritionStatus } from '../../hooks/useNutrition';
@@ -26,7 +27,7 @@ export interface RedesignShellProps {
   syncError: string | null;
   onForceSync: () => Promise<void>;
   onDateChange: (date: string) => void;
-  onAddFood: (food: FoodItem, grams: number, displayUnit?: string) => Promise<void>;
+  onAddFood: (food: FoodItem, grams: number, displayUnit?: string, mealType?: MealType) => Promise<void>;
   onRemoveFood: (itemId: string) => Promise<void>;
   onUpdateFood: (itemId: string, grams: number, displayUnit: string, per100g: FoodItem['per100g']) => Promise<void>;
   onLogout: () => Promise<void>;
@@ -39,34 +40,37 @@ export function RedesignShell(props: RedesignShellProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('总览');
   const [subView, setSubView] = useState<SubView>('main');
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast');
+  const [mealType, setMealType] = useState<MealType>('breakfast');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleNav = (tab: string) => {
-    if (tab === 'pantry') {
-      setSubView('pantry');
-      return;
-    }
-    if (tab === 'diversity') {
-      setSubView('diversity');
-      return;
-    }
+    if (tab === 'pantry') { setSubView('pantry'); return; }
+    if (tab === 'diversity') { setSubView('diversity'); return; }
     setSubView('main');
     setActiveTab(tab as TabKey);
   };
 
-  const handleAdd = () => {
-    const h = new Date().getHours();
-    setMealType(h < 10 ? 'breakfast' : h < 14 ? 'lunch' : h < 19 ? 'dinner' : 'snack');
+  // 从 DiaryHome 某一餐的 + 点进来时带餐次；底部 dock + 按钮则按时间自动判断
+  const handleAdd = useCallback((targetMeal?: string) => {
+    if (targetMeal) {
+      setMealType(targetMeal as MealType);
+    } else {
+      const h = new Date().getHours();
+      setMealType(h < 10 ? 'breakfast' : h < 14 ? 'lunch' : h < 19 ? 'dinner' : 'snack');
+    }
     setSheetOpen(true);
-  };
-  const handleCloseSheet = () => setSheetOpen(false);
+  }, []);
+
+  const handleCloseSheet = useCallback(() => setSheetOpen(false), []);
+
+  // 下滑关闭手势
+  const { cardRef: sheetRef, dragHandlers: sheetDragHandlers, cardDragHandlers: sheetCardDragHandlers } = useSwipeDown(handleCloseSheet);
 
   const handleSelectFood = async (food: FoodItem) => {
     // Use first available serving size or default to 100g
     const grams = food.servingSizes?.[0]?.grams ?? 100;
     const unit = food.servingSizes?.[0]?.label ?? `${grams}g`;
-    await onAddFood(food, grams, unit);
+    await onAddFood(food, grams, unit, mealType);
     setSheetOpen(false);
   };
 
@@ -158,6 +162,7 @@ export function RedesignShell(props: RedesignShellProps) {
           />
           {/* Sheet */}
           <div
+            ref={sheetRef}
             className="nt-sheet-in"
             style={{
               position: 'absolute',
@@ -172,11 +177,13 @@ export function RedesignShell(props: RedesignShellProps) {
               flexDirection: 'column',
               overflow: 'hidden',
             }}
+            {...sheetCardDragHandlers}
           >
-            {/* Drag handle */}
-            <div style={{
-              display: 'flex', justifyContent: 'center', paddingTop: 10, paddingBottom: 4, flexShrink: 0,
-            }}>
+            {/* Drag handle — swipe here always closes */}
+            <div
+              style={{ display: 'flex', justifyContent: 'center', paddingTop: 10, paddingBottom: 4, flexShrink: 0, cursor: 'grab', touchAction: 'none' }}
+              {...sheetDragHandlers}
+            >
               <div style={{
                 width: 36, height: 4, borderRadius: 999,
                 background: 'var(--ink-faint)',

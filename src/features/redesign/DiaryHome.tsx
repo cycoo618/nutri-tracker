@@ -15,7 +15,7 @@ interface DiaryHomeProps {
   currentDate: string;
   onDateChange: (date: string) => void;
   onNav: (tab: string) => void;
-  onOpenAdd: () => void;
+  onOpenAdd: (mealType?: string) => void;
   syncStatus?: SyncStatus;
   onForceSync?: () => Promise<void>;
 }
@@ -392,7 +392,7 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
 
                 {isEmpty ? (
                   <button
-                    onClick={onOpenAdd}
+                    onClick={() => onOpenAdd(meal.type)}
                     className="nt-serif"
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,

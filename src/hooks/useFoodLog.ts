@@ -108,16 +108,17 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
   }, []);
 
   /**
-   * 添加食物 — 自动根据当前时间判断餐次，无需用户手选
+   * 添加食物 — 可传入指定餐次，不传则根据当前时间自动判断
    */
   const addFood = useCallback(async (
     food: FoodItem,
     grams: number,
     displayUnit?: string,
+    targetMeal?: MealType,
   ) => {
     if (!dailyLog || !userId) return;
 
-    const mealType = getMealTypeFromTime();
+    const mealType = targetMeal ?? getMealTypeFromTime();
     const unit = displayUnit || `${grams}g`;
     const nutrition = scaleNutrition(food.per100g, grams);
 
