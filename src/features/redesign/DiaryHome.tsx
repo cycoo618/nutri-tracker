@@ -15,7 +15,6 @@ interface DiaryHomeProps {
   onDateChange: (date: string) => void;
   onNav: (tab: string) => void;
   onOpenAdd: () => void;
-  onOpenGoalSheet?: () => void;
 }
 
 function getGreeting(): string {
@@ -75,7 +74,7 @@ function GoalChip({ goalKey }: { goalKey: string }) {
   );
 }
 
-export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onOpenGoalSheet }: DiaryHomeProps) {
+export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd }: DiaryHomeProps) {
   const [expanded, setExpanded] = useState<ExpandedPanel>(null);
   const today = getTodayString();
   const isToday = currentDate === today;
@@ -99,16 +98,7 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
           {getGreeting()}, <span style={{ color: 'var(--ink-mute)' }}>{name}</span>
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button
-            onClick={onOpenGoalSheet}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-            }}
-          >
-            {goals.slice(0, 2).map(g => <GoalChip key={g} goalKey={g} />)}
-            <span style={{ fontSize: 10, color: 'var(--ink-faint)' }}>✎</span>
-          </button>
+          {goals.slice(0, 2).map(g => <GoalChip key={g} goalKey={g} />)}
           <button
             onClick={() => onNav('pantry')}
             style={{
