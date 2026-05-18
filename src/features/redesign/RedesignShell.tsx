@@ -13,6 +13,7 @@ import { ScienceScreen } from './ScienceScreen';
 import { DiversityScreen } from './DiversityScreen';
 import { ProfileRedesign } from './ProfileRedesign';
 import { FoodSearch } from '../food-log/FoodSearch';
+import { AddFoodModal } from '../food-log/AddFoodModal';
 
 type TabKey = '总览' | '趋势' | '科学' | '我';
 type SubView = 'main' | 'diversity' | 'pantry';
@@ -41,6 +42,7 @@ export function RedesignShell(props: RedesignShellProps) {
   const [subView, setSubView] = useState<SubView>('main');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mealType, setMealType] = useState<MealType>('breakfast');
+  const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleNav = (tab: string) => {
@@ -67,11 +69,14 @@ export function RedesignShell(props: RedesignShellProps) {
   const { cardRef: sheetRef, dragHandlers: sheetDragHandlers, cardDragHandlers: sheetCardDragHandlers } = useSwipeDown(handleCloseSheet);
 
   const handleSelectFood = async (food: FoodItem) => {
-    // Use first available serving size or default to 100g
-    const grams = food.servingSizes?.[0]?.grams ?? 100;
-    const unit = food.servingSizes?.[0]?.label ?? `${grams}g`;
-    await onAddFood(food, grams, unit, mealType);
+    // 关闭搜索 sheet，打开 AddFoodModal 让用户确认份量
     setSheetOpen(false);
+    setPendingFood(food);
+  };
+
+  const handleConfirmFood = async (food: FoodItem, grams: number, displayUnit: string) => {
+    await onAddFood(food, grams, displayUnit, mealType);
+    setPendingFood(null);
   };
 
   const renderContent = () => {
@@ -91,6 +96,7 @@ export function RedesignShell(props: RedesignShellProps) {
             onDateChange={onDateChange}
             onNav={handleNav}
             onOpenAdd={handleAdd}
+            onRemoveFood={props.onRemoveFood}
             syncStatus={syncStatus}
             onForceSync={onForceSync}
           />
@@ -248,6 +254,16 @@ export function RedesignShell(props: RedesignShellProps) {
             </div>
           </div>
         </>
+      )}
+
+      {/* AddFoodModal — 确认份量后才真正写入 */}
+      {pendingFood && (
+        <AddFoodModal
+          food={pendingFood}
+          onConfirm={handleConfirmFood}
+          onBack={() => { setPendingFood(null); setSheetOpen(true); }}
+          onClose={() => setPendingFood(null)}
+        />
       )}
     </div>
   );

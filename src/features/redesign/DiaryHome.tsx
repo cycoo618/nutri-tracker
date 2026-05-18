@@ -16,6 +16,7 @@ interface DiaryHomeProps {
   onDateChange: (date: string) => void;
   onNav: (tab: string) => void;
   onOpenAdd: (mealType?: string) => void;
+  onRemoveFood?: (itemId: string) => Promise<void>;
   syncStatus?: SyncStatus;
   onForceSync?: () => Promise<void>;
 }
@@ -84,7 +85,7 @@ function GoalChip({ goalKey }: { goalKey: string }) {
   );
 }
 
-export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, syncStatus, onForceSync }: DiaryHomeProps) {
+export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, syncStatus, onForceSync }: DiaryHomeProps) {
   const [expanded, setExpanded] = useState<ExpandedPanel>(null);
   const today = getTodayString();
   const isToday = currentDate === today;
@@ -405,12 +406,29 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                     <span style={{ fontSize: 16 }}>＋</span> 记一笔
                   </button>
                 ) : (
-                  <div className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
-                    {meal.items.map((item, idx) => (
-                      <span key={item.id}>
-                        {item.foodName}
-                        {idx < meal.items.length - 1 ? '、' : ''}
-                      </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+                    {meal.items.map(item => (
+                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                          <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-soft)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.foodName}
+                          </span>
+                          <span className="nt-caveat" style={{ fontSize: 11, color: 'var(--ink-faint)', flexShrink: 0 }}>
+                            {item.calories} kcal
+                          </span>
+                        </div>
+                        {onRemoveFood && (
+                          <button
+                            onClick={() => onRemoveFood(item.id)}
+                            style={{
+                              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                              background: 'var(--paper)', border: '1px solid var(--line-soft)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, color: 'var(--ink-mute)', cursor: 'pointer', lineHeight: 1,
+                            }}
+                          >×</button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
