@@ -12,6 +12,7 @@ import { initFoodDatabase } from './services/food-lookup';
 import { LoginPage } from './features/auth/LoginPage';
 import { OnboardingPage } from './features/onboarding/OnboardingPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
+import { RedesignShell } from './features/redesign/RedesignShell';
 import { FirestoreDiag } from './components/ui/FirestoreDiag';
 
 const DEV = import.meta.env.DEV;
@@ -19,7 +20,7 @@ const DEV = import.meta.env.DEV;
 export default function App() {
   const [dbReady, setDbReady] = useState(false);
   const auth = useAuth();
-  const foodLog = useFoodLog(auth.profile?.uid);
+  const foodLog = useFoodLog(auth.profile?.uid, auth.profile?.familyId);
   const nutritionStatus = useNutrition(auth.profile, foodLog.dailyLog);
   useKeyboardScroll(); // 全局：键盘弹出时自动滚动聚焦输入框到可见区域
 
@@ -69,7 +70,7 @@ export default function App() {
   // Main dashboard
   if (auth.profile) {
     return (
-      <DashboardPage
+      <RedesignShell
         profile={auth.profile}
         dailyLog={foodLog.dailyLog}
         nutritionStatus={nutritionStatus}

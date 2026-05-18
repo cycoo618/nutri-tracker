@@ -1,0 +1,259 @@
+/* ─── Warm journal style system ─────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700;900&family=Ma+Shan+Zheng&family=Caveat:wght@500;700&family=ZCOOL+QingKe+HuangYou&display=swap');
+
+/* DEFAULT palette = 晨绿 (morning green) — fresh, clean, healthy */
+:root, .theme-morning-green {
+  --paper:        #F6F9F2;
+  --paper-2:      #ECF2DE;
+  --card:         #FFFFFF;
+  --card-warm:    #F9FBF4;
+  --line:         #DAE5C9;
+  --line-soft:    #EAF0DE;
+
+  --ink:          #1F2920;
+  --ink-soft:     #3F543F;
+  --ink-mute:     #8B9886;
+  --ink-faint:    #C2CCBC;
+
+  --tomato:       #FF6B57;
+  --persimmon:    #FF8F66;
+  --mustard:      #F4B536;
+  --sage:         #4FA663;
+  --moss:         #2D6E40;
+  --plum:         #D45D7F;
+  --sky:          #3FA8DD;
+
+  --veg:    #4FA663;
+  --fruit:  #FF6B57;
+  --grain:  #F4B536;
+  --bean:   #D45D7F;
+  --nut:    #B87440;
+  --fish:   #3FA8DD;
+  --ferm:   #9374C2;
+
+  --r-card: 18px;
+  --r-pill: 999px;
+}
+
+/* 椰岛 (coconut island) — cool teal + coral */
+.theme-coconut {
+  --paper:        #F4FAFB;
+  --paper-2:      #E5F1F3;
+  --card:         #FFFFFF;
+  --card-warm:    #F7FBFB;
+  --line:         #D4E5E9;
+  --line-soft:    #E5F0F2;
+
+  --ink:          #142631;
+  --ink-soft:     #355565;
+  --ink-mute:     #8294A0;
+  --ink-faint:    #C2CFD7;
+
+  --tomato:       #FF7458;
+  --persimmon:    #FF9070;
+  --mustard:      #F8B935;
+  --sage:         #00B59C;
+  --moss:         #007F70;
+  --plum:         #DA6F8B;
+  --sky:          #4AAEDB;
+
+  --veg:    #4FB374;
+  --fruit:  #FF7458;
+  --grain:  #F8B935;
+  --bean:   #DA6F8B;
+  --nut:    #B58A4D;
+  --fish:   #4AAEDB;
+  --ferm:   #8F7BC0;
+}
+
+/* 柠檬田 (lemon field) — sunny yellow + meadow green */
+.theme-lemon {
+  --paper:        #FCFAEC;
+  --paper-2:      #F4EFD0;
+  --card:         #FFFFFF;
+  --card-warm:    #FCF8E0;
+  --line:         #E5DBA3;
+  --line-soft:    #EFE8C0;
+
+  --ink:          #2A2A1C;
+  --ink-soft:     #565236;
+  --ink-mute:     #968F65;
+  --ink-faint:    #CAC18F;
+
+  --tomato:       #F76145;
+  --persimmon:    #FA8A4A;
+  --mustard:      #F0B500;
+  --sage:         #6FAE45;
+  --moss:         #436F22;
+  --plum:         #C75077;
+  --sky:          #44A8D8;
+
+  --veg:    #6FAE45;
+  --fruit:  #F76145;
+  --grain:  #F0B500;
+  --bean:   #C75077;
+  --nut:    #B87832;
+  --fish:   #44A8D8;
+  --ferm:   #8866B5;
+}
+
+/* 桃子 (peach) — warm peach + fresh green */
+.theme-peach {
+  --paper:        #FDF7F2;
+  --paper-2:      #F7E9DC;
+  --card:         #FFFFFF;
+  --card-warm:    #FCF1E8;
+  --line:         #ECD4BD;
+  --line-soft:    #F2DDC8;
+
+  --ink:          #2A1F19;
+  --ink-soft:     #5A4738;
+  --ink-mute:     #A28C7A;
+  --ink-faint:    #D2BFA9;
+
+  --tomato:       #F26756;
+  --persimmon:    #FB8B61;
+  --mustard:      #ECA938;
+  --sage:         #5FA666;
+  --moss:         #2D6A3A;
+  --plum:         #D06C8C;
+  --sky:          #5EA6D8;
+
+  --veg:    #5FA666;
+  --fruit:  #F26756;
+  --grain:  #ECA938;
+  --bean:   #D06C8C;
+  --nut:    #B87A52;
+  --fish:   #5EA6D8;
+  --ferm:   #9F7BBE;
+}
+
+* { box-sizing: border-box; }
+
+.serif { font-family: 'Noto Serif SC', Georgia, serif; }
+.hand  { font-family: 'Ma Shan Zheng', 'Noto Serif SC', cursive; }
+.caveat{ font-family: 'Caveat', 'Ma Shan Zheng', cursive; }
+.display{font-family: 'ZCOOL QingKe HuangYou', 'Noto Serif SC', serif; }
+
+/* phone canvas */
+.app-paper {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(120% 80% at 50% -10%,
+      color-mix(in oklab, var(--paper) 70%, white 30%) 0%,
+      var(--paper) 55%,
+      var(--paper-2) 100%);
+  color: var(--ink);
+  font-family: 'Noto Serif SC', Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow: hidden;
+}
+
+.app-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding-top: 54px;            /* below status bar */
+  padding-bottom: 110px;        /* above bottom dock */
+  scrollbar-width: none;
+}
+.app-scroll::-webkit-scrollbar { display: none; }
+
+/* paper grain — subtle dot noise */
+.paper-grain::before {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(90,60,20,0.06) 1px, transparent 1.2px);
+  background-size: 4px 4px;
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  z-index: 0;
+}
+
+/* deckled / torn edge for cards */
+.card {
+  background: var(--card);
+  border-radius: var(--r-card);
+  border: 1px solid var(--line-soft);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 1px 2px rgba(76,55,30,0.05),
+    0 6px 14px rgba(76,55,30,0.06);
+  position: relative;
+}
+
+.card-warm { background: var(--card-warm); }
+
+.hr-dash {
+  height: 1px;
+  background: repeating-linear-gradient(90deg,
+    var(--ink-faint) 0 6px, transparent 6px 12px);
+  border: 0;
+}
+
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--line-soft);
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+button { font-family: inherit; }
+
+/* underline marker like a highlighter */
+.mark {
+  background: linear-gradient(180deg, transparent 60%, rgba(201,155,61,0.35) 60%);
+  padding: 0 2px;
+}
+
+/* annotation note in red ink */
+.note-ink {
+  font-family: 'Caveat', cursive;
+  color: var(--tomato);
+  font-size: 18px;
+  line-height: 1;
+  transform: rotate(-3deg);
+  display: inline-block;
+}
+
+/* tab dot for bottom nav */
+.dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--tomato);
+}
+
+/* fade in for modal */
+@keyframes sheetIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.sheet-in { animation: sheetIn .24s cubic-bezier(.2,.7,.3,1) both; }
+
+@keyframes backdropIn { from { opacity: 0 } to { opacity: 1 } }
+.backdrop-in { animation: backdropIn .2s ease both; }
+
+/* gentle pulse for "今日焦点" indicator */
+@keyframes pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.pulse { animation: pulse 2.4s ease-in-out infinite; }
+
+/* striped placeholder for imagery */
+.placeholder-strip {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(0,0,0,0.04) 0 6px,
+      transparent 6px 12px),
+    var(--card-warm);
+  border: 1px dashed var(--line);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Caveat', cursive;
+  color: var(--ink-mute);
+  font-size: 14px;
+}
