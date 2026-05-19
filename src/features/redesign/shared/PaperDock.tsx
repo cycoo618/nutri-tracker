@@ -64,6 +64,7 @@ export function PaperDock({ active, onAdd, onNav }: PaperDockProps) {
           onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.93)')}
           onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); onAdd(); }}
         >
           <span style={{ color: '#fff', fontSize: 26, lineHeight: 1, marginTop: -2 }}>＋</span>
         </button>

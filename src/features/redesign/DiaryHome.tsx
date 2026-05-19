@@ -432,6 +432,21 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                         )}
                       </div>
                     ))}
+                    {/* 非空餐次的追加按钮 */}
+                    <button
+                      onClick={() => onOpenAdd(meal.type)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        marginTop: 4, padding: '5px 10px', borderRadius: 8,
+                        border: '1px dashed var(--line-soft)',
+                        background: 'transparent',
+                        fontSize: 11, color: 'var(--ink-mute)', cursor: 'pointer',
+                        alignSelf: 'flex-start',
+                      }}
+                      className="nt-serif"
+                    >
+                      ＋ 再记一笔
+                    </button>
                   </div>
                 )}
               </div>

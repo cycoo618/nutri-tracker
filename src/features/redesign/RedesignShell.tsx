@@ -40,10 +40,14 @@ export function RedesignShell(props: RedesignShellProps) {
 
   const [activeTab, setActiveTab] = useState<TabKey>('总览');
   const [subView, setSubView] = useState<SubView>('main');
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [mealType, setMealType] = useState<MealType>('breakfast');
+  const [sheet, setSheet] = useState<{ open: boolean; meal: MealType }>({ open: false, meal: 'breakfast' });
+  const mealTypeRef = useRef<MealType>('breakfast');
   const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 便捷读取
+  const sheetOpen = sheet.open;
+  const mealType = sheet.meal;
 
   const handleNav = (tab: string) => {
     if (tab === 'pantry') { setSubView('pantry'); return; }
@@ -54,28 +58,30 @@ export function RedesignShell(props: RedesignShellProps) {
 
   // 从 DiaryHome 某一餐的 + 点进来时带餐次；底部 dock + 按钮则按时间自动判断
   const handleAdd = useCallback((targetMeal?: string) => {
-    if (targetMeal) {
-      setMealType(targetMeal as MealType);
-    } else {
-      const h = new Date().getHours();
-      setMealType(h < 10 ? 'breakfast' : h < 14 ? 'lunch' : h < 19 ? 'dinner' : 'snack');
-    }
-    setSheetOpen(true);
+    const resolved: MealType = targetMeal
+      ? (targetMeal as MealType)
+      : (() => {
+          const h = new Date().getHours();
+          return h < 10 ? 'breakfast' : h < 14 ? 'lunch' : h < 19 ? 'dinner' : 'snack';
+        })();
+    mealTypeRef.current = resolved;
+    // 单次 setState，open 和 meal 原子更新，sheet 挂载时一定读到正确的 meal
+    setSheet({ open: true, meal: resolved });
   }, []);
 
-  const handleCloseSheet = useCallback(() => setSheetOpen(false), []);
+  const handleCloseSheet = useCallback(() => setSheet(s => ({ ...s, open: false })), []);
 
   // 下滑关闭手势
   const { cardRef: sheetRef, dragHandlers: sheetDragHandlers, cardDragHandlers: sheetCardDragHandlers } = useSwipeDown(handleCloseSheet);
 
   const handleSelectFood = async (food: FoodItem) => {
     // 关闭搜索 sheet，打开 AddFoodModal 让用户确认份量
-    setSheetOpen(false);
+    setSheet(s => ({ ...s, open: false }));
     setPendingFood(food);
   };
 
   const handleConfirmFood = async (food: FoodItem, grams: number, displayUnit: string) => {
-    await onAddFood(food, grams, displayUnit, mealType);
+    await onAddFood(food, grams, displayUnit, mealTypeRef.current);
     setPendingFood(null);
   };
 
@@ -202,6 +208,7 @@ export function RedesignShell(props: RedesignShellProps) {
                 <div>
                   <span className="nt-display" style={{ fontSize: 22, color: 'var(--ink)' }}>记一笔</span>
                   <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--ink-mute)', marginLeft: 8 }}>jot it down</span>
+                  <span style={{ fontSize: 10, color: 'red', marginLeft: 8 }}>[{sheet.meal}]</span>
                 </div>
                 <button
                   onClick={handleCloseSheet}
@@ -214,30 +221,39 @@ export function RedesignShell(props: RedesignShellProps) {
                 >✕</button>
               </div>
               {/* Meal tabs */}
-              <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 12 }}>
-                {([
-                  { key: 'breakfast', label: '早餐' },
-                  { key: 'lunch',     label: '午餐' },
-                  { key: 'dinner',    label: '晚餐' },
-                  { key: 'snack',     label: '加餐' },
-                ] as const).map(m => (
-                  <button
-                    key={m.key}
-                    onClick={() => setMealType(m.key)}
-                    style={{
-                      padding: '6px 16px', borderRadius: 999,
-                      background: mealType === m.key ? 'var(--ink)' : 'var(--card)',
-                      color: mealType === m.key ? 'var(--paper)' : 'var(--ink-mute)',
-                      border: mealType === m.key ? 'none' : '1px solid var(--line-soft)',
-                      fontSize: 13, fontWeight: mealType === m.key ? 700 : 400,
-                      cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
-                      transition: 'background .15s',
-                    }}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
+              {(() => {
+                const MEALS = [
+                  { key: 'breakfast' as MealType, label: '早餐' },
+                  { key: 'lunch'     as MealType, label: '午餐' },
+                  { key: 'dinner'    as MealType, label: '晚餐' },
+                  { key: 'snack'     as MealType, label: '加餐' },
+                ];
+                const sel = sheet.meal;
+                return (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 12 }}>
+                    {MEALS.map(m => {
+                      const active = sel === m.key;
+                      return (
+                        <button
+                          key={m.key}
+                          onClick={() => { mealTypeRef.current = m.key; setSheet(s => ({ ...s, meal: m.key })); }}
+                          style={{
+                            padding: '6px 16px', borderRadius: 999,
+                            background: active ? '#1F2920' : '#ffffff',
+                            color: active ? '#F6F9F2' : '#8B9886',
+                            border: active ? 'none' : '1px solid #d0d8c8',
+                            fontSize: 13, fontWeight: active ? 700 : 400,
+                            cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
+                            transition: 'background .15s',
+                          }}
+                        >
+                          {m.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ borderBottom: '1px solid var(--line-soft)', marginBottom: 0 }} />
 
@@ -261,7 +277,7 @@ export function RedesignShell(props: RedesignShellProps) {
         <AddFoodModal
           food={pendingFood}
           onConfirm={handleConfirmFood}
-          onBack={() => { setPendingFood(null); setSheetOpen(true); }}
+          onBack={() => { setPendingFood(null); setSheet(s => ({ ...s, open: true })); }}
           onClose={() => setPendingFood(null)}
         />
       )}

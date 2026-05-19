@@ -303,6 +303,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
         <div className="px-4 pt-2 pb-1 shrink-0">
           <button
             onMouseDown={e => e.preventDefault()}
+            onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); if (actualGrams > 0) onConfirm(food, actualGrams, displayUnit); }}
             onClick={() => onConfirm(food, actualGrams, displayUnit)}
             disabled={actualGrams <= 0}
             className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
