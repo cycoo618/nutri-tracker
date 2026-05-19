@@ -208,7 +208,6 @@ export function RedesignShell(props: RedesignShellProps) {
                 <div>
                   <span className="nt-display" style={{ fontSize: 22, color: 'var(--ink)' }}>记一笔</span>
                   <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--ink-mute)', marginLeft: 8 }}>jot it down</span>
-                  <span style={{ fontSize: 10, color: 'red', marginLeft: 8 }}>[{sheet.meal}]</span>
                 </div>
                 <button
                   onClick={handleCloseSheet}
