@@ -284,16 +284,21 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
             <span className="nt-display" style={{ fontSize: 30, color: 'var(--mustard)', lineHeight: 1 }}>{score}</span>
             <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-mute)' }}>分</span>
           </div>
-          {/* 4 thin color bars — no labels, just colors */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
+          {/* 4 bars in a single horizontal row */}
+          <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
             {[
-              { v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)' },
-              { v: nutritionStatus?.macros.carbs.consumed ?? 0,   t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)' },
-              { v: nutritionStatus?.macros.fat.consumed ?? 0,     t: nutritionStatus?.macros.fat.target ?? 65,    c: 'var(--persimmon)' },
-              { v: nutritionStatus?.fiber.consumed ?? 0,          t: nutritionStatus?.fiber.target ?? 25,         c: 'var(--sage)' },
-            ].map((item, i) => (
-              <Bar key={i} value={item.v} target={item.t} color={item.c} height={3} />
-            ))}
+              { v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60,  c: 'var(--sky)' },
+              { v: nutritionStatus?.macros.carbs.consumed ?? 0,   t: nutritionStatus?.macros.carbs.target ?? 250,   c: 'var(--grain)' },
+              { v: nutritionStatus?.macros.fat.consumed ?? 0,     t: nutritionStatus?.macros.fat.target ?? 65,      c: 'var(--persimmon)' },
+              { v: nutritionStatus?.fiber.consumed ?? 0,          t: nutritionStatus?.fiber.target ?? 25,           c: 'var(--sage)' },
+            ].map((item, i) => {
+              const pct = item.t > 0 ? Math.min(item.v / item.t, 1) * 100 : 0;
+              return (
+                <div key={i} style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--line-soft)', overflow: 'hidden' }}>
+                  <div style={{ width: `${pct}%`, height: '100%', background: item.c, borderRadius: 999, transition: 'width .3s' }} />
+                </div>
+              );
+            })}
           </div>
           <div className="nt-serif" style={{ fontSize: 10, color: 'var(--tomato)', lineHeight: 1.3 }}>
             {summary}
