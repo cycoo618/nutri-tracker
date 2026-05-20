@@ -23,6 +23,7 @@ import type { RecentFoodEntry } from '../../utils/recentFoods';
 import { estimateFoodNutrition, getGroqKey } from '../../services/nutrition-vision';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeServingLabel } from '../../utils/servingLabels';
+import { inferCategoryFromName } from '../../utils/foodGroupCoverage';
 
 interface FoodSearchProps {
   recentFoods?: RecentFoodEntry[];
@@ -62,7 +63,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
       const food: FoodItem = {
         id: `ai_${Date.now()}`,
         name: nutrition.name,
-        category: 'other',
+        category: inferCategoryFromName(nutrition.name),
         source: 'ai_estimated',
         per100g: {
           calories: nutrition.calories,
@@ -284,20 +285,25 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               ) : null}
             </div>
 
-            {/* AI 估算按钮 — 35%，有 key 时常驻显示 */}
-            {getGroqKey() && (
-              <button
-                style={{ flex: '35 0 0' }}
-                onClick={handleAiEstimate}
-                disabled={aiState === 'loading' || !query.trim()}
-                title="AI 估算营养"
-                className="flex items-center justify-center gap-1.5 rounded-2xl bg-purple-100 hover:bg-purple-200 disabled:opacity-40 disabled:cursor-not-allowed text-purple-700 font-semibold text-sm transition-colors"
-              >
-                {aiState === 'loading'
-                  ? <span className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                  : <><span className="text-base leading-none">🤖</span><span>{t('aiEstimateShort')}</span></>}
-              </button>
-            )}
+            {/* AI 估算按钮 — 35%，常驻显示 */}
+            <button
+              onClick={handleAiEstimate}
+              disabled={aiState === 'loading' || !query.trim()}
+              title="AI 估算营养"
+              style={{
+                flex: '35 0 0',
+                background: '#1F2920', color: '#F6F9F2',
+                borderRadius: 16, border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                fontSize: 13, fontWeight: 600, fontFamily: 'Noto Serif SC, serif',
+                opacity: (aiState === 'loading' || !query.trim()) ? 0.45 : 1,
+                padding: '0 12px', height: '100%', minHeight: 48,
+              }}
+            >
+              {aiState === 'loading'
+                ? <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(246,249,242,0.6)', borderTopColor: '#F6F9F2', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                : <><span>✨</span><span>AI 估算</span></>}
+            </button>
           </div>
 
           {searchState === 'searching_online' && (
@@ -438,70 +444,73 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
             </div>
           )}
 
-          {/* 空状态 — 常用食物 + 自定义食物入口 */}
+          {/* 空状态 — 常用食物 + 快捷入口 */}
           {!query && (
-            <div className="p-4">
-              {/* 快捷操作按钮组 */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            <div style={{ padding: '12px 16px 16px' }}>
+              {/* 快捷操作 — 小 pill chips 一行 */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {[
-                  { view: 'food_photo' as View, icon: '📷', title: '识别食物', sub: '拍照', bg: 'rgba(255,107,87,0.1)', color: 'var(--tomato, #FF6B57)', border: 'rgba(255,107,87,0.2)' },
-                  { view: 'scanner'   as View, icon: '📋', title: '扫营养表', sub: '条码/OCR', bg: 'rgba(45,110,64,0.08)', color: '#2D6E40', border: 'rgba(45,110,64,0.18)' },
-                  { view: 'manual'    as View, icon: '✏️', title: '自定义', sub: '手动录入', bg: 'rgba(212,93,127,0.08)', color: '#D45D7F', border: 'rgba(212,93,127,0.18)' },
+                  { view: 'food_photo' as View, icon: '🔍', label: '识别食物', color: '#C0431F', bg: 'rgba(192,67,31,0.08)', border: 'rgba(192,67,31,0.18)' },
+                  { view: 'scanner'   as View, icon: '📊', label: '扫营养价值表', color: '#2D6E40', bg: 'rgba(45,110,64,0.08)', border: 'rgba(45,110,64,0.18)' },
+                  { view: 'recipe'    as View, icon: '🍽️', label: '自定义食物', color: '#A64080', bg: 'rgba(166,64,128,0.07)', border: 'rgba(166,64,128,0.15)' },
                 ].map(s => (
                   <button
                     key={s.view}
                     onClick={() => setView(s.view)}
                     style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      gap: 4, padding: '14px 8px', borderRadius: 14,
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                      padding: '7px 6px', borderRadius: 999,
                       background: s.bg, border: `1px solid ${s.border}`,
-                      cursor: 'pointer', fontFamily: 'inherit',
+                      cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
+                      fontSize: 11, fontWeight: 600, color: s.color,
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    <span style={{ fontSize: 22 }}>{s.icon}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.title}</span>
-                    <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.4)' }}>{s.sub}</span>
+                    <span style={{ fontSize: 13 }}>{s.icon}</span>
+                    <span>{s.label}</span>
                   </button>
                 ))}
               </div>
 
               {recentFoods.length > 0 ? (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span className="nt-serif" style={{ fontSize: 14, fontWeight: 700, color: '#1F2920', fontFamily: 'Noto Serif SC, serif' }}>常用食物</span>
-                    <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)', fontFamily: 'Caveat, cursive' }}>your usuals</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#1F2920', fontFamily: 'Noto Serif SC, serif' }}>常用食物</span>
+                    <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)', fontFamily: 'Caveat, cursive' }}>your usuals</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                    {recentFoods.map((entry, idx) => (
+                  {/* Chip 流布局 */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {recentFoods.map(entry => (
                       <button
                         key={entry.food.id}
                         onClick={() => onSelect(entry.food)}
                         style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '11px 0',
-                          borderBottom: idx < recentFoods.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                          background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
-                          fontFamily: 'inherit',
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '7px 12px', borderRadius: 999,
+                          background: 'rgba(31,41,32,0.05)', border: '1px solid rgba(31,41,32,0.1)',
+                          cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                         }}
                       >
-                        <span style={{ fontSize: 14, color: '#1F2920' }}>{entry.food.name}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                          <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.4)' }}>{localizeServingLabel(entry.lastUnit, locale)}</span>
-                          {entry.useCount > 1 && (
-                            <span style={{
-                              fontSize: 11, fontWeight: 600, color: '#888',
-                              background: 'rgba(0,0,0,0.06)', borderRadius: 999, padding: '1px 7px',
-                            }}>×{entry.useCount}</span>
-                          )}
-                        </div>
+                        <span style={{ fontSize: 13, color: '#1F2920', fontFamily: 'Noto Serif SC, serif' }}>
+                          {entry.food.name}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)' }}>
+                          {localizeServingLabel(entry.lastUnit, locale)}
+                        </span>
+                        {entry.useCount > 1 && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, color: '#C0431F',
+                            fontFamily: 'Noto Serif SC, serif',
+                          }}>×{entry.useCount}</span>
+                        )}
                       </button>
                     ))}
                   </div>
                 </>
               ) : (
-                <div className="text-center py-4">
-                  <div className="text-4xl mb-3">🥗</div>
-                  <div className="text-gray-400 text-sm">{t('searchHint')}</div>
+                <div style={{ textAlign: 'center', paddingTop: 24 }}>
+                  <div style={{ fontSize: 36, marginBottom: 12 }}>🥗</div>
+                  <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.4)' }}>{t('searchHint')}</div>
                 </div>
               )}
             </div>

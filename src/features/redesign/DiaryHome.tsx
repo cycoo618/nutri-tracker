@@ -7,6 +7,7 @@ import type { SyncStatus } from '../../hooks/useFoodLog';
 import { Bar } from './shared/Bar';
 import { RotatingBanner } from './shared/RotatingBanner';
 import { FOOD_GROUPS } from './tokens';
+import { computeCoveredGroups } from '../../utils/foodGroupCoverage';
 
 interface DiaryHomeProps {
   profile: UserProfile;
@@ -138,7 +139,8 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
   const caloriePct = Math.min(calorieRecorded / calorieTarget, 1);
 
   const goals = profile.goals ?? [profile.goal];
-  const doneCount = FOOD_GROUPS.filter(g => g.done).length;
+  const coveredGroups = computeCoveredGroups(dailyLog);
+  const doneCount = FOOD_GROUPS.filter(g => coveredGroups.has(g.key)).length;
   const score = calcMacroScore(nutritionStatus);
   const summary = macroSummary(nutritionStatus);
   const nudge = diversityNudge(doneCount);
@@ -268,73 +270,70 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
       {/* Mini-stats row — both navigate to 今日明细 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '10px 16px' }}>
 
-        {/* Macro Balance → MacrosScreen */}
+        {/* 宏量平衡 → MacrosScreen */}
         <div
           className="nt-card"
           onClick={() => onNav('macros')}
           style={{ padding: '12px 14px', cursor: 'pointer' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span className="nt-serif" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>宏量平衡</span>
             <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 2 }}>
-            <span className="nt-display" style={{ fontSize: 28, color: 'var(--mustard)', lineHeight: 1 }}>{score}</span>
-            <span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>分</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 6 }}>
+            <span className="nt-display" style={{ fontSize: 30, color: 'var(--mustard)', lineHeight: 1 }}>{score}</span>
+            <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-mute)' }}>分</span>
           </div>
-          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--tomato)', marginBottom: 8, lineHeight: 1.3 }}>
-            {summary}
-          </div>
-          {/* 4 mini bars */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* 4 thin color bars — no labels, just colors */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
             {[
-              { label: '蛋白', v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)' },
-              { label: '碳水', v: nutritionStatus?.macros.carbs.consumed ?? 0, t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)' },
-              { label: '脂肪', v: nutritionStatus?.macros.fat.consumed ?? 0, t: nutritionStatus?.macros.fat.target ?? 65, c: 'var(--persimmon)' },
-              { label: '纤维', v: nutritionStatus?.fiber.consumed ?? 0, t: nutritionStatus?.fiber.target ?? 25, c: 'var(--sage)' },
-            ].map(item => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 9, color: item.c, fontWeight: 700, width: 16, flexShrink: 0, fontFamily: 'Noto Serif SC, serif' }}>{item.label}</span>
-                <div style={{ flex: 1 }}>
-                  <Bar value={item.v} target={item.t} color={item.c} height={3} />
-                </div>
-              </div>
+              { v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)' },
+              { v: nutritionStatus?.macros.carbs.consumed ?? 0,   t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)' },
+              { v: nutritionStatus?.macros.fat.consumed ?? 0,     t: nutritionStatus?.macros.fat.target ?? 65,    c: 'var(--persimmon)' },
+              { v: nutritionStatus?.fiber.consumed ?? 0,          t: nutritionStatus?.fiber.target ?? 25,         c: 'var(--sage)' },
+            ].map((item, i) => (
+              <Bar key={i} value={item.v} target={item.t} color={item.c} height={3} />
             ))}
+          </div>
+          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--tomato)', lineHeight: 1.3 }}>
+            {summary}
           </div>
         </div>
 
-        {/* Food Diversity → MacrosScreen (same 今日明细 screen) */}
+        {/* 食物多样性 → MacrosScreen (今日明细) */}
         <div
           className="nt-card"
           onClick={() => onNav('macros')}
           style={{ padding: '12px 14px', cursor: 'pointer' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span className="nt-serif" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>食物多样性</span>
             <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 8 }}>
-            <span className="nt-display" style={{ fontSize: 28, color: 'var(--sage)', lineHeight: 1 }}>{doneCount}</span>
-            <span className="nt-serif" style={{ fontSize: 18, color: 'var(--ink-mute)' }}>/</span>
-            <span className="nt-serif" style={{ fontSize: 14, color: 'var(--ink-mute)' }}>7</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 8 }}>
+            <span className="nt-display" style={{ fontSize: 30, color: 'var(--sage)', lineHeight: 1 }}>{doneCount}</span>
+            <span className="nt-serif" style={{ fontSize: 16, color: 'var(--ink-mute)' }}>/7</span>
           </div>
-          {/* emoji chips */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
-            {FOOD_GROUPS.map(g => (
-              <div
-                key={g.key}
-                style={{
-                  width: 24, height: 24, borderRadius: 6,
-                  background: g.done ? g.color + '22' : 'var(--paper)',
-                  border: `1px solid ${g.done ? g.color + '55' : 'var(--line-soft)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13,
-                  filter: g.done ? 'none' : 'grayscale(1) opacity(0.45)',
-                }}
-              >
-                {g.emoji}
-              </div>
-            ))}
+          {/* 单行 emoji chips，吃了的 highlight，没吃的 grey */}
+          <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
+            {FOOD_GROUPS.map(g => {
+              const done = coveredGroups.has(g.key);
+              return (
+                <div
+                  key={g.key}
+                  style={{
+                    flex: 1, height: 22, borderRadius: 5,
+                    background: done ? g.color + '30' : 'var(--paper-2)',
+                    border: `1px solid ${done ? g.color + '60' : 'var(--line-soft)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11,
+                    filter: done ? 'none' : 'grayscale(1) opacity(0.4)',
+                  }}
+                >
+                  {g.emoji}
+                </div>
+              );
+            })}
           </div>
           <div className="nt-serif" style={{ fontSize: 10, color: 'var(--sage)', fontWeight: 600 }}>
             {nudge}

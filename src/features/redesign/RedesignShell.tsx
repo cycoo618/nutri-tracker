@@ -90,7 +90,7 @@ export function RedesignShell(props: RedesignShellProps) {
   const renderContent = () => {
     // Sub-views take precedence
     if (subView === 'diversity') {
-      return <DiversityScreen onBack={() => setSubView('main')} />;
+      return <DiversityScreen onBack={() => setSubView('main')} dailyLog={dailyLog} />;
     }
     if (subView === 'macros') {
       return (

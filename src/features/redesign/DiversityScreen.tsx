@@ -2,9 +2,12 @@ import React from 'react';
 import { Ring } from './shared/Ring';
 import { Bar } from './shared/Bar';
 import { FOOD_GROUPS } from './tokens';
+import type { DailyLog } from '../../types/log';
+import { computeCoveredGroups } from '../../utils/foodGroupCoverage';
 
 interface DiversityScreenProps {
   onBack: () => void;
+  dailyLog?: DailyLog | null;
 }
 
 // Mock 7-day history: array of 7 intensities (0–1) per group
@@ -26,8 +29,9 @@ const ANTI_INFLAM_FOODS = [
   { color: 'var(--grain)', foods: ['燕麦', '糙米', '藜麦', '全麦'] },
 ];
 
-export function DiversityScreen({ onBack }: DiversityScreenProps) {
-  const doneCount = FOOD_GROUPS.filter(g => g.done).length;
+export function DiversityScreen({ onBack, dailyLog }: DiversityScreenProps) {
+  const coveredGroups = computeCoveredGroups(dailyLog ?? null);
+  const doneCount = FOOD_GROUPS.filter(g => coveredGroups.has(g.key)).length;
 
   return (
     <div style={{ padding: '0 0 8px' }}>

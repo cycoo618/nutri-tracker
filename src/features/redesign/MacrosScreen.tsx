@@ -8,6 +8,7 @@ import type { NutritionStatus } from '../../hooks/useNutrition';
 import type { DailyLog } from '../../types/log';
 import { Bar } from './shared/Bar';
 import { FOOD_GROUPS } from './tokens';
+import { computeCoveredGroups } from '../../utils/foodGroupCoverage';
 
 interface MacrosScreenProps {
   nutritionStatus: NutritionStatus | null;
@@ -123,7 +124,8 @@ export function MacrosScreen({ nutritionStatus: ns, dailyLog, currentDate, onBac
     ...underMacros.map(l => `${l}偏少`),
   ].join(' · ') || '今日营养摄入均衡';
 
-  const doneCount = FOOD_GROUPS.filter(g => g.done).length;
+  const coveredGroups = computeCoveredGroups(dailyLog);
+  const doneCount = FOOD_GROUPS.filter(g => coveredGroups.has(g.key)).length;
 
   return (
     <div style={{ padding: '0 0 24px' }}>
@@ -268,28 +270,31 @@ export function MacrosScreen({ nutritionStatus: ns, dailyLog, currentDate, onBac
           </div>
           {/* 7 emoji chips */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-            {FOOD_GROUPS.map(g => (
-              <div
-                key={g.key}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                  padding: '6px 2px 4px',
-                  background: g.done
-                    ? `color-mix(in oklab, ${g.color} 14%, var(--card))`
-                    : 'var(--paper-2)',
-                  border: `1px solid ${g.done ? `color-mix(in oklab, ${g.color} 35%, transparent)` : 'var(--line-soft)'}`,
-                  borderRadius: 8,
-                  opacity: g.done ? 1 : 0.7,
-                }}
-              >
-                <span style={{ fontSize: 15, filter: g.done ? 'none' : 'grayscale(0.4)' }}>{g.emoji}</span>
-                <span style={{
-                  fontSize: 8, color: g.done ? g.color : 'var(--ink-mute)',
-                  fontWeight: g.done ? 600 : 400, lineHeight: 1, whiteSpace: 'nowrap',
-                  fontFamily: 'Noto Serif SC, serif',
-                }}>{g.name}</span>
-              </div>
-            ))}
+            {FOOD_GROUPS.map(g => {
+              const done = coveredGroups.has(g.key);
+              return (
+                <div
+                  key={g.key}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                    padding: '6px 2px 4px',
+                    background: done
+                      ? `color-mix(in oklab, ${g.color} 14%, var(--card))`
+                      : 'var(--paper-2)',
+                    border: `1px solid ${done ? `color-mix(in oklab, ${g.color} 35%, transparent)` : 'var(--line-soft)'}`,
+                    borderRadius: 8,
+                    opacity: done ? 1 : 0.65,
+                  }}
+                >
+                  <span style={{ fontSize: 15, filter: done ? 'none' : 'grayscale(0.5)' }}>{g.emoji}</span>
+                  <span style={{
+                    fontSize: 8, color: done ? g.color : 'var(--ink-mute)',
+                    fontWeight: done ? 600 : 400, lineHeight: 1, whiteSpace: 'nowrap',
+                    fontFamily: 'Noto Serif SC, serif',
+                  }}>{g.name}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
