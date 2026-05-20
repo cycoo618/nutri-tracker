@@ -11,12 +11,13 @@ import { DiaryHome } from './DiaryHome';
 import { SevenDayScreen } from './SevenDayScreen';
 import { ScienceScreen } from './ScienceScreen';
 import { DiversityScreen } from './DiversityScreen';
+import { MacrosScreen } from './MacrosScreen';
 import { ProfileRedesign } from './ProfileRedesign';
 import { FoodSearch } from '../food-log/FoodSearch';
 import { AddFoodModal } from '../food-log/AddFoodModal';
 
 type TabKey = '总览' | '趋势' | '科学' | '我';
-type SubView = 'main' | 'diversity' | 'pantry';
+type SubView = 'main' | 'diversity' | 'macros' | 'pantry';
 
 export interface RedesignShellProps {
   profile: UserProfile;
@@ -52,6 +53,7 @@ export function RedesignShell(props: RedesignShellProps) {
   const handleNav = (tab: string) => {
     if (tab === 'pantry') { setSubView('pantry'); return; }
     if (tab === 'diversity') { setSubView('diversity'); return; }
+    if (tab === 'macros') { setSubView('macros'); return; }
     setSubView('main');
     setActiveTab(tab as TabKey);
   };
@@ -89,6 +91,18 @@ export function RedesignShell(props: RedesignShellProps) {
     // Sub-views take precedence
     if (subView === 'diversity') {
       return <DiversityScreen onBack={() => setSubView('main')} />;
+    }
+    if (subView === 'macros') {
+      return (
+        <MacrosScreen
+          nutritionStatus={nutritionStatus}
+          dailyLog={dailyLog}
+          currentDate={currentDate}
+          onBack={() => setSubView('main')}
+          onOpenAdd={handleAdd}
+          onNav={handleNav}
+        />
+      );
     }
 
     switch (activeTab) {

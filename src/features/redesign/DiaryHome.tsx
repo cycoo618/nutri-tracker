@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { UserProfile } from '../../types/user';
 import type { DailyLog } from '../../types/log';
 import { MEAL_LABELS, MEAL_ICONS } from '../../types/log';
@@ -62,8 +62,6 @@ function getTodayString(): string {
   return toLocalDateString(new Date());
 }
 
-type ExpandedPanel = 'macro' | 'diversity' | null;
-
 function GoalChip({ goalKey }: { goalKey: string }) {
   const map: Record<string, { emoji: string; label: string; color: string; bg: string; border: string }> = {
     fat_loss:          { emoji: '🔥', label: '减脂',  color: 'var(--tomato)', bg: 'rgba(255,107,87,0.1)', border: 'rgba(255,107,87,0.25)' },
@@ -86,7 +84,6 @@ function GoalChip({ goalKey }: { goalKey: string }) {
 }
 
 export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, syncStatus, onForceSync }: DiaryHomeProps) {
-  const [expanded, setExpanded] = useState<ExpandedPanel>(null);
   const today = getTodayString();
   const isToday = currentDate === today;
   const { month, day, weekday } = formatDate(currentDate);
@@ -222,124 +219,70 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
         <RotatingBanner />
       </div>
 
-      {/* Mini-stats row */}
+      {/* Mini-stats row — tap to navigate */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '10px 16px' }}>
-        {/* Macro Balance */}
-        <div>
-          <div
-            className="nt-card"
-            onClick={() => setExpanded(expanded === 'macro' ? null : 'macro')}
-            style={{ padding: '14px 16px', cursor: 'pointer' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>宏量手账</span>
-              <span className="nt-display" style={{ fontSize: 18, color: 'var(--sage)', marginLeft: 'auto' }}>73<span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>分</span></span>
-            </div>
-            {/* Preview: 4 labeled bars */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {[
-                { label: '蛋白', v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)' },
-                { label: '碳水', v: nutritionStatus?.macros.carbs.consumed ?? 0, t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)' },
-                { label: '脂肪', v: nutritionStatus?.macros.fat.consumed ?? 0, t: nutritionStatus?.macros.fat.target ?? 65, c: 'var(--persimmon)' },
-                { label: '纤维', v: nutritionStatus?.fiber.consumed ?? 0, t: nutritionStatus?.fiber.target ?? 25, c: 'var(--sage)' },
-              ].map(item => (
-                <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ fontSize: 9, color: item.c, fontWeight: 700, width: 18, flexShrink: 0, fontFamily: 'Noto Serif SC, serif' }}>{item.label}</span>
-                  <div style={{ flex: 1 }}>
-                    <Bar value={item.v} target={item.t} color={item.c} height={4} />
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Macro Balance → MacrosScreen */}
+        <div
+          className="nt-card"
+          onClick={() => onNav('macros')}
+          style={{ padding: '14px 16px', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>宏量平衡</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
           </div>
-
-          {expanded === 'macro' && (
-            <div className="nt-card" style={{ marginTop: 6, padding: '14px 16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {[
-                  { label: '蛋白质', v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)', unit: 'g' },
-                  { label: '碳水化合物', v: nutritionStatus?.macros.carbs.consumed ?? 0, t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)', unit: 'g' },
-                  { label: '脂肪', v: nutritionStatus?.macros.fat.consumed ?? 0, t: nutritionStatus?.macros.fat.target ?? 65, c: 'var(--persimmon)', unit: 'g' },
-                  { label: '膳食纤维', v: nutritionStatus?.fiber.consumed ?? 0, t: nutritionStatus?.fiber.target ?? 25, c: 'var(--sage)', unit: 'g' },
-                ].map(item => (
-                  <div key={item.label} style={{ background: 'var(--paper)', borderRadius: 10, padding: '10px 12px' }}>
-                    <div className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>{item.label}</div>
-                    <div className="nt-display" style={{ fontSize: 20, color: item.c }}>
-                      {Math.round(item.v)}<span style={{ fontSize: 11, color: 'var(--ink-mute)' }}> / {item.t}{item.unit}</span>
-                    </div>
-                    <Bar value={item.v} target={item.t} color={item.c} height={3} />
-                  </div>
-                ))}
+          {/* Preview: 4 labeled bars */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {[
+              { label: '蛋白', v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)' },
+              { label: '碳水', v: nutritionStatus?.macros.carbs.consumed ?? 0, t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)' },
+              { label: '脂肪', v: nutritionStatus?.macros.fat.consumed ?? 0, t: nutritionStatus?.macros.fat.target ?? 65, c: 'var(--persimmon)' },
+              { label: '纤维', v: nutritionStatus?.fiber.consumed ?? 0, t: nutritionStatus?.fiber.target ?? 25, c: 'var(--sage)' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 9, color: item.c, fontWeight: 700, width: 18, flexShrink: 0, fontFamily: 'Noto Serif SC, serif' }}>{item.label}</span>
+                <div style={{ flex: 1 }}>
+                  <Bar value={item.v} target={item.t} color={item.c} height={4} />
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)', marginTop: 6 }}>
+            点击查看今日明细
+          </div>
         </div>
 
-        {/* Food Diversity */}
-        <div>
-          <div
-            className="nt-card"
-            onClick={() => setExpanded(expanded === 'diversity' ? null : 'diversity')}
-            style={{ padding: '14px 16px', cursor: 'pointer' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>食物多样性</span>
-              <span className="nt-display" style={{ fontSize: 18, color: 'var(--sage)', marginLeft: 'auto' }}>{doneCount}<span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>/7</span></span>
-            </div>
-            {/* Preview: 7 emoji squares */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-              {FOOD_GROUPS.map(g => (
-                <div
-                  key={g.key}
-                  style={{
-                    width: 26, height: 26, borderRadius: 6,
-                    background: g.done ? g.color + '22' : 'var(--paper)',
-                    border: `1px solid ${g.done ? g.color + '55' : 'var(--line-soft)'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 14,
-                    filter: g.done ? 'none' : 'grayscale(1) opacity(0.5)',
-                  }}
-                >
-                  {g.emoji}
-                </div>
-              ))}
-            </div>
-            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--sage)', marginTop: 6 }}>
-              {doneCount}/7 类 今日已达
-            </div>
+        {/* Food Diversity → DiversityScreen */}
+        <div
+          className="nt-card"
+          onClick={() => onNav('diversity')}
+          style={{ padding: '14px 16px', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>食物多样性</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
           </div>
-
-          {expanded === 'diversity' && (
-            <div className="nt-card" style={{ marginTop: 6, padding: '14px 16px' }}>
-              {FOOD_GROUPS.map(g => (
-                <div key={g.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 8,
-                    background: g.color + '22', border: `1px solid ${g.color}55`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                  }}>
-                    {g.emoji}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className="nt-serif" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{g.name}</span>
-                      <span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>{g.v}/{g.t}</span>
-                    </div>
-                    <Bar value={g.v} target={g.t} color={g.color} height={4} />
-                  </div>
-                </div>
-              ))}
-              <div style={{ textAlign: 'center', marginTop: 4 }}>
-                <button
-                  onClick={() => onNav('diversity')}
-                  className="nt-serif"
-                  style={{ fontSize: 12, color: 'var(--sage)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-                >
-                  查看全部 →
-                </button>
+          {/* Preview: 7 emoji squares */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {FOOD_GROUPS.map(g => (
+              <div
+                key={g.key}
+                style={{
+                  width: 26, height: 26, borderRadius: 6,
+                  background: g.done ? g.color + '22' : 'var(--paper)',
+                  border: `1px solid ${g.done ? g.color + '55' : 'var(--line-soft)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14,
+                  filter: g.done ? 'none' : 'grayscale(1) opacity(0.5)',
+                }}
+              >
+                {g.emoji}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+          <div className="nt-serif" style={{ fontSize: 11, color: 'var(--sage)', marginTop: 6 }}>
+            {doneCount}/7 类 · 点击查看详情
+          </div>
         </div>
       </div>
 
