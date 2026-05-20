@@ -176,8 +176,10 @@ export function RedesignShell(props: RedesignShellProps) {
           zIndex: 1,
         }}
       >
-        {/* font-size zoom wrapper — scales all inline px values proportionally */}
-        <div style={{ zoom: fontZoom }}>
+        {/* font-size zoom wrapper — scales all inline px values proportionally.
+            WebkitTextSizeAdjust:'auto' overrides Tailwind's 100% on html,
+            allowing font sizes to scale with zoom on iOS Safari. */}
+        <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
           {renderContent()}
         </div>
       </div>
