@@ -7,10 +7,12 @@ const FACTS = [
 ];
 
 const BOOKS = [
-  { color: 'var(--sage)', title: '地中海饮食圣经', desc: '科学实证的抗炎饮食指南' },
-  { color: 'var(--sky)', title: '肠道健康革命', desc: '微生物组与免疫力的关系' },
-  { color: 'var(--mustard)', title: '断食的力量', desc: '16:8 间歇性断食方法论' },
+  { color: 'var(--sage)', title: '地中海饮食圣经', desc: '科学实证的抗炎饮食指南', url: 'https://book.douban.com/subject/35460906/' },
+  { color: 'var(--sky)', title: '肠道健康革命', desc: '微生物组与免疫力的关系', url: 'https://book.douban.com/subject/26904268/' },
+  { color: 'var(--mustard)', title: '断食的力量', desc: '16:8 间歇性断食方法论', url: 'https://book.douban.com/subject/34441556/' },
 ];
+
+const ARTICLE_URL = 'https://pubmed.ncbi.nlm.nih.gov/?term=omega-3+brain+cognitive+decline';
 
 export function ScienceScreen() {
   return (
@@ -43,7 +45,7 @@ export function ScienceScreen() {
           <p className="nt-serif" style={{ fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.7, margin: '0 0 12px' }}>
             每周2次深海鱼类摄入，可将认知衰退风险降低35%。DHA 是构成神经细胞膜的关键成分，对记忆力和专注力有直接影响…
           </p>
-          <button style={{
+          <button onClick={() => window.open(ARTICLE_URL, '_blank')} style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '8px 18px', borderRadius: 999,
             background: 'var(--ink)', color: '#fff',
@@ -79,9 +81,10 @@ export function ScienceScreen() {
             <div
               key={i}
               className="nt-card"
+              onClick={() => window.open(b.url, '_blank')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
-                borderLeft: `4px solid ${b.color}`,
+                borderLeft: `4px solid ${b.color}`, cursor: 'pointer',
               }}
             >
               <div style={{

@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>NutriTrack · Redesign</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css">
+<style>
+  body { margin: 0; background: #f0eee9; font-family: -apple-system, system-ui; }
+  /* Make the canvas DC chrome read against warm paper */
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+
+<!-- screens FIRST so NavRouter (in shared.jsx) can reference them -->
+<script type="text/babel" src="screens/sevenday.jsx"></script>
+<script type="text/babel" src="screens/profile.jsx"></script>
+<script type="text/babel" src="screens/science.jsx"></script>
+<script type="text/babel" src="screens/pantry.jsx"></script>
+<script type="text/babel" src="screens/diversity.jsx"></script>
+<script type="text/babel" src="screens/macros.jsx"></script>
+
+<script type="text/babel" src="shared.jsx"></script>
+
+<script type="text/babel" src="variations/diary.jsx"></script>
+<script type="text/babel" src="variations/chapters.jsx"></script>
+<script type="text/babel" src="variations/garden.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+  // ─── Phone frame — warm-paper bezel ──────────────────────────
+  function PhoneFrame({ children, w = 402, h = 874 }) {
+    return (
+      <div style={{
+        width: w, height: h,
+        borderRadius: 48, overflow: 'hidden',
+        position: 'relative',
+        background: '#1a140d',
+        boxShadow: '0 30px 60px rgba(76,55,30,0.18), 0 0 0 1px rgba(0,0,0,0.12), inset 0 0 0 6px #1a140d',
+      }}>
+        {/* dynamic island */}
+        <div style={{
+          position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+          width: 124, height: 36, borderRadius: 22, background: '#000', zIndex: 50,
+        }} />
+        <div style={{ position: 'absolute', inset: 6, borderRadius: 42, overflow: 'hidden' }}>
+          {children}
+        </div>
+        {/* home indicator */}
+        <div style={{
+          position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+          width: 139, height: 5, borderRadius: 100,
+          background: 'rgba(42,30,16,0.4)', zIndex: 60, pointerEvents: 'none',
+        }} />
+      </div>
+    );
+  }
+
+  const W = 414, H = 896;
+
+  function App() {
+    const [palette, setPalette] = React.useState('morning-green');
+    React.useEffect(() => {
+      document.body.className = 'theme-' + palette;
+    }, [palette]);
+
+    const palettes = [
+      { k: 'morning-green', name: '晨绿',    sub: 'fresh · green',  swatch: ['#F6F9F2', '#4FA663', '#FF6B57', '#1F2920'] },
+      { k: 'coconut',       name: '椰岛',    sub: 'teal · coral',   swatch: ['#F4FAFB', '#00B59C', '#FF7458', '#142631'] },
+      { k: 'lemon',         name: '柠檬田',   sub: 'sun · meadow',   swatch: ['#FCFAEC', '#F0B500', '#6FAE45', '#2A2A1C'] },
+      { k: 'peach',         name: '桃子',    sub: 'peach · sage',   swatch: ['#FDF7F2', '#F26756', '#5FA666', '#2A1F19'] },
+    ];
+
+    return (
+      <>
+        <PaletteBar palettes={palettes} active={palette} onPick={setPalette} />
+        <DesignCanvas>
+
+        {/* ── Section: 主屏方向探索 ─────────────── */}
+        <DCSection
+          id="home"
+          title="主屏方向 · 三种叙事"
+          subtitle="同一个原始页面被拆成三种信息分层。点击 tabs 切换页面,按 + 看添加。点击卡片可展开。">
+
+          <DCArtboard id="diary" label="① 营养日记本 · 单一焦点" width={W} height={H}>
+            <div style={{ padding: 16, height: '100%', background: '#f0eee9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <PhoneFrame>
+                <NavRouter HomeComponent={DiaryHome} />
+              </PhoneFrame>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="chapters" label="② 今日章节 · 翻书式展开" width={W} height={H}>
+            <div style={{ padding: 16, height: '100%', background: '#f0eee9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <PhoneFrame>
+                <NavRouter HomeComponent={ChaptersHome} />
+              </PhoneFrame>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="garden" label="③ 七色花园 · 多样性优先" width={W} height={H}>
+            <div style={{ padding: 16, height: '100%', background: '#f0eee9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <PhoneFrame>
+                <NavRouter HomeComponent={GardenHome} />
+              </PhoneFrame>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        {/* ── Section: 添加食物 sheet 重设计 ─────────────── */}
+        <DCSection
+          id="addsheet"
+          title="记一笔 · 添加食物 sheet"
+          subtitle="原 app 点 + 后弹出。重做成手账风:暖纸底、3 类录入方式 + 频次排序的常用食物。试切色板看 4 套配色下表现。">
+
+          <DCArtboard id="add-diary"  label="① 在 日记本 上展开" width={W} height={H}>
+            <div style={{ padding: 16, height: '100%', background: '#f0eee9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <PhoneFrame>
+                <NavRouter HomeComponent={DiaryHome} initialSheetOpen={true} />
+              </PhoneFrame>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="add-garden" label="③ 在 七色花园 上展开" width={W} height={H}>
+            <div style={{ padding: 16, height: '100%', background: '#f0eee9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <PhoneFrame>
+                <NavRouter HomeComponent={GardenHome} initialSheetOpen={true} />
+              </PhoneFrame>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        {/* ── Notes section: design rationale ──────── */}
+        <DCSection id="rationale" title="设计取舍" subtitle="每个方向解决了原版的哪个问题">
+          <DCArtboard id="goal-mapping" label="◎ 目标 → 首页 映射逻辑 (给开发)" width={460} height={520}>
+            <GoalMapCard />
+          </DCArtboard>
+
+          <DCArtboard id="why-diary" label="① 为什么 营养日记本" width={420} height={520}>
+            <RationaleCard
+              num="①"
+              name="营养日记本"
+              tagline="单一焦点 · 时间感 · 像每日便签"
+              fixes={[
+                '解决"重点不突出": 顶部只显示当下最重要的一个数字(可在卡路里/多样性/连续天数之间切换)',
+                '解决"信息密度": 宏量/多样性收进可折叠 mini-stat 卡片,默认折叠',
+                '解决"色彩单调": 引入暖色系(番茄红/麦色/橄榄绿/梅红)代替单一绿',
+                '增加"今日笔记"时间轴, 像便签纸一样记录三餐',
+              ]}
+              best="适合: 每天想被温柔提醒一句的用户"
+            />
+          </DCArtboard>
+
+          <DCArtboard id="why-chapters" label="② 为什么 今日章节" width={420} height={520}>
+            <RationaleCard
+              num="②"
+              name="今日章节"
+              tagline="像翻一本书 · 章节折叠 · 渐进式披露"
+              fixes={[
+                '解决"信息密度": 每章节默认折叠,只露出一个核心数字 + 一条 mini visual',
+                '解决"先看哪里": 章节有先后(能量→营养→七色→提议),阅读顺序明确',
+                '解决"缺少情感反馈": 章节编号、装饰线、章末小诗式 quote 让记录有仪式感',
+                '右侧悬浮章节导航,长页面也能快速跳',
+              ]}
+              best="适合: 喜欢仪式感、愿意花 30 秒读完的用户"
+            />
+          </DCArtboard>
+
+          <DCArtboard id="why-garden" label="③ 为什么 七色花园" width={420} height={520}>
+            <RationaleCard
+              num="③"
+              name="七色花园"
+              tagline="把多样性变 hero · 卡路里退居二线"
+              fixes={[
+                '解决"重点不突出": 重新排序信息 — 多样性是抗炎差异化卖点,放到主视觉',
+                '解决"缺少成就感": 7 个植物盆地,植物随摄入"长大",空盆子有泥土斑驳纹理',
+                '解决"信息密度": 卡路里只占顶部一条 slim strip,详情可点开',
+                '解决"色彩单调": 7 个食物类有专属色,植物 emoji 主导画面',
+              ]}
+              best="适合: 在意吃得多样、需要视觉激励的用户"
+            />
+          </DCArtboard>
+        </DCSection>
+
+      </DesignCanvas>
+      </>
+    );
+  }
+
+  function PaletteBar({ palettes, active, onPick }) {
+    return (
+      <div style={{
+        position: 'fixed', top: 16, right: 16, zIndex: 1000,
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 10px',
+        background: 'rgba(255,255,255,0.85)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        border: '1px solid rgba(0,0,0,0.08)',
+        borderRadius: 14,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+        fontFamily: '-apple-system, system-ui, sans-serif',
+      }}>
+        <span style={{ fontSize: 11, color: 'rgba(40,30,20,0.65)', fontWeight: 600, letterSpacing: 0.5, padding: '0 4px' }}>色板</span>
+        {palettes.map(p => (
+          <button key={p.k} onClick={() => onPick(p.k)} title={p.sub} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+            padding: '4px 6px', borderRadius: 10,
+            background: active === p.k ? 'rgba(0,0,0,0.06)' : 'transparent',
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            <div style={{
+              display: 'flex', gap: 0,
+              border: '1px solid rgba(0,0,0,0.1)', borderRadius: 6, overflow: 'hidden',
+              boxShadow: active === p.k ? '0 0 0 2px #2A1E10, 0 0 0 4px rgba(255,255,255,0.6)' : 'none',
+            }}>
+              {p.swatch.map((c, i) => (
+                <div key={i} style={{ width: 14, height: 22, background: c }} />
+              ))}
+            </div>
+            <span style={{ fontSize: 10, color: active === p.k ? '#2A1E10' : 'rgba(40,30,20,0.6)', fontWeight: active === p.k ? 700 : 400 }}>{p.name}</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  function GoalMapCard() {
+    const map = [
+      { p: '减脂',   c: '#F26756', view: '营养日记本', sub: '单一焦点 + 餐次时间轴', why: '每次只关注"还能吃多少",防止暴饮暴食' },
+      { p: '抗炎',   c: '#5FA666', view: '七色花园',   sub: '7 类食物为主视觉',       why: '把多样性放主位,卡路里退居二线' },
+      { p: '增肌',   c: '#F0B500', view: '蛋白仪表盘', sub: '(待开发)',              why: '蛋白质摄入和训练日历同屏' },
+      { p: '控血糖', c: '#D06C8C', view: '时间节奏',   sub: '(待开发)',              why: '按 GI 值和进食时段排版' },
+    ];
+    return (
+      <div style={{
+        height: '100%', padding: 24,
+        background: '#FFFFFF',
+        fontFamily: 'Noto Serif SC, Georgia, serif',
+        color: '#1F2920',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ fontSize: 11, color: '#8B9886', letterSpacing: 3, textTransform: 'uppercase' }}>逻辑规范</div>
+        <h2 style={{ fontFamily: 'ZCOOL QingKe HuangYou, serif', fontSize: 22, margin: '4px 0 4px', color: '#1F2920' }}>主目标 → 首页布局</h2>
+        <div style={{ fontFamily: 'Caveat, cursive', fontSize: 18, color: '#FF6B57', marginBottom: 14 }}>
+          a one-line if/else for Claude Code
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {map.map((m, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 12px',
+              background: '#FAFCF6',
+              border: '1px solid #DAE5C9',
+              borderLeft: '3px solid ' + m.c,
+              borderRadius: 10,
+            }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700,
+                color: m.c, minWidth: 44,
+              }}>{m.p}</div>
+              <div style={{ color: '#8B9886' }}>→</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1F2920' }}>{m.view}</div>
+                <div style={{ fontSize: 10, color: '#8B9886' }}>{m.sub} · {m.why}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          marginTop: 14, paddingTop: 12,
+          borderTop: '1px dashed #DAE5C9',
+          fontSize: 11, color: '#3F543F', lineHeight: 1.6,
+        }}>
+          <strong>次目标</strong>仅影响推荐文案和食物清单优先级,不切换布局。
+          <br />
+          <strong>无目标</strong>时默认 <code style={{ background: '#F6F9F2', padding: '1px 4px', borderRadius: 3 }}>营养日记本</code>。
+        </div>
+
+        <div style={{
+          marginTop: 12, padding: '10px 12px',
+          background: '#1F2920', color: '#F6F9F2',
+          borderRadius: 8,
+          fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+          fontSize: 11, lineHeight: 1.55,
+          whiteSpace: 'pre',
+        }}>{`const Home = {
+  fat:        DiaryHome,
+  antiInflam: GardenHome,
+  muscle:     ProteinHome,  // todo
+  glucose:    RhythmHome,   // todo
+}[user.goals[0]] ?? DiaryHome;`}</div>
+      </div>
+    );
+  }
+
+  function RationaleCard({ num, name, tagline, fixes, best }) {
+    return (
+      <div style={{
+        height: '100%', padding: 28,
+        background: '#FBF6E7',
+        fontFamily: 'Noto Serif SC, Georgia, serif',
+        color: '#2A1E10',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: -20, right: -20,
+          fontFamily: 'Ma Shan Zheng, serif', fontSize: 180,
+          color: 'rgba(194,90,59,0.08)', lineHeight: 1,
+        }}>{num}</div>
+        <div style={{ position: 'relative' }}>
+          <div style={{ fontSize: 11, color: '#97826A', letterSpacing: 3, textTransform: 'uppercase' }}>方向</div>
+          <h2 style={{ fontFamily: 'ZCOOL QingKe HuangYou, serif', fontSize: 28, margin: '4px 0 6px', color: '#2A1E10' }}>{name}</h2>
+          <div style={{ fontFamily: 'Caveat, cursive', fontSize: 20, color: '#C25A3B', marginBottom: 16 }}>{tagline}</div>
+
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {fixes.map((f, i) => (
+              <li key={i} style={{ fontSize: 13, color: '#5E4A33', lineHeight: 1.6, display: 'flex', gap: 8 }}>
+                <span style={{ color: '#C25A3B', fontWeight: 700, flexShrink: 0 }}>·</span>
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+          <div style={{
+            marginTop: 20, paddingTop: 12,
+            borderTop: '1px dashed #D9C9A6',
+            fontFamily: 'Caveat, cursive', fontSize: 16, color: '#6F8B4D',
+          }}>{best}</div>
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bar } from './shared/Bar';
 import { FOOD_GROUPS } from './tokens';
+import type { UserProfile } from '../../types/user';
 
 type Period = '7天' | '30天' | '年';
 
@@ -38,7 +39,11 @@ const HEAT_INTENSITIES = [
 
 const WEEKLY_NOTE = '这周你的蔬菜摄入偏少，尤其是周三到周四。建议明天午餐加一份大叶菜沙拉，同时今晚试试豆腐味噌汤补上发酵食品这一类。蛋白质整体不错，保持！';
 
-export function SevenDayScreen() {
+interface SevenDayScreenProps {
+  profile?: UserProfile;
+}
+
+export function SevenDayScreen({ profile }: SevenDayScreenProps = {}) {
   const [period, setPeriod] = useState<Period>('7天');
 
   // Get current week number
@@ -261,33 +266,40 @@ export function SevenDayScreen() {
         </div>
       </div>
 
-      {/* Sparkline trio */}
-      <div className="nt-card" style={{ margin: '0 16px 12px', padding: '16px 18px' }}>
-        <div className="nt-serif" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>身体指标</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[
-            { label: '体重', data: [72.1, 71.8, 71.6, 71.9, 71.5, 71.3, 71.4], unit: 'kg', color: 'var(--sky)' },
-            { label: '腰围', data: [82, 82, 81.5, 81.5, 81, 81, 80.5], unit: 'cm', color: 'var(--persimmon)' },
-            { label: '抗炎分', data: [55, 60, 58, 65, 62, 70, 68], unit: '分', color: 'var(--sage)' },
-          ].map(s => {
-            const min = Math.min(...s.data);
-            const max = Math.max(...s.data);
-            const range = max - min || 1;
-            const sp = s.data.map((v, i) => `${(i / 6) * 74},${24 - ((v - min) / range) * 20}`).join(' ');
-            return (
-              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-mute)', width: 36 }}>{s.label}</span>
-                <svg width={74} height={24} style={{ flexShrink: 0 }}>
-                  <polyline points={sp} fill="none" stroke={s.color} strokeWidth="1.5" strokeLinejoin="round" />
-                </svg>
-                <span className="nt-display" style={{ fontSize: 20, color: s.color }}>
-                  {s.data[s.data.length - 1]}<span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>{s.unit}</span>
-                </span>
-              </div>
-            );
-          })}
+      {/* Sparkline trio — real profile data only */}
+      {(profile?.bodyMetrics?.weight || profile?.bodyMetrics?.bodyFat) && (
+        <div className="nt-card" style={{ margin: '0 16px 12px', padding: '16px 18px' }}>
+          <div className="nt-serif" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>身体指标</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              profile?.bodyMetrics?.weight
+                ? { label: '体重', value: profile.bodyMetrics.weight, unit: 'kg', color: 'var(--sky)' }
+                : null,
+              profile?.bodyMetrics?.bodyFat
+                ? { label: '体脂率', value: profile.bodyMetrics.bodyFat, unit: '%', color: 'var(--persimmon)' }
+                : null,
+            ].filter(Boolean).map(s => {
+              // Flat sparkline — we only have one data point (current value)
+              const flatY = 12;
+              const sp = Array.from({ length: 7 }, (_, i) => `${(i / 6) * 74},${flatY}`).join(' ');
+              return (
+                <div key={s!.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-mute)', width: 36 }}>{s!.label}</span>
+                  <svg width={74} height={24} style={{ flexShrink: 0 }}>
+                    <polyline points={sp} fill="none" stroke={s!.color} strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="3 3" />
+                  </svg>
+                  <span className="nt-display" style={{ fontSize: 20, color: s!.color }}>
+                    {s!.value}<span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>{s!.unit}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 8, marginBottom: 0 }}>
+            历史曲线将在多次记录后显示
+          </p>
         </div>
-      </div>
+      )}
 
       {/* Weekly note */}
       <div className="nt-card nt-card-warm" style={{ margin: '0 16px 12px', padding: '16px 18px' }}>

@@ -122,7 +122,7 @@ export function RedesignShell(props: RedesignShellProps) {
           />
         );
       case '趋势':
-        return <SevenDayScreen />;
+        return <SevenDayScreen profile={profile} />;
       case '科学':
         return <ScienceScreen />;
       case '我':

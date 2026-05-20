@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_OPTIONS } from './tokens';
+import { setFontSize as applyFontSize, getFontSize } from '../../utils/fontSize';
+import { setLocale, getLocale } from '../../i18n';
 
 interface ProfileRedesignProps {
   profile: UserProfile;
@@ -8,8 +10,11 @@ interface ProfileRedesignProps {
   onLogout: () => Promise<void>;
 }
 
-type FontSize = '小' | '标准' | '大';
+type FontSizeLabel = '小' | '标准' | '大';
 type Lang = '中文' | 'EN';
+
+const FONT_MAP: Record<FontSizeLabel, 'small' | 'standard' | 'large'> = { '小': 'small', '标准': 'standard', '大': 'large' };
+const FONT_REVERSE: Record<string, FontSizeLabel> = { small: '小', standard: '标准', large: '大' };
 
 export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileRedesignProps) {
   const activeGoals: string[] = profile.goals?.length ? profile.goals : [profile.goal];
@@ -17,8 +22,8 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
   const [weight, setWeight] = useState(String(profile.bodyMetrics?.weight ?? ''));
   const [bodyFat, setBodyFat] = useState(String(profile.bodyMetrics?.bodyFat ?? ''));
   const [calTarget, setCalTarget] = useState(String(profile.targetCalories ?? 2000));
-  const [fontSize, setFontSize] = useState<FontSize>('标准');
-  const [lang, setLang] = useState<Lang>('中文');
+  const [fontSize, setFontSize] = useState<FontSizeLabel>(() => FONT_REVERSE[getFontSize()] ?? '标准');
+  const [lang, setLang] = useState<Lang>(() => getLocale() === 'en' ? 'EN' : '中文');
   const [darkMode, setDarkMode] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -211,10 +216,10 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--line-soft)' }}>
             <span className="nt-serif" style={{ fontSize: 13, color: 'var(--ink)' }}>字体大小</span>
             <div style={{ display: 'flex', gap: 4 }}>
-              {(['小', '标准', '大'] as FontSize[]).map(f => (
+              {(['小', '标准', '大'] as FontSizeLabel[]).map(f => (
                 <button
                   key={f}
-                  onClick={() => setFontSize(f)}
+                  onClick={() => { setFontSize(f); applyFontSize(FONT_MAP[f]); }}
                   className="nt-serif"
                   style={{
                     padding: '4px 10px', borderRadius: 999,
@@ -235,7 +240,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
               {(['中文', 'EN'] as Lang[]).map(l => (
                 <button
                   key={l}
-                  onClick={() => setLang(l)}
+                  onClick={() => { setLang(l); setLocale(l === 'EN' ? 'en' : 'zh'); }}
                   className="nt-serif"
                   style={{
                     padding: '4px 10px', borderRadius: 999,
