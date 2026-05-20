@@ -24,7 +24,9 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
   const [calTarget, setCalTarget] = useState(String(profile.targetCalories ?? 2000));
   const [fontSize, setFontSize] = useState<FontSizeLabel>(() => FONT_REVERSE[getFontSize()] ?? '标准');
   const [lang, setLang] = useState<Lang>(() => getLocale() === 'en' ? 'EN' : '中文');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('nutri_dark') === '1');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState(profile.displayName);
   const [saving, setSaving] = useState(false);
 
   const handleGoalClick = (key: string) => {
@@ -41,14 +43,6 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
       if (prev.length < 2) return [...prev, key];
       return [prev[0], key];
     });
-  };
-
-  const primaryGoal = goals[0];
-  const secondaryGoal = goals[1];
-
-  const getLayoutPreview = () => {
-    if (primaryGoal === 'anti_inflammatory') return '🌻 七色花园布局';
-    return '📖 营养日记本布局';
   };
 
   const handleSave = async () => {
@@ -77,6 +71,22 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
     ? Math.max(1, Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / 86400000))
     : 1;
 
+  const joinDate = profile.createdAt
+    ? (() => {
+        const d = new Date(profile.createdAt);
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${months[d.getMonth()]} ${d.getFullYear()}`;
+      })()
+    : null;
+
+  const saveNameEdit = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== profile.displayName) {
+      onProfileUpdate({ displayName: trimmed }).catch(console.warn);
+    }
+    setIsEditingName(false);
+  };
+
   return (
     <div style={{ padding: '8px 0 8px' }}>
       {/* Avatar + name */}
@@ -89,17 +99,27 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           🥗
         </div>
         <div style={{ flex: 1 }}>
-          <div className="nt-display" style={{ fontSize: 22, color: 'var(--ink)' }}>{profile.displayName}</div>
+          {isEditingName ? (
+            <input
+              autoFocus
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveNameEdit(); if (e.key === 'Escape') { setIsEditingName(false); setEditName(profile.displayName); } }}
+              style={{ fontSize: 22, fontFamily: 'ZCOOL QingKe HuangYou, Noto Serif SC, serif', color: 'var(--ink)', background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 8, padding: '2px 8px', width: '100%', outline: 'none' }}
+            />
+          ) : (
+            <div className="nt-display" style={{ fontSize: 22, color: 'var(--ink)' }}>{profile.displayName}</div>
+          )}
           <div className="nt-caveat" style={{ fontSize: 13, color: 'var(--ink-mute)' }}>
-            since Jan 2024 · {daysSince} days strong
+            {joinDate ? `since ${joinDate} · ` : ''}{daysSince} days strong
           </div>
         </div>
-        <button style={{
-          padding: '5px 14px', borderRadius: 999,
-          background: 'var(--paper)', border: '1px solid var(--line-soft)',
-          fontSize: 12, color: 'var(--ink-soft)', cursor: 'pointer',
-        }} className="nt-serif">
-          编辑
+        <button
+          onClick={isEditingName ? saveNameEdit : () => setIsEditingName(true)}
+          style={{ padding: '5px 14px', borderRadius: 999, background: isEditingName ? 'var(--sage)' : 'var(--paper)', border: '1px solid var(--line-soft)', fontSize: 12, color: isEditingName ? '#fff' : 'var(--ink-soft)', cursor: 'pointer' }}
+          className="nt-serif"
+        >
+          {isEditingName ? '保存' : '编辑'}
         </button>
       </div>
 
@@ -124,9 +144,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {GOAL_OPTIONS.map(g => {
-            const isPrimary = goals[0] === g.key;
-            const isSecondary = goals[1] === g.key;
-            const isSelected = isPrimary || isSecondary;
+            const isSelected = goals[0] === g.key || goals[1] === g.key;
             return (
               <div
                 key={g.key}
@@ -145,27 +163,11 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
                   <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-soft)', lineHeight: 1.5 }}>{g.desc}</div>
                 </div>
                 {isSelected && (
-                  <div style={{
-                    width: 24, height: 24, borderRadius: '50%',
-                    background: g.color,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0,
-                  }}>
-                    {isPrimary ? '①' : '②'}
-                  </div>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: g.color, flexShrink: 0 }} />
                 )}
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Layout preview */}
-      <div className="nt-card nt-card-warm" style={{ margin: '0 16px 12px', padding: '12px 16px' }}>
-        <div className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-mute)', marginBottom: 4 }}>首页将使用</div>
-        <div className="nt-display" style={{ fontSize: 18, color: 'var(--ink)' }}>{getLayoutPreview()}</div>
-        <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>
-          {primaryGoal === 'anti_inflammatory' ? '展示七色食物菜园，追踪每日抗炎食物多样性' : '展示卡路里日记、宏量平衡和今日餐食记录'}
         </div>
       </div>
 
@@ -265,7 +267,12 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
             <span className="nt-serif" style={{ fontSize: 13, color: 'var(--ink)' }}>深色模式</span>
             <div
-              onClick={() => setDarkMode(d => !d)}
+              onClick={() => {
+                const next = !darkMode;
+                setDarkMode(next);
+                if (next) { document.documentElement.classList.add('dark'); localStorage.setItem('nutri_dark', '1'); }
+                else { document.documentElement.classList.remove('dark'); localStorage.setItem('nutri_dark', '0'); }
+              }}
               style={{
                 width: 44, height: 24, borderRadius: 999,
                 background: darkMode ? 'var(--ink)' : 'var(--line-soft)',

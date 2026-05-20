@@ -118,6 +118,13 @@ input[type='number'] {
   --bean: #D06C8C; --nut: #B87A52; --fish: #5EA6D8; --ferm: #9F7BBE;
 }
 
+/* Dark mode */
+html.dark {
+  --paper: #1B2019; --paper-2: #1F2620; --card: #232B21; --card-warm: #242C22;
+  --line: #2E3B2C; --line-soft: #283527;
+  --ink: #E2EDD8; --ink-soft: #9DB895; --ink-mute: #5E7558; --ink-faint: #364434;
+}
+
 /* Typography utility classes */
 .nt-serif  { font-family: 'Noto Serif SC', Georgia, serif; }
 .nt-hand   { font-family: 'Ma Shan Zheng', 'Noto Serif SC', cursive; }

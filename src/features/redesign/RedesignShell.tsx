@@ -51,6 +51,10 @@ export function RedesignShell(props: RedesignShellProps) {
   const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
 
   useEffect(() => {
+    if (localStorage.getItem('nutri_dark') === '1') document.documentElement.classList.add('dark');
+  }, []);
+
+  useEffect(() => {
     const handler = (e: Event) => {
       setFontZoom(ZOOM_MAP[(e as CustomEvent<FontSize>).detail] ?? 1);
     };
@@ -135,7 +139,7 @@ export function RedesignShell(props: RedesignShellProps) {
           />
         );
       case '趋势':
-        return <SevenDayScreen profile={profile} />;
+        return <SevenDayScreen profile={profile} targetCalories={profile.targetCalories} />;
       case '科学':
         return <ScienceScreen />;
       case '我':
@@ -171,7 +175,7 @@ export function RedesignShell(props: RedesignShellProps) {
           position: 'absolute',
           inset: 0,
           overflowY: 'auto',
-          paddingTop: 54,
+          paddingTop: 8,
           paddingBottom: 110,
           zIndex: 1,
         }}
