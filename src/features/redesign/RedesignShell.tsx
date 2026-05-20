@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { UserProfile } from '../../types/user';
 import type { DailyLog, MealType } from '../../types/log';
 import type { FoodItem } from '../../types/food';
@@ -6,6 +6,8 @@ import { useSwipeDown } from '../../hooks/useSwipeDown';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import type { SyncStatus } from '../../hooks/useFoodLog';
 import type { NutritionStatus } from '../../hooks/useNutrition';
+import { getFontSize, ZOOM_MAP } from '../../utils/fontSize';
+import type { FontSize } from '../../utils/fontSize';
 import { PaperDock } from './shared/PaperDock';
 import { DiaryHome } from './DiaryHome';
 import { SevenDayScreen } from './SevenDayScreen';
@@ -46,6 +48,15 @@ export function RedesignShell(props: RedesignShellProps) {
   const mealTypeRef = useRef<MealType>('breakfast');
   const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setFontZoom(ZOOM_MAP[(e as CustomEvent<FontSize>).detail] ?? 1);
+    };
+    window.addEventListener('fontsize-change', handler);
+    return () => window.removeEventListener('fontsize-change', handler);
+  }, []);
 
   // 便捷读取
   const sheetOpen = sheet.open;
@@ -165,7 +176,10 @@ export function RedesignShell(props: RedesignShellProps) {
           zIndex: 1,
         }}
       >
-        {renderContent()}
+        {/* font-size zoom wrapper — scales all inline px values proportionally */}
+        <div style={{ zoom: fontZoom }}>
+          {renderContent()}
+        </div>
       </div>
 
       {/* Bottom dock */}

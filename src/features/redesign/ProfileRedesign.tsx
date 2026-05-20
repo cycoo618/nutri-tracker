@@ -234,25 +234,32 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
             </div>
           </div>
           {/* Language */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--line-soft)' }}>
-            <span className="nt-serif" style={{ fontSize: 13, color: 'var(--ink)' }}>语言</span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {(['中文', 'EN'] as Lang[]).map(l => (
-                <button
-                  key={l}
-                  onClick={() => { setLang(l); setLocale(l === 'EN' ? 'en' : 'zh'); }}
-                  className="nt-serif"
-                  style={{
-                    padding: '4px 10px', borderRadius: 999,
-                    background: lang === l ? 'var(--ink)' : 'transparent',
-                    color: lang === l ? '#fff' : 'var(--ink-mute)',
-                    border: '1px solid var(--line-soft)', fontSize: 11, cursor: 'pointer',
-                  }}
-                >
-                  {l}
-                </button>
-              ))}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--line-soft)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span className="nt-serif" style={{ fontSize: 13, color: 'var(--ink)' }}>语言</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['中文', 'EN'] as Lang[]).map(l => (
+                  <button
+                    key={l}
+                    onClick={() => { setLang(l); setLocale(l === 'EN' ? 'en' : 'zh'); }}
+                    className="nt-serif"
+                    style={{
+                      padding: '4px 10px', borderRadius: 999,
+                      background: lang === l ? 'var(--ink)' : 'transparent',
+                      color: lang === l ? '#fff' : 'var(--ink-mute)',
+                      border: '1px solid var(--line-soft)', fontSize: 11, cursor: 'pointer',
+                    }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
             </div>
+            {lang === 'EN' && (
+              <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: '6px 0 0' }}>
+                Food search & log screens will display in English. Main screens stay in Chinese.
+              </p>
+            )}
           </div>
           {/* Dark mode */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
