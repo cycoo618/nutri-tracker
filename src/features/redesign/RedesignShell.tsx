@@ -15,6 +15,7 @@ import { MacrosScreen } from './MacrosScreen';
 import { ProfileRedesign } from './ProfileRedesign';
 import { FoodSearch } from '../food-log/FoodSearch';
 import { AddFoodModal } from '../food-log/AddFoodModal';
+import { FoodPantryPage } from '../pantry/FoodPantryPage';
 
 type TabKey = '总览' | '趋势' | '科学' | '我';
 type SubView = 'main' | 'diversity' | 'macros' | 'pantry';
@@ -118,6 +119,7 @@ export function RedesignShell(props: RedesignShellProps) {
             onOpenAdd={handleAdd}
             onRemoveFood={props.onRemoveFood}
             syncStatus={syncStatus}
+            syncError={props.syncError}
             onForceSync={onForceSync}
           />
         );
@@ -292,6 +294,19 @@ export function RedesignShell(props: RedesignShellProps) {
           onConfirm={handleConfirmFood}
           onBack={() => { setPendingFood(null); setSheet(s => ({ ...s, open: true })); }}
           onClose={() => setPendingFood(null)}
+        />
+      )}
+
+      {/* Food Pantry — full-screen overlay */}
+      {subView === 'pantry' && (
+        <FoodPantryPage
+          onClose={() => setSubView('main')}
+          userId={profile.uid}
+          familyId={profile.familyId}
+          onAddToLog={(food) => {
+            setSubView('main');
+            setPendingFood(food);
+          }}
         />
       )}
     </div>

@@ -19,6 +19,7 @@ interface DiaryHomeProps {
   onOpenAdd: (mealType?: string) => void;
   onRemoveFood?: (itemId: string) => Promise<void>;
   syncStatus?: SyncStatus;
+  syncError?: string | null;
   onForceSync?: () => Promise<void>;
 }
 
@@ -127,7 +128,7 @@ function GoalChip({ goalKey }: { goalKey: string }) {
   );
 }
 
-export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, syncStatus, onForceSync }: DiaryHomeProps) {
+export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, syncStatus, syncError, onForceSync }: DiaryHomeProps) {
   const today = getTodayString();
   const isToday = currentDate === today;
   const dayNum = getDayNumber(currentDate, profile.createdAt);
@@ -181,6 +182,19 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
           >📦</button>
         </div>
       </div>
+
+      {/* Sync error banner */}
+      {syncError && (
+        <div style={{ margin: '0 16px 6px', padding: '8px 14px', borderRadius: 10, background: 'rgba(220,80,60,0.08)', border: '1px solid rgba(220,80,60,0.18)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13 }}>⚠️</span>
+          <span className="nt-serif" style={{ fontSize: 12, color: 'var(--tomato)', flex: 1 }}>{syncError}</span>
+          {onForceSync && (
+            <button onClick={onForceSync} className="nt-serif" style={{ fontSize: 11, color: 'var(--tomato)', background: 'none', border: '1px solid rgba(220,80,60,0.3)', borderRadius: 999, padding: '2px 8px', cursor: 'pointer' }}>
+              重试
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Date — compact single row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 20px 6px' }}>
