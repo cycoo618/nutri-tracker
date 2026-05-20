@@ -264,7 +264,7 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
           </div>
         </div>
         <hr className="nt-hr-dash" style={{ margin: '12px 0 8px' }} />
-        <RotatingBanner />
+        <RotatingBanner nutritionStatus={nutritionStatus} coveredGroups={coveredGroups} />
       </div>
 
       {/* Mini-stats row — both navigate to 今日明细 */}
