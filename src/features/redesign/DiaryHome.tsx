@@ -30,13 +30,13 @@ function getGreeting(): string {
   return '晚上好';
 }
 
-function formatDate(dateStr: string) {
+function formatDateCompact(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
   const month = d.getMonth() + 1;
   const day = d.getDate();
   const weekday = weekdays[d.getDay()];
-  return { month, day, weekday };
+  return `${month}月${day}日 周${weekday}`;
 }
 
 function getDayNumber(dateStr: string, createdAt: string): number {
@@ -60,6 +60,49 @@ function offsetDate(dateStr: string, delta: number): string {
 
 function getTodayString(): string {
   return toLocalDateString(new Date());
+}
+
+/** 宏量综合得分 0-100 */
+function calcMacroScore(ns: NutritionStatus | null): number {
+  if (!ns) return 0;
+  const s = (consumed: number, target: number) => {
+    const pct = target > 0 ? consumed / target : 0;
+    if (pct <= 0) return 0;
+    if (pct <= 0.9) return Math.round(pct / 0.9 * 100);
+    if (pct <= 1.1) return 100;
+    return Math.max(0, Math.round(100 - (pct - 1.1) * 150));
+  };
+  return Math.min(100, Math.round(
+    s(ns.macros.protein.consumed, ns.macros.protein.target) * 0.3 +
+    s(ns.macros.carbs.consumed, ns.macros.carbs.target) * 0.25 +
+    s(ns.macros.fat.consumed, ns.macros.fat.target) * 0.25 +
+    s(ns.fiber.consumed, ns.fiber.target) * 0.2
+  ));
+}
+
+/** 生成宏量简短描述，如"碳水偏多 · 蛋白偏少" */
+function macroSummary(ns: NutritionStatus | null): string {
+  if (!ns) return '暂无记录';
+  const over = [
+    ns.macros.carbs.target > 0 && ns.macros.carbs.consumed / ns.macros.carbs.target > 1.15 ? '碳水偏多' : '',
+    ns.macros.fat.target > 0 && ns.macros.fat.consumed / ns.macros.fat.target > 1.15 ? '脂肪偏多' : '',
+    ns.macros.protein.target > 0 && ns.macros.protein.consumed / ns.macros.protein.target > 1.15 ? '蛋白偏多' : '',
+  ].filter(Boolean);
+  const under = [
+    ns.macros.protein.target > 0 && ns.macros.protein.consumed / ns.macros.protein.target < 0.6 ? '蛋白偏少' : '',
+    ns.macros.fat.target > 0 && ns.macros.fat.consumed / ns.macros.fat.target < 0.5 ? '脂肪偏少' : '',
+    ns.fiber.target > 0 && ns.fiber.consumed / ns.fiber.target < 0.5 ? '纤维偏少' : '',
+  ].filter(Boolean);
+  const parts = [...over, ...under];
+  return parts.length > 0 ? parts.slice(0, 2).join(' · ') : '宏量均衡';
+}
+
+/** 多样性小 nudge 文字 */
+function diversityNudge(doneCount: number): string {
+  if (doneCount >= 7) return '今日全部达成 🎉';
+  if (doneCount >= 5) return `再加 ${7 - doneCount} 类更稳`;
+  if (doneCount >= 3) return `加 ${7 - doneCount} 类更稳`;
+  return `加 ${7 - doneCount} 类更稳`;
 }
 
 function GoalChip({ goalKey }: { goalKey: string }) {
@@ -86,7 +129,6 @@ function GoalChip({ goalKey }: { goalKey: string }) {
 export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, syncStatus, onForceSync }: DiaryHomeProps) {
   const today = getTodayString();
   const isToday = currentDate === today;
-  const { month, day, weekday } = formatDate(currentDate);
   const dayNum = getDayNumber(currentDate, profile.createdAt);
   const name = profile.displayName?.split(' ')[0] || '朋友';
 
@@ -97,191 +139,205 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
 
   const goals = profile.goals ?? [profile.goal];
   const doneCount = FOOD_GROUPS.filter(g => g.done).length;
+  const score = calcMacroScore(nutritionStatus);
+  const summary = macroSummary(nutritionStatus);
+  const nudge = diversityNudge(doneCount);
 
   return (
     <div style={{ padding: '0 0 8px' }}>
-      {/* Top row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 22px' }}>
+      {/* Top row: greeting + goal chips + sync */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 20px' }}>
         <span className="nt-caveat" style={{ fontSize: 16, color: 'var(--ink)' }}>
           {getGreeting()}, <span style={{ color: 'var(--ink-mute)' }}>{name}</span>
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           {goals.slice(0, 2).map(g => <GoalChip key={g} goalKey={g} />)}
           {onForceSync && (
             <button
               onClick={onForceSync}
               disabled={syncStatus === 'syncing'}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 3,
-                padding: '3px 9px', borderRadius: 999,
+                display: 'inline-flex', alignItems: 'center',
+                width: 28, height: 28, borderRadius: '50%',
                 background: 'rgba(255,255,255,0.6)', border: '1px solid var(--line-soft)',
-                fontSize: 11, fontWeight: 500, cursor: syncStatus === 'syncing' ? 'default' : 'pointer',
+                justifyContent: 'center',
+                fontSize: 14, cursor: syncStatus === 'syncing' ? 'default' : 'pointer',
                 color: syncStatus === 'error' ? 'var(--tomato)' : 'var(--ink-soft)',
               }}
             >
-              <span style={{
-                display: 'inline-block',
-                animation: syncStatus === 'syncing' ? 'spin 1s linear infinite' : 'none',
-              }}>⟳</span>
-              {syncStatus === 'syncing' ? '同步中' : syncStatus === 'error' ? '重试' : '同步'}
+              <span style={{ display: 'inline-block', animation: syncStatus === 'syncing' ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
             </button>
           )}
           <button
             onClick={() => onNav('pantry')}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '3px 9px', borderRadius: 999,
+              width: 28, height: 28, borderRadius: '50%',
               background: 'rgba(255,255,255,0.6)', border: '1px solid var(--line-soft)',
-              fontSize: 11, color: 'var(--ink-soft)', fontWeight: 500, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer',
             }}
-          >
-            📦 食材
-          </button>
+          >📦</button>
         </div>
       </div>
 
-      {/* Date hero */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 22px 8px' }}>
+      {/* Date — compact single row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 20px 6px' }}>
         <button
           onClick={() => onDateChange(offsetDate(currentDate, -1))}
           style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: 'var(--card)', border: '1px solid var(--line-soft)',
+            width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+            background: 'transparent', border: 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer',
+            fontSize: 16, color: 'var(--ink-soft)', cursor: 'pointer',
           }}
         >‹</button>
 
-        <div style={{ flex: 1 }}>
-          <div className="nt-display" style={{ fontSize: 30, color: 'var(--ink)', lineHeight: 1.1 }}>
-            {month} 月 {day} 日
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-            <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
-              周{weekday} · 第 {dayNum} 天
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+          <span className="nt-serif" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+            {formatDateCompact(currentDate)}
+          </span>
+          <span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
+            · 第 {dayNum} 天
+          </span>
+          {isToday ? (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              padding: '2px 7px', borderRadius: 999,
+              background: 'rgba(79,166,99,0.12)', border: '1px solid rgba(79,166,99,0.25)',
+              fontSize: 10, color: 'var(--sage)', fontWeight: 600,
+            }}>
+              <span className="nt-pulse" style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--sage)' }} />
+              今日
             </span>
-            {isToday ? (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
+          ) : (
+            <button
+              onClick={() => onDateChange(today)}
+              style={{
                 padding: '2px 8px', borderRadius: 999,
-                background: 'rgba(79,166,99,0.12)', border: '1px solid rgba(79,166,99,0.25)',
-                fontSize: 11, color: 'var(--sage)', fontWeight: 600,
-              }}>
-                <span className="nt-pulse" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--sage)' }} />
-                今日
-              </span>
-            ) : (
-              <button
-                onClick={() => onDateChange(today)}
-                style={{
-                  padding: '2px 10px', borderRadius: 999,
-                  background: 'var(--ink)', color: '#fff',
-                  fontSize: 11, border: 'none', cursor: 'pointer',
-                }}
-              >
-                ↩ 回到今天
-              </button>
-            )}
-          </div>
+                background: 'var(--ink)', color: '#fff',
+                fontSize: 10, border: 'none', cursor: 'pointer',
+              }}
+            >↩ 今日</button>
+          )}
         </div>
 
         <button
           onClick={() => onDateChange(offsetDate(currentDate, 1))}
           disabled={isToday}
           style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: isToday ? 'transparent' : 'var(--card)',
-            border: isToday ? '1px solid transparent' : '1px solid var(--line-soft)',
+            width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+            background: 'transparent', border: 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, color: isToday ? 'var(--ink-faint)' : 'var(--ink-soft)', cursor: isToday ? 'default' : 'pointer',
+            fontSize: 16, color: isToday ? 'var(--ink-faint)' : 'var(--ink-soft)',
+            cursor: isToday ? 'default' : 'pointer',
           }}
         >›</button>
       </div>
 
       {/* Calorie hero card */}
-      <div className="nt-card" style={{ margin: '4px 16px', padding: '20px 22px' }}>
-        <div className="nt-serif" style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 4 }}>
+      <div className="nt-card" style={{ margin: '2px 16px', padding: '16px 18px 14px' }}>
+        <div className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 6 }}>
           <span className="nt-mark">还能吃</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span className="nt-display" style={{ fontSize: 72, color: 'var(--tomato)', lineHeight: 1 }}>
-            {calorieRemain.toLocaleString()}
-          </span>
-          <span className="nt-serif" style={{ fontSize: 18, color: 'var(--ink-mute)' }}>千卡</span>
+        {/* Two-column: big number left, stats right */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span className="nt-display" style={{ fontSize: 56, color: 'var(--tomato)', lineHeight: 1 }}>
+                {calorieRemain.toLocaleString()}
+              </span>
+              <span className="nt-serif" style={{ fontSize: 16, color: 'var(--ink-mute)' }}>千卡</span>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', lineHeight: 1.4 }}>
+              已吃 {Math.round(calorieRecorded)} / {calorieTarget}
+            </div>
+            <div style={{ marginTop: 4, width: 80 }}>
+              <Bar value={calorieRecorded} target={calorieTarget} color="var(--tomato)" height={4} />
+            </div>
+            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--tomato)', marginTop: 3, fontWeight: 600 }}>
+              {Math.round(caloriePct * 100)}%
+            </div>
+          </div>
         </div>
-        <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 4 }}>
-          已记录 {Math.round(calorieRecorded)} / {calorieTarget} kcal · {Math.round(caloriePct * 100)}%
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <Bar value={calorieRecorded} target={calorieTarget} color="var(--tomato)" height={5} />
-        </div>
-        <hr className="nt-hr-dash" style={{ margin: '14px 0 8px' }} />
+        <hr className="nt-hr-dash" style={{ margin: '12px 0 8px' }} />
         <RotatingBanner />
       </div>
 
-      {/* Mini-stats row — tap to navigate */}
+      {/* Mini-stats row — both navigate to 今日明细 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '10px 16px' }}>
+
         {/* Macro Balance → MacrosScreen */}
         <div
           className="nt-card"
           onClick={() => onNav('macros')}
-          style={{ padding: '14px 16px', cursor: 'pointer' }}
+          style={{ padding: '12px 14px', cursor: 'pointer' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>宏量平衡</span>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span className="nt-serif" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>宏量平衡</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
           </div>
-          {/* Preview: 4 labeled bars */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 2 }}>
+            <span className="nt-display" style={{ fontSize: 28, color: 'var(--mustard)', lineHeight: 1 }}>{score}</span>
+            <span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>分</span>
+          </div>
+          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--tomato)', marginBottom: 8, lineHeight: 1.3 }}>
+            {summary}
+          </div>
+          {/* 4 mini bars */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {[
               { label: '蛋白', v: nutritionStatus?.macros.protein.consumed ?? 0, t: nutritionStatus?.macros.protein.target ?? 60, c: 'var(--sky)' },
               { label: '碳水', v: nutritionStatus?.macros.carbs.consumed ?? 0, t: nutritionStatus?.macros.carbs.target ?? 250, c: 'var(--grain)' },
               { label: '脂肪', v: nutritionStatus?.macros.fat.consumed ?? 0, t: nutritionStatus?.macros.fat.target ?? 65, c: 'var(--persimmon)' },
               { label: '纤维', v: nutritionStatus?.fiber.consumed ?? 0, t: nutritionStatus?.fiber.target ?? 25, c: 'var(--sage)' },
             ].map(item => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 9, color: item.c, fontWeight: 700, width: 18, flexShrink: 0, fontFamily: 'Noto Serif SC, serif' }}>{item.label}</span>
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 9, color: item.c, fontWeight: 700, width: 16, flexShrink: 0, fontFamily: 'Noto Serif SC, serif' }}>{item.label}</span>
                 <div style={{ flex: 1 }}>
-                  <Bar value={item.v} target={item.t} color={item.c} height={4} />
+                  <Bar value={item.v} target={item.t} color={item.c} height={3} />
                 </div>
               </div>
             ))}
           </div>
-          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)', marginTop: 6 }}>
-            点击查看今日明细
-          </div>
         </div>
 
-        {/* Food Diversity → DiversityScreen */}
+        {/* Food Diversity → MacrosScreen (same 今日明细 screen) */}
         <div
           className="nt-card"
-          onClick={() => onNav('diversity')}
-          style={{ padding: '14px 16px', cursor: 'pointer' }}
+          onClick={() => onNav('macros')}
+          style={{ padding: '12px 14px', cursor: 'pointer' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <span className="nt-serif" style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>食物多样性</span>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span className="nt-serif" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>食物多样性</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>›</span>
           </div>
-          {/* Preview: 7 emoji squares */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 8 }}>
+            <span className="nt-display" style={{ fontSize: 28, color: 'var(--sage)', lineHeight: 1 }}>{doneCount}</span>
+            <span className="nt-serif" style={{ fontSize: 18, color: 'var(--ink-mute)' }}>/</span>
+            <span className="nt-serif" style={{ fontSize: 14, color: 'var(--ink-mute)' }}>7</span>
+          </div>
+          {/* emoji chips */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
             {FOOD_GROUPS.map(g => (
               <div
                 key={g.key}
                 style={{
-                  width: 26, height: 26, borderRadius: 6,
+                  width: 24, height: 24, borderRadius: 6,
                   background: g.done ? g.color + '22' : 'var(--paper)',
                   border: `1px solid ${g.done ? g.color + '55' : 'var(--line-soft)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14,
-                  filter: g.done ? 'none' : 'grayscale(1) opacity(0.5)',
+                  fontSize: 13,
+                  filter: g.done ? 'none' : 'grayscale(1) opacity(0.45)',
                 }}
               >
                 {g.emoji}
               </div>
             ))}
           </div>
-          <div className="nt-serif" style={{ fontSize: 11, color: 'var(--sage)', marginTop: 6 }}>
-            {doneCount}/7 类 · 点击查看详情
+          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--sage)', fontWeight: 600 }}>
+            {nudge}
           </div>
         </div>
       </div>
@@ -291,6 +347,11 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
           <span className="nt-serif" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>今日笔记</span>
           <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--ink-mute)' }}>today's pages</span>
+          {dailyLog && (
+            <span className="nt-caveat" style={{ fontSize: 12, color: 'var(--ink-mute)', marginLeft: 'auto' }}>
+              {Math.round(calorieRecorded)} kcal
+            </span>
+          )}
         </div>
 
         <div style={{ position: 'relative', paddingLeft: 52 }}>
@@ -321,14 +382,7 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="nt-serif" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{mealLabel}</span>
-                    {mealCal > 0 && (
-                      <span className="nt-caveat" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
-                        {meal.type === 'breakfast' ? '08:20' : meal.type === 'lunch' ? '12:45' : meal.type === 'dinner' ? '18:30' : '15:00'}
-                      </span>
-                    )}
-                  </div>
+                  <span className="nt-serif" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{mealLabel}</span>
                   {mealCal > 0 && (
                     <span className="nt-caveat" style={{ fontSize: 13, color: 'var(--ink-mute)' }}>{mealCal} kcal</span>
                   )}
@@ -375,9 +429,10 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                         )}
                       </div>
                     ))}
-                    {/* 非空餐次的追加按钮 */}
+                    {/* 非空餐次追加按钮 */}
                     <button
                       onClick={() => onOpenAdd(meal.type)}
+                      className="nt-serif"
                       style={{
                         display: 'flex', alignItems: 'center', gap: 4,
                         marginTop: 4, padding: '5px 10px', borderRadius: 8,
@@ -386,7 +441,6 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                         fontSize: 11, color: 'var(--ink-mute)', cursor: 'pointer',
                         alignSelf: 'flex-start',
                       }}
-                      className="nt-serif"
                     >
                       ＋ 再记一笔
                     </button>
