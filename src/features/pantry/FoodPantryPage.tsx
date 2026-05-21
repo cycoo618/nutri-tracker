@@ -356,9 +356,6 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
           </button>
         </div>
         {/* Scan button */}
-        <button onClick={() => setSubView('scanner')} title="扫包装袋" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--ink)', border: 'none', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>📷</button>
-        {/* Combine button */}
-        <button onClick={() => setSubView('recipe')} title="组合食材" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line-soft)', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>🍽️</button>
       </div>
 
       {/* Search + density toggle */}
