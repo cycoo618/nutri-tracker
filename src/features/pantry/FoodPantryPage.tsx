@@ -337,26 +337,28 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       zIndex: 40, display: 'flex', flexDirection: 'column', overflowY: 'auto',
     }}>
 
-      {/* Header: back + title + action buttons + sync */}
-      <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      {/* Header: back + title/subtitle(with sync dot) + scan + combine */}
+      <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>‹</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="nt-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.1 }}>食材库</div>
-          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)', marginTop: 1 }}>{records.length} 件食物</div>
+          <button
+            onClick={handleForceSync}
+            disabled={cloudStatus === 'syncing' || !userId}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}
+          >
+            <span style={{ fontSize: 10, color: cloudStatus === 'error' ? 'var(--tomato)' : cloudStatus === 'synced' ? 'var(--sage)' : 'var(--ink-mute)' }}>
+              {cloudStatus === 'syncing' ? '⟳' : cloudStatus === 'error' ? '⚠' : '☁'}
+            </span>
+            <span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>
+              {records.length} 件 · {cloudStatus === 'syncing' ? '同步中' : cloudStatus === 'synced' ? '已同步' : cloudStatus === 'error' ? '点击重试' : '未同步'}
+            </span>
+          </button>
         </div>
         {/* Scan button */}
         <button onClick={() => setSubView('scanner')} title="扫包装袋" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--ink)', border: 'none', color: 'var(--paper)', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>▦</button>
         {/* Combine button */}
         <button onClick={() => setSubView('recipe')} title="组合食材" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line-soft)', color: 'var(--moss)', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>⚗</button>
-        {/* Sync chip */}
-        <button onClick={handleForceSync} disabled={cloudStatus === 'syncing' || !userId} className="nt-chip" style={{
-          color: cloudStatus === 'error' ? 'var(--tomato)' : cloudStatus === 'synced' ? 'var(--sage)' : 'var(--ink-mute)',
-          borderColor: cloudStatus === 'error' ? 'rgba(255,107,87,0.3)' : cloudStatus === 'synced' ? 'rgba(79,166,99,0.3)' : 'var(--line-soft)',
-          cursor: 'pointer', background: 'transparent', flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 10 }}>{cloudStatus === 'syncing' ? '⟳' : '☁'}</span>
-          {cloudStatus === 'syncing' ? '同步中' : cloudStatus === 'synced' ? '已同步' : cloudStatus === 'error' ? '重试' : '云'}
-        </button>
       </div>
 
       {/* Search + density toggle */}
