@@ -451,7 +451,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {[
                   { view: 'food_photo' as View, icon: '🔍', label: '识别食物', color: '#C0431F', bg: 'rgba(192,67,31,0.08)', border: 'rgba(192,67,31,0.18)' },
-                  { view: 'scanner'   as View, icon: '📊', label: '扫营养价值表', color: '#2D6E40', bg: 'rgba(45,110,64,0.08)', border: 'rgba(45,110,64,0.18)' },
+                  { view: 'scanner'   as View, icon: '📷', label: '扫营养价值表', color: '#2D6E40', bg: 'rgba(45,110,64,0.08)', border: 'rgba(45,110,64,0.18)' },
                   { view: 'recipe'    as View, icon: '🍽️', label: '自定义食物', color: '#A64080', bg: 'rgba(166,64,128,0.07)', border: 'rgba(166,64,128,0.15)' },
                 ].map(s => (
                   <button

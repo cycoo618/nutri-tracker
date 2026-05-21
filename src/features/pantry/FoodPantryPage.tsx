@@ -105,7 +105,7 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
 function MiniKindDot({ source }: { source?: string }) {
   const isScan = source === 'scanned';
   const color = isScan ? 'var(--sky)' : 'var(--moss)';
-  const glyph = isScan ? '▦' : '⚗';
+  const glyph = isScan ? '📷' : '🍽️';
   return (
     <span style={{
       flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -356,9 +356,9 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
           </button>
         </div>
         {/* Scan button */}
-        <button onClick={() => setSubView('scanner')} title="扫包装袋" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--ink)', border: 'none', color: 'var(--paper)', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>▦</button>
+        <button onClick={() => setSubView('scanner')} title="扫包装袋" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--ink)', border: 'none', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>📷</button>
         {/* Combine button */}
-        <button onClick={() => setSubView('recipe')} title="组合食材" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line-soft)', color: 'var(--moss)', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>⚗</button>
+        <button onClick={() => setSubView('recipe')} title="组合食材" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line-soft)', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>🍽️</button>
       </div>
 
       {/* Search + density toggle */}
@@ -415,7 +415,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
             {records.length === 0 ? '食材库还是空的' : '没有匹配的食材'}
           </div>
           <div className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4 }}>
-            {records.length === 0 ? '点击 ▦ 扫包装袋，或 ⚗ 组合食材' : '换个关键词试试'}
+            {records.length === 0 ? '点击 📷 扫包装袋，或 🍽️ 自定义食物' : '换个关键词试试'}
           </div>
         </div>
       )}
@@ -477,7 +477,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                     border: '1px solid ' + (rec.pantrySource === 'scanned'
                       ? 'color-mix(in oklab, var(--sky) 18%, var(--line-soft))'
                       : 'color-mix(in oklab, var(--moss) 18%, var(--line-soft))'),
-                  }}>{rec.pantrySource === 'scanned' ? '▦' : '⚗'}</div>
+                  }}>{rec.pantrySource === 'scanned' ? '📷' : '🍽️'}</div>
                   {/* name */}
                   <div className="nt-serif" style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.name}</div>
                   {/* kcal */}
