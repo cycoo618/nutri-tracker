@@ -337,36 +337,41 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       zIndex: 40, display: 'flex', flexDirection: 'column', overflowY: 'auto',
     }}>
 
-      {/* Header */}
-      <div style={{ padding: '10px 20px 0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-        <div style={{ flex: 1 }}>
-          <div className="nt-display" style={{ fontSize: 22, color: 'var(--ink)', lineHeight: 1.1 }}>食材库</div>
-          <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>你的食物档案 · {records.length} 件</div>
+      {/* Header: back + title + action buttons + sync */}
+      <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>‹</button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="nt-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.1 }}>食材库</div>
+          <div className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)', marginTop: 1 }}>{records.length} 件食物</div>
         </div>
+        {/* Scan button */}
+        <button onClick={() => setSubView('scanner')} title="扫包装袋" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--ink)', border: 'none', color: 'var(--paper)', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>▦</button>
+        {/* Combine button */}
+        <button onClick={() => setSubView('recipe')} title="组合食材" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line-soft)', color: 'var(--moss)', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>⚗</button>
+        {/* Sync chip */}
         <button onClick={handleForceSync} disabled={cloudStatus === 'syncing' || !userId} className="nt-chip" style={{
           color: cloudStatus === 'error' ? 'var(--tomato)' : cloudStatus === 'synced' ? 'var(--sage)' : 'var(--ink-mute)',
           borderColor: cloudStatus === 'error' ? 'rgba(255,107,87,0.3)' : cloudStatus === 'synced' ? 'rgba(79,166,99,0.3)' : 'var(--line-soft)',
-          cursor: 'pointer', background: 'transparent',
+          cursor: 'pointer', background: 'transparent', flexShrink: 0,
         }}>
           <span style={{ fontSize: 10 }}>{cloudStatus === 'syncing' ? '⟳' : '☁'}</span>
-          {cloudStatus === 'syncing' ? '同步中' : cloudStatus === 'synced' ? '已同步' : cloudStatus === 'error' ? '重试' : '同步'}
+          {cloudStatus === 'syncing' ? '同步中' : cloudStatus === 'synced' ? '已同步' : cloudStatus === 'error' ? '重试' : '云'}
         </button>
       </div>
 
-      {/* Search + density + action buttons */}
-      <div style={{ padding: '12px 18px 0', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+      {/* Search + density toggle */}
+      <div style={{ padding: '10px 16px 0', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
         {/* Search input */}
-        <div className="nt-card" style={{ flex: 1, height: 36, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12 }}>
-          <span style={{ fontSize: 13, color: 'var(--ink-mute)' }}>⌕</span>
+        <div className="nt-card" style={{ flex: 1, height: 36, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12, minWidth: 0 }}>
+          <span style={{ fontSize: 13, color: 'var(--ink-mute)', flexShrink: 0 }}>⌕</span>
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="搜索食材"
-            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 12, color: 'var(--ink)', fontFamily: 'inherit' }}
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--ink)', fontFamily: 'inherit', minWidth: 0 }}
           />
         </div>
         {/* Density toggle */}
-        <div style={{ display: 'flex', height: 36, padding: 3, background: 'var(--card)', border: '1px solid var(--line-soft)', borderRadius: 12 }}>
+        <div style={{ display: 'flex', height: 36, padding: 3, background: 'var(--card)', border: '1px solid var(--line-soft)', borderRadius: 12, flexShrink: 0 }}>
           {([['list', '☰'], ['card', '▤'], ['grid', '⊞']] as [typeof density, string][]).map(([k, g]) => (
             <button key={k} onClick={() => setDensity(k)} style={{
               width: 28, borderRadius: 9, border: 'none', cursor: 'pointer',
@@ -376,10 +381,6 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
             }}>{g}</button>
           ))}
         </div>
-        {/* Scan button */}
-        <button onClick={() => setSubView('scanner')} title="扫包装袋" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--ink)', border: 'none', color: 'var(--paper)', fontSize: 14, cursor: 'pointer' }}>▦</button>
-        {/* Combine button */}
-        <button onClick={() => setSubView('recipe')} title="组合食材" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line-soft)', color: 'var(--moss)', fontSize: 14, cursor: 'pointer' }}>⚗</button>
       </div>
 
       {/* Section label + tabs */}
