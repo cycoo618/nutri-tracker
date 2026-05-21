@@ -100,6 +100,40 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
   );
 }
 
+// ── Helper sub-components ─────────────────────────────────────────────────
+
+function MiniKindDot({ source }: { source?: string }) {
+  const isScan = source === 'scanned';
+  const color = isScan ? 'var(--sky)' : 'var(--moss)';
+  const glyph = isScan ? '▦' : '⚗';
+  return (
+    <span style={{
+      flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 16, height: 16, borderRadius: 5, fontSize: 9,
+      background: `color-mix(in oklab, ${color} 14%, var(--card))`,
+      color, border: `1px solid color-mix(in oklab, ${color} 25%, var(--line-soft))`,
+    }}>{glyph}</span>
+  );
+}
+
+function MiniMacroTile({ label, value, unit, tint }: { label: string; value: number; unit: string; tint: string }) {
+  return (
+    <div style={{
+      padding: '6px 4px 5px', borderRadius: 8,
+      background: `color-mix(in oklab, ${tint} 12%, var(--card))`,
+      border: `1px solid color-mix(in oklab, ${tint} 20%, var(--line-soft))`,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+    }}>
+      <div className="nt-serif" style={{ fontSize: 9, color: tint, fontWeight: 600, letterSpacing: 0.4 }}>{label}</div>
+      <div className="nt-display" style={{ fontSize: 15, color: tint, lineHeight: 1.1 }}>
+        {formatNumber(value)}<span style={{ fontSize: 8, marginLeft: 1, opacity: 0.7 }}>{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Types ────────────────────────────────────────────────────────────────
+
 interface FoodPantryPageProps {
   onClose: () => void;
   userId?: string;
@@ -123,6 +157,11 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
   const [renameValue, setRenameValue] = useState('');
   const [addedId, setAddedId] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>('idle');
+
+  // ── New UI state ──────────────────────────────────────────────────────
+  const [density, setDensity] = useState<'list' | 'card' | 'grid'>('card');
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'all' | 'scanned' | 'combined'>('all');
 
   const refresh = useCallback(() => {
     const foods = getAllCustomFoods();
@@ -275,297 +314,319 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     );
   }
 
+  // ── Computed values ───────────────────────────────────────────────
+  const byTab = records.filter(r =>
+    tab === 'all' ? true :
+    tab === 'scanned' ? r.pantrySource === 'scanned' :
+    r.pantrySource === 'recipe' || r.pantrySource === 'manual'
+  );
+  const filtered = search.trim()
+    ? byTab.filter(r => r.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : byTab;
+
+  const counts = {
+    all: records.length,
+    scan: records.filter(r => r.pantrySource === 'scanned').length,
+    combo: records.filter(r => r.pantrySource !== 'scanned').length,
+  };
+
   // ── 主列表 ──────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-x-0 bg-gray-50 z-40 flex flex-col" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}>
+    <div className="nt-paper nt-grain" style={{
+      position: 'fixed', inset: 0, top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)',
+      zIndex: 40, display: 'flex', flexDirection: 'column', overflowY: 'auto',
+    }}>
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10 shrink-0">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="w-14 shrink-0" />
-          <h1 className="flex-1 text-center font-semibold text-gray-900">{t('pantryTitle')}</h1>
-          {/* 云同步状态 */}
-          <button
-            onClick={handleForceSync}
-            disabled={cloudStatus === 'syncing' || !userId}
-            className="shrink-0 flex items-center gap-1 text-xs transition-colors disabled:cursor-default"
-          >
-            {cloudStatus === 'syncing' && (
-              <span className="text-gray-400 flex items-center gap-1">
-                <span className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin inline-block" />
-                {t('syncing')}
-              </span>
-            )}
-            {cloudStatus === 'synced' && (
-              <span className="text-green-500" style={{ fontSize: '0.8rem' }}>{t('synced')}</span>
-            )}
-            {cloudStatus === 'error' && (
-              <span className="text-red-400">{t('retry')}</span>
-            )}
-            {cloudStatus === 'idle' && (
-              <span className="text-gray-400">{records.length} {t('itemUnit')}</span>
-            )}
-          </button>
+      <div style={{ padding: '10px 20px 0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+        <div style={{ flex: 1 }}>
+          <div className="nt-display" style={{ fontSize: 22, color: 'var(--ink)', lineHeight: 1.1 }}>食材库</div>
+          <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>你的食物档案 · {records.length} 件</div>
         </div>
-      </header>
-
-      {/* 操作按钮 */}
-      <div className="max-w-lg mx-auto w-full px-4 pt-4 pb-2 shrink-0">
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setSubView('scanner')}
-            className="py-3.5 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-semibold transition-colors shadow-sm"
-          >
-            {t('scanPackage')}
-          </button>
-          <button
-            onClick={() => setSubView('recipe')}
-            className="py-3.5 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-2xl text-sm font-semibold transition-colors shadow-sm"
-          >
-            {t('buildRecipe')}
-          </button>
-        </div>
-      </div>
-
-      {/* 食物列表 */}
-      <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-4 pb-4">
-
-        {/* ── 诊断 banner（addedId 存在时说明 handleSaved 已运行） ── */}
-        {addedId && (
-          <div className="mt-3 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-700 flex items-center gap-2">
-            <span>✓</span>
-            <span>已保存（食材总数: {records.length}）—— 请在列表最上方查找</span>
-          </div>
-        )}
-
-        {/* ── 你的食材库 ───────────────────────────────────────────── */}
-        <div className="pt-2">
-          <div className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
-            <span>🗄️</span>
-            {t('myPantry')}
-            {records.length === 0 && (
-              <span className="text-xs text-gray-300 font-normal">{t('emptyLabel')}</span>
-            )}
-          </div>
-
-          {records.length === 0 && familyRecords.length === 0 && (
-            <div className="text-center py-10">
-              <div className="text-5xl mb-4">📦</div>
-              <div className="text-gray-600 font-medium mb-1">{t('pantryEmpty')}</div>
-              <div className="text-gray-400 text-sm">{t('pantryEmptyHint')}</div>
-            </div>
-          )}
-
-          {records.length > 0 && (
-          <div className="space-y-3">
-            {records.map(record => {
-              const isNew = addedId === record.id;
-              return (
-                <div
-                  key={record.id}
-                  onClick={() => setSelectedRecord(record)}
-                  className={`bg-white rounded-2xl border transition-all cursor-pointer active:scale-[0.99] ${
-                    isNew
-                      ? 'border-green-300 shadow-md shadow-green-50'
-                      : 'border-gray-100 shadow-sm'
-                  }`}
-                >
-                  <div className="p-4">
-                    {/* 名称 + 新增标签 */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex-1 min-w-0">
-                        {renamingId === record.id ? (
-                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                            <input
-                              autoFocus
-                              value={renameValue}
-                              onChange={e => setRenameValue(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handleRename(record.id, renameValue);
-                                if (e.key === 'Escape') setRenamingId(null);
-                              }}
-                              className="flex-1 text-sm font-semibold border-b border-green-400 focus:outline-none bg-transparent py-0.5"
-                            />
-                            <button onClick={() => handleRename(record.id, renameValue)} className="text-xs text-green-600 font-medium shrink-0">{t('save')}</button>
-                            <button onClick={() => setRenamingId(null)} className="text-xs text-gray-400 shrink-0">{t('cancel')}</button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-gray-900">{record.name}</span>
-                            {isNew && (
-                              <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">{t('savedBadge')}</span>
-                            )}
-                            {record.pantrySource === 'scanned' && (
-                              <span className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full shrink-0">{t('tagScan')}</span>
-                            )}
-                            {record.pantrySource === 'recipe' && (
-                              <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full shrink-0">{t('tagRecipe')}</span>
-                            )}
-                          </div>
-                        )}
-                        {record.servingSizes.length > 0 && renamingId !== record.id && (
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {localizeServingLabel(record.servingSizes[0].label, locale)}
-                          </div>
-                        )}
-                      </div>
-                      {/* 编辑 + 删除 */}
-                      {deleteConfirm === record.id ? (
-                        <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-400 hover:text-gray-600">{t('cancel')}</button>
-                          <button onClick={() => handleDelete(record.id)} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors">{t('confirmDelete')}</button>
-                        </div>
-                      ) : renamingId !== record.id ? (
-                        <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                          {record.pantrySource === 'recipe' && (
-                            <button
-                              onClick={() => { setEditingRecipe(record); setSubView('recipe'); }}
-                              className="text-gray-300 hover:text-blue-400 text-sm leading-none transition-colors"
-                              title="编辑配料"
-                            >✏️</button>
-                          )}
-                          <button
-                            onClick={() => { setRenamingId(record.id); setRenameValue(record.name); }}
-                            className="text-gray-300 hover:text-purple-400 text-xs leading-none transition-colors px-1"
-                            title="改名"
-                          >Aa</button>
-                          <button onClick={() => setDeleteConfirm(record.id)} className="text-gray-300 hover:text-red-400 text-lg leading-none transition-colors">×</button>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* 营养数据 */}
-                    <div className="grid grid-cols-4 gap-2 text-center mb-3">
-                      <NutriBadge label={t('calories')} value={`${record.per100g.calories}`} unit="kcal" color="amber" />
-                      <NutriBadge label={t('proteinShort')} value={formatNumber(record.per100g.protein)} unit="g" color="blue" />
-                      <NutriBadge label={t('carbs')} value={formatNumber(record.per100g.carbs)} unit="g" color="orange" />
-                      <NutriBadge label={t('fat')} value={formatNumber(record.per100g.fat)} unit="g" color="red" />
-                    </div>
-                    <div className="text-xs text-gray-400 mb-3 text-center">{t('perHundredG')}</div>
-
-                    {/* 食材明细 */}
-                    {record.ingredients.length > 0 && (
-                      <div className="bg-gray-50 rounded-xl p-2.5 mb-3">
-                        <div className="text-xs text-gray-400 mb-1.5">{t('ingredientsList')}</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {record.ingredients.map(ing => (
-                            <span
-                              key={ing.foodId}
-                              className="text-xs bg-white border border-gray-100 rounded-lg px-2 py-0.5 text-gray-600"
-                            >
-                              {ing.foodName} {ing.grams}g
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 添加到今日 */}
-                    {onAddToLog && (
-                      <button
-                        onClick={e => { e.stopPropagation(); handleAddToLog(record); }}
-                        className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium rounded-xl transition-colors"
-                      >
-                        {t('addToLog')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          )}
-        </div>
-
-        {/* ── 家庭食材库 ───────────────────────────────────────────── */}
-        {familyRecords.length > 0 && (
-          <div className="pt-4">
-            <div className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
-              <span>👨‍👩‍👧</span> {t('familyPantry')}
-              <span className="text-xs text-gray-400 font-normal">{t('familyReadOnly')}</span>
-            </div>
-            <div className="space-y-3">
-              {familyRecords.map((record, idx) => (
-                <div
-                  key={record.id || idx}
-                  onClick={() => setSelectedRecord(record)}
-                  className="bg-white rounded-2xl border border-green-100 shadow-sm cursor-pointer active:scale-[0.99] transition-transform"
-                >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-gray-900">{record.name}</span>
-                          <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full shrink-0">
-                            👨‍👩‍👧 {t('tagFamily')}
-                          </span>
-                        </div>
-                        {record.servingSizes?.length > 0 && (
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {localizeServingLabel(record.servingSizes[0].label, locale)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2 text-center mb-3">
-                      <NutriBadge label={t('calories')} value={`${record.per100g.calories}`} unit="kcal" color="amber" />
-                      <NutriBadge label={t('proteinShort')} value={formatNumber(record.per100g.protein)} unit="g" color="blue" />
-                      <NutriBadge label={t('carbs')} value={formatNumber(record.per100g.carbs)} unit="g" color="orange" />
-                      <NutriBadge label={t('fat')} value={formatNumber(record.per100g.fat)} unit="g" color="red" />
-                    </div>
-                    <div className="text-xs text-gray-400 mb-3 text-center">{t('perHundredG')}</div>
-                    {onAddToLog && (
-                      <button
-                        onClick={e => { e.stopPropagation(); onAddToLog(recordToFoodItem(record)); }}
-                        className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium rounded-xl transition-colors"
-                      >
-                        {t('addToLog')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 底部返回按钮 */}
-      <div className="shrink-0 px-4 py-3 border-t border-gray-100 max-w-lg mx-auto w-full">
-        <button
-          onClick={onClose}
-          className="w-full py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 border border-gray-300 text-gray-600 font-medium transition-colors"
-        >
-          {t('back')}
+        <button onClick={handleForceSync} disabled={cloudStatus === 'syncing' || !userId} className="nt-chip" style={{
+          color: cloudStatus === 'error' ? 'var(--tomato)' : cloudStatus === 'synced' ? 'var(--sage)' : 'var(--ink-mute)',
+          borderColor: cloudStatus === 'error' ? 'rgba(255,107,87,0.3)' : cloudStatus === 'synced' ? 'rgba(79,166,99,0.3)' : 'var(--line-soft)',
+          cursor: 'pointer', background: 'transparent',
+        }}>
+          <span style={{ fontSize: 10 }}>{cloudStatus === 'syncing' ? '⟳' : '☁'}</span>
+          {cloudStatus === 'syncing' ? '同步中' : cloudStatus === 'synced' ? '已同步' : cloudStatus === 'error' ? '重试' : '同步'}
         </button>
       </div>
+
+      {/* Search + density + action buttons */}
+      <div style={{ padding: '12px 18px 0', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+        {/* Search input */}
+        <div className="nt-card" style={{ flex: 1, height: 36, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 12 }}>
+          <span style={{ fontSize: 13, color: 'var(--ink-mute)' }}>⌕</span>
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="搜索食材"
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 12, color: 'var(--ink)', fontFamily: 'inherit' }}
+          />
+        </div>
+        {/* Density toggle */}
+        <div style={{ display: 'flex', height: 36, padding: 3, background: 'var(--card)', border: '1px solid var(--line-soft)', borderRadius: 12 }}>
+          {([['list', '☰'], ['card', '▤'], ['grid', '⊞']] as [typeof density, string][]).map(([k, g]) => (
+            <button key={k} onClick={() => setDensity(k)} style={{
+              width: 28, borderRadius: 9, border: 'none', cursor: 'pointer',
+              background: density === k ? 'var(--paper-2)' : 'transparent',
+              color: density === k ? 'var(--ink)' : 'var(--ink-mute)',
+              fontSize: 13,
+            }}>{g}</button>
+          ))}
+        </div>
+        {/* Scan button */}
+        <button onClick={() => setSubView('scanner')} title="扫包装袋" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--ink)', border: 'none', color: 'var(--paper)', fontSize: 14, cursor: 'pointer' }}>▦</button>
+        {/* Combine button */}
+        <button onClick={() => setSubView('recipe')} title="组合食材" style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line-soft)', color: 'var(--moss)', fontSize: 14, cursor: 'pointer' }}>⚗</button>
+      </div>
+
+      {/* Section label + tabs */}
+      <div style={{ padding: '16px 22px 6px', display: 'flex', alignItems: 'baseline', gap: 10, flexShrink: 0 }}>
+        <span className="nt-serif" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>你的食材库</span>
+        <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--tomato)' }}>your pantry</span>
+      </div>
+      <div style={{ padding: '0 22px 8px', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        {[
+          { k: 'all' as const, l: '全部', n: counts.all },
+          { k: 'scanned' as const, l: '扫码', n: counts.scan },
+          { k: 'combined' as const, l: '组合', n: counts.combo },
+        ].map(t => (
+          <button key={t.k} onClick={() => setTab(t.k)} style={{
+            background: 'transparent', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit',
+            color: tab === t.k ? 'var(--ink)' : 'var(--ink-mute)',
+            fontWeight: tab === t.k ? 700 : 400, fontSize: 13,
+            borderBottom: '1.5px solid ' + (tab === t.k ? 'var(--ink)' : 'transparent'),
+          }}>
+            {t.l} <span style={{ fontSize: 10, color: 'var(--ink-mute)', fontWeight: 400 }}>{t.n}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📦</div>
+          <div className="nt-serif" style={{ fontSize: 14, color: 'var(--ink-mute)' }}>
+            {records.length === 0 ? '食材库还是空的' : '没有匹配的食材'}
+          </div>
+          <div className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4 }}>
+            {records.length === 0 ? '点击 ▦ 扫包装袋，或 ⚗ 组合食材' : '换个关键词试试'}
+          </div>
+        </div>
+      )}
+
+      {/* addedId banner */}
+      {addedId && (
+        <div style={{ margin: '4px 18px', padding: '8px 14px', background: 'color-mix(in oklab, var(--sage) 12%, var(--card))', borderRadius: 10, border: '1px solid color-mix(in oklab, var(--sage) 30%, var(--line-soft))', fontSize: 12, color: 'var(--moss)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>✓</span>
+          <span>已保存（食材总数: {records.length}）</span>
+        </div>
+      )}
+
+      {/* List density */}
+      {density === 'list' && filtered.length > 0 && (
+        <div className="nt-card" style={{ margin: '0 18px 4px', padding: '4px 10px' }}>
+          {filtered.map((rec, i, arr) => (
+            <div key={rec.id}>
+              {deleteConfirm === rec.id ? (
+                <div onClick={e => e.stopPropagation()} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px',
+                  borderBottom: i < arr.length - 1 ? '1px dashed var(--line-soft)' : 'none',
+                }}>
+                  <div className="nt-serif" style={{ flex: 1, fontSize: 13, color: 'var(--ink-mute)' }}>删除「{rec.name}」？</div>
+                  <button onClick={() => setDeleteConfirm(null)} style={{ fontSize: 12, color: 'var(--ink-mute)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px' }}>取消</button>
+                  <button onClick={() => handleDelete(rec.id)} style={{ fontSize: 12, color: 'var(--paper)', background: 'var(--tomato)', border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 8 }}>删除</button>
+                </div>
+              ) : renamingId === rec.id ? (
+                <div onClick={e => e.stopPropagation()} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '10px 8px',
+                  borderBottom: i < arr.length - 1 ? '1px dashed var(--line-soft)' : 'none',
+                }}>
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleRename(rec.id, renameValue);
+                      if (e.key === 'Escape') setRenamingId(null);
+                    }}
+                    style={{ flex: 1, fontSize: 13, border: 'none', borderBottom: '1px solid var(--sage)', outline: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: 'inherit', padding: '2px 0' }}
+                  />
+                  <button onClick={() => handleRename(rec.id, renameValue)} style={{ fontSize: 11, color: 'var(--moss)', background: 'transparent', border: 'none', cursor: 'pointer' }}>保存</button>
+                  <button onClick={() => setRenamingId(null)} style={{ fontSize: 11, color: 'var(--ink-mute)', background: 'transparent', border: 'none', cursor: 'pointer' }}>取消</button>
+                </div>
+              ) : (
+                <div onClick={() => setSelectedRecord(rec)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px',
+                  borderBottom: i < arr.length - 1 ? '1px dashed var(--line-soft)' : 'none',
+                  cursor: 'pointer',
+                }}>
+                  {/* kind icon */}
+                  <div style={{
+                    flexShrink: 0, width: 36, height: 36, borderRadius: 10, fontSize: 14,
+                    background: rec.pantrySource === 'scanned'
+                      ? 'color-mix(in oklab, var(--sky) 12%, var(--card))'
+                      : 'color-mix(in oklab, var(--moss) 10%, var(--card))',
+                    color: rec.pantrySource === 'scanned' ? 'var(--sky)' : 'var(--moss)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '1px solid ' + (rec.pantrySource === 'scanned'
+                      ? 'color-mix(in oklab, var(--sky) 18%, var(--line-soft))'
+                      : 'color-mix(in oklab, var(--moss) 18%, var(--line-soft))'),
+                  }}>{rec.pantrySource === 'scanned' ? '▦' : '⚗'}</div>
+                  {/* name */}
+                  <div className="nt-serif" style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.name}</div>
+                  {/* kcal */}
+                  <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 60 }}>
+                    <div className="nt-display" style={{ fontSize: 18, color: 'var(--mustard)', lineHeight: 1 }}>{rec.per100g.calories}</div>
+                    <div className="nt-serif" style={{ fontSize: 9, color: 'var(--ink-mute)', marginTop: 2 }}>千卡/100g</div>
+                  </div>
+                  {/* edit/delete actions */}
+                  <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                    {rec.pantrySource === 'recipe' && (
+                      <button onClick={() => { setEditingRecipe(rec); setSubView('recipe'); }} style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 4px' }} title="编辑配料">✏️</button>
+                    )}
+                    <button onClick={() => { setRenamingId(rec.id); setRenameValue(rec.name); }} style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 4px' }} title="改名">Aa</button>
+                    <button onClick={() => setDeleteConfirm(rec.id)} style={{ fontSize: 16, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 4px', lineHeight: 1 }}>×</button>
+                  </div>
+                  {/* quick add */}
+                  {onAddToLog && (
+                    <button onClick={e => { e.stopPropagation(); handleAddToLog(rec); }} style={{
+                      flexShrink: 0, width: 28, height: 28, borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      background: 'color-mix(in oklab, var(--sage) 14%, var(--card))',
+                      border: '1px solid color-mix(in oklab, var(--sage) 35%, var(--line-soft))',
+                      color: 'var(--moss)',
+                    }}>＋</button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Card density */}
+      {density === 'card' && filtered.length > 0 && (
+        <div style={{ padding: '0 18px 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filtered.map(rec => (
+            <div key={rec.id} className="nt-card" onClick={() => setSelectedRecord(rec)} style={{ padding: '12px 14px', cursor: 'pointer' }}>
+              {/* header row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {renamingId === rec.id ? (
+                      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleRename(rec.id, renameValue);
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                          style={{ flex: 1, fontSize: 14, border: 'none', borderBottom: '1px solid var(--sage)', outline: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: 'inherit', padding: '2px 0' }}
+                        />
+                        <button onClick={() => handleRename(rec.id, renameValue)} style={{ fontSize: 11, color: 'var(--moss)', background: 'transparent', border: 'none', cursor: 'pointer' }}>保存</button>
+                        <button onClick={() => setRenamingId(null)} style={{ fontSize: 11, color: 'var(--ink-mute)', background: 'transparent', border: 'none', cursor: 'pointer' }}>取消</button>
+                      </div>
+                    ) : deleteConfirm === rec.id ? (
+                      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <span className="nt-serif" style={{ flex: 1, fontSize: 12, color: 'var(--ink-mute)' }}>删除「{rec.name}」？</span>
+                        <button onClick={() => setDeleteConfirm(null)} style={{ fontSize: 11, color: 'var(--ink-mute)', background: 'transparent', border: 'none', cursor: 'pointer' }}>取消</button>
+                        <button onClick={() => handleDelete(rec.id)} style={{ fontSize: 11, color: 'var(--paper)', background: 'var(--tomato)', border: 'none', cursor: 'pointer', padding: '2px 8px', borderRadius: 6 }}>删除</button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="nt-serif" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.name}</span>
+                        <MiniKindDot source={rec.pantrySource} />
+                        {/* edit/delete */}
+                        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }}>
+                          {rec.pantrySource === 'recipe' && (
+                            <button onClick={() => { setEditingRecipe(rec); setSubView('recipe'); }} style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 3px' }} title="编辑配料">✏️</button>
+                          )}
+                          <button onClick={() => { setRenamingId(rec.id); setRenameValue(rec.name); }} style={{ fontSize: 10, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 3px' }} title="改名">Aa</button>
+                          <button onClick={() => setDeleteConfirm(rec.id)} style={{ fontSize: 14, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 3px', lineHeight: 1 }}>×</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span>记录于 {new Date(rec.createdAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}</span>
+                  </div>
+                </div>
+                {onAddToLog && renamingId !== rec.id && deleteConfirm !== rec.id && (
+                  <button onClick={e => { e.stopPropagation(); handleAddToLog(rec); }} style={{
+                    flexShrink: 0, width: 28, height: 28, borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    background: 'color-mix(in oklab, var(--sage) 14%, var(--card))',
+                    border: '1px solid color-mix(in oklab, var(--sage) 35%, var(--line-soft))',
+                    color: 'var(--moss)',
+                  }}>＋</button>
+                )}
+              </div>
+              {/* mini macro grid */}
+              <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                <MiniMacroTile label="热量" value={rec.per100g.calories} unit="kcal" tint="var(--mustard)" />
+                <MiniMacroTile label="蛋白" value={rec.per100g.protein} unit="g" tint="var(--sky)" />
+                <MiniMacroTile label="碳水" value={rec.per100g.carbs} unit="g" tint="var(--persimmon)" />
+                <MiniMacroTile label="脂肪" value={rec.per100g.fat} unit="g" tint="var(--tomato)" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Grid density */}
+      {density === 'grid' && filtered.length > 0 && (
+        <div style={{ padding: '0 18px 4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {filtered.map(rec => (
+            <div key={rec.id} className="nt-card" onClick={() => setSelectedRecord(rec)} style={{ padding: '12px 11px 10px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                {deleteConfirm === rec.id ? (
+                  <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                    <span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>删除「{rec.name}」？</span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => setDeleteConfirm(null)} style={{ fontSize: 10, color: 'var(--ink-mute)', background: 'transparent', border: 'none', cursor: 'pointer' }}>取消</button>
+                      <button onClick={() => handleDelete(rec.id)} style={{ fontSize: 10, color: 'var(--paper)', background: 'var(--tomato)', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: 6 }}>删除</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="nt-serif" style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{rec.name}</div>
+                    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                      <MiniKindDot source={rec.pantrySource} />
+                      <button onClick={() => setDeleteConfirm(rec.id)} style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', lineHeight: 1, padding: 0 }}>×</button>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div style={{ padding: '4px 0', borderTop: '1px dashed var(--line-soft)', borderBottom: '1px dashed var(--line-soft)', textAlign: 'center' }}>
+                <div className="nt-display" style={{ fontSize: 24, color: 'var(--mustard)', lineHeight: 1 }}>{rec.per100g.calories}</div>
+                <div className="nt-serif" style={{ fontSize: 9, color: 'var(--ink-mute)', marginTop: 2 }}>千卡 / 100g</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5 }}>
+                <span style={{ color: 'var(--sky)' }}>蛋<strong style={{ marginLeft: 2 }}>{rec.per100g.protein}</strong></span>
+                <span style={{ color: 'var(--persimmon)' }}>碳<strong style={{ marginLeft: 2 }}>{rec.per100g.carbs}</strong></span>
+                <span style={{ color: 'var(--tomato)' }}>脂<strong style={{ marginLeft: 2 }}>{rec.per100g.fat}</strong></span>
+              </div>
+              {onAddToLog && deleteConfirm !== rec.id && (
+                <button onClick={e => { e.stopPropagation(); handleAddToLog(rec); }} style={{
+                  padding: '7px 0', borderRadius: 9, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  background: 'color-mix(in oklab, var(--sage) 12%, var(--card))',
+                  border: '1px dashed color-mix(in oklab, var(--sage) 45%, var(--line))',
+                  color: 'var(--moss)',
+                }}>＋ 加到今日</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ height: 40 }} />
 
       {selectedRecord && (
         <PantryNutritionSheet record={selectedRecord} onClose={() => setSelectedRecord(null)} />
       )}
-    </div>
-  );
-}
-
-function NutriBadge({
-  label, value, unit, color
-}: {
-  label: string; value: string; unit: string;
-  color: 'amber' | 'blue' | 'orange' | 'red';
-}) {
-  const { locale } = useLocale();
-  const bg = {
-    amber: 'bg-amber-50 text-amber-700',
-    blue: 'bg-blue-50 text-blue-700',
-    orange: 'bg-orange-50 text-orange-700',
-    red: 'bg-red-50 text-red-700',
-  }[color];
-
-  return (
-    <div className={`${bg} rounded-xl py-2 px-1`}>
-      <div className="text-xs font-medium opacity-70">{label}</div>
-      <div className="text-sm font-bold">{value}</div>
-      <div className="text-xs opacity-60">{localizeUnit(unit, locale)}</div>
     </div>
   );
 }
