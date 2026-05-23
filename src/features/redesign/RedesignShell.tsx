@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { UserProfile } from '../../types/user';
-import type { DailyLog, MealType } from '../../types/log';
+import type { DailyLog, MealType, MealItem } from '../../types/log';
 import type { FoodItem } from '../../types/food';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
@@ -47,6 +47,7 @@ export function RedesignShell(props: RedesignShellProps) {
   const [sheet, setSheet] = useState<{ open: boolean; meal: MealType }>({ open: false, meal: 'breakfast' });
   const mealTypeRef = useRef<MealType>('breakfast');
   const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
+  const [editingLogItem, setEditingLogItem] = useState<MealItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
 
@@ -72,6 +73,18 @@ export function RedesignShell(props: RedesignShellProps) {
     if (tab === 'macros') { setSubView('macros'); return; }
     setSubView('main');
     setActiveTab(tab as TabKey);
+    // 点总览时回到今日
+    if (tab === '总览') onDateChange(new Date().toISOString().slice(0, 10));
+  };
+
+  const handleEditLogItem = useCallback((item: MealItem) => {
+    setEditingLogItem(item);
+  }, []);
+
+  const handleUpdateLogItem = async (food: FoodItem, grams: number, displayUnit: string) => {
+    if (!editingLogItem) return;
+    await props.onUpdateFood(editingLogItem.id, grams, displayUnit, food.per100g);
+    setEditingLogItem(null);
   };
 
   // 从 DiaryHome 某一餐的 + 点进来时带餐次；底部 dock + 按钮则按时间自动判断
@@ -133,6 +146,7 @@ export function RedesignShell(props: RedesignShellProps) {
             onNav={handleNav}
             onOpenAdd={handleAdd}
             onRemoveFood={props.onRemoveFood}
+            onEditFood={handleEditLogItem}
             syncStatus={syncStatus}
             syncError={props.syncError}
             onForceSync={onForceSync}
@@ -192,7 +206,7 @@ export function RedesignShell(props: RedesignShellProps) {
       <PaperDock
         active={activeTab}
         onAdd={handleAdd}
-        onNav={(tab) => { setSubView('main'); setActiveTab(tab); }}
+        onNav={(tab) => { setSubView('main'); setActiveTab(tab as TabKey); if (tab === '总览') onDateChange(new Date().toISOString().slice(0, 10)); }}
       />
 
       {/* Add food sheet */}
@@ -316,6 +330,28 @@ export function RedesignShell(props: RedesignShellProps) {
           onClose={() => setPendingFood(null)}
         />
       )}
+
+      {/* EditFoodModal — 修改已记录食物的份量 */}
+      {editingLogItem && (() => {
+        const food: FoodItem = {
+          id: editingLogItem.foodId || editingLogItem.id,
+          name: editingLogItem.foodName,
+          category: 'other',
+          source: 'builtin',
+          per100g: editingLogItem.nutrition as FoodItem['per100g'],
+          servingSizes: [{ label: editingLogItem.unit || '份', grams: editingLogItem.amount }],
+        };
+        return (
+          <AddFoodModal
+            food={food}
+            quickGrams={editingLogItem.amount}
+            quickUnit={editingLogItem.unit}
+            onConfirm={handleUpdateLogItem}
+            onBack={() => setEditingLogItem(null)}
+            onClose={() => setEditingLogItem(null)}
+          />
+        );
+      })()}
 
       {/* Food Pantry — full-screen overlay */}
       {subView === 'pantry' && (

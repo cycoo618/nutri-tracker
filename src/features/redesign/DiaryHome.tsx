@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UserProfile } from '../../types/user';
-import type { DailyLog } from '../../types/log';
+import type { DailyLog, MealItem } from '../../types/log';
 import { MEAL_LABELS, MEAL_ICONS } from '../../types/log';
 import type { NutritionStatus } from '../../hooks/useNutrition';
 import type { SyncStatus } from '../../hooks/useFoodLog';
@@ -18,6 +18,7 @@ interface DiaryHomeProps {
   onNav: (tab: string) => void;
   onOpenAdd: (mealType?: string) => void;
   onRemoveFood?: (itemId: string) => Promise<void>;
+  onEditFood?: (item: MealItem) => void;
   syncStatus?: SyncStatus;
   syncError?: string | null;
   onForceSync?: () => Promise<void>;
@@ -128,7 +129,7 @@ function GoalChip({ goalKey }: { goalKey: string }) {
   );
 }
 
-export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, syncStatus, syncError, onForceSync }: DiaryHomeProps) {
+export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, onEditFood, syncStatus, syncError, onForceSync }: DiaryHomeProps) {
   const today = getTodayString();
   const isToday = currentDate === today;
   const dayNum = getDayNumber(currentDate, profile.createdAt);
@@ -426,20 +427,24 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
                     {meal.items.map(item => (
-                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div
+                        key={item.id}
+                        onClick={() => onEditFood?.(item)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '2px 4px', margin: '0 -4px', cursor: onEditFood ? 'pointer' : 'default' }}
+                      >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
                           <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-soft)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.foodName}
                           </span>
                           <span className="nt-caveat" style={{ fontSize: 11, color: 'var(--ink-faint)', flexShrink: 0 }}>
-                            {item.calories} kcal
+                            {item.unit} · {item.calories} kcal
                           </span>
                         </div>
                         {onRemoveFood && (
                           <button
                             onMouseDown={e => e.preventDefault()}
                             onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); onRemoveFood(item.id); }}
-                            onClick={() => onRemoveFood(item.id)}
+                            onClick={e => { e.stopPropagation(); onRemoveFood(item.id); }}
                             style={{
                               width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                               background: 'var(--paper)', border: '1px solid var(--line-soft)',
@@ -471,6 +476,52 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
             );
           })}
         </div>
+
+        {/* 今日食物贡献 */}
+        {(() => {
+          const allItems = dailyLog?.meals.flatMap(m => m.items) ?? [];
+          if (allItems.length < 2) return null;
+          type NutrKey = 'protein' | 'carbs' | 'fat' | 'fiber';
+          const rows: { key: NutrKey | 'sugar' | 'sodium'; label: string; color: string; unit: string }[] = [
+            { key: 'protein', label: '蛋白质', color: 'var(--sky)',       unit: 'g'  },
+            { key: 'carbs',   label: '碳水',   color: 'var(--grain)',     unit: 'g'  },
+            { key: 'fat',     label: '脂肪',   color: 'var(--persimmon)', unit: 'g'  },
+            { key: 'fiber',   label: '纤维',   color: 'var(--sage)',      unit: 'g'  },
+            { key: 'sugar',   label: '糖分',   color: 'var(--tomato)',    unit: 'g'  },
+            { key: 'sodium',  label: '钠',     color: 'var(--mustard)',   unit: 'mg' },
+          ];
+          const activeRows = rows.filter(r => allItems.some(i => ((i.nutrition as unknown as Record<string, number>)[r.key] ?? 0) > 0));
+          if (!activeRows.length) return null;
+          return (
+            <div style={{ padding: '0 16px', marginTop: 12 }}>
+              <div className="nt-card" style={{ padding: '14px 16px' }}>
+                <div className="nt-serif" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 12 }}>今日食物贡献</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {activeRows.map(r => {
+                    const vals = allItems.map(i => ({ name: i.foodName, v: (i.nutrition as unknown as Record<string, number>)[r.key] ?? 0 }));
+                    const total = vals.reduce((s, x) => s + x.v, 0);
+                    if (total <= 0) return null;
+                    const top = vals.reduce((a, b) => b.v > a.v ? b : a);
+                    const pct = Math.round((top.v / total) * 100);
+                    const name = top.name.length > 7 ? top.name.slice(0, 7) + '…' : top.name;
+                    return (
+                      <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: r.color, flexShrink: 0 }} />
+                        <span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', width: 38, flexShrink: 0 }}>{r.label}</span>
+                        <div style={{ flex: 1, height: 4, borderRadius: 999, background: 'var(--line-soft)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: r.color, borderRadius: 999 }} />
+                        </div>
+                        <span className="nt-caveat" style={{ fontSize: 11, color: 'var(--ink-soft)', flexShrink: 0, minWidth: 90, textAlign: 'right' }}>
+                          {name} {Math.round(top.v)}{r.unit}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

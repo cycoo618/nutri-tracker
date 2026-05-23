@@ -6,6 +6,7 @@
 import { useState, useMemo } from 'react';
 import type { FoodItem, NutritionData } from '../../types/food';
 import { scaleNutrition } from '../../types/food';
+import { estimateFoodNutrition, getGroqKey } from '../../services/nutrition-vision';
 import { GIBadge } from '../../components/ui/GIBadge';
 import { formatNumber } from '../../utils/calculator';
 import { inferServingSizes } from '../../utils/inferServingSizes';
@@ -54,6 +55,10 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
   }, [food]);
   const hasServings = mergedServings.length > 0;
 
+  // AI 补全营养（仅当蛋白/碳水/脂肪全为 0 时启用）— 必须在所有其他 hooks 之前声明
+  const [localPer100g, setLocalPer100g] = useState<FoodItem['per100g']>(food.per100g);
+  const [enriching, setEnriching] = useState(false);
+
   // 默认模式：有 quickGrams 时用克重；自定义食物且无份量时也默认克重；否则用份量
   const defaultMode: InputMode = (quickGrams || (food.source === 'user_added' && !hasServings)) ? 'grams' : 'serving';
   const [mode, setMode] = useState<InputMode>(defaultMode);
@@ -79,7 +84,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
     ? (servingQty === 1 ? servingLabel : `${servingQty} × ${servingLabel}`)
     : `${actualGrams}g`;
 
-  const nutrition: NutritionData = scaleNutrition(food.per100g, actualGrams);
+  const nutrition: NutritionData = scaleNutrition(localPer100g, actualGrams);
 
   const changeQty = (delta: number) => {
     const next = Math.max(0.5, Math.round((servingQty + delta) * 2) / 2);
@@ -88,6 +93,26 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
 
   // 追踪输入框焦点状态：键盘弹开时隐藏返回按钮，确认按钮始终可见
   const [inputFocused, setInputFocused] = useState(false);
+  const macrosMissing = (localPer100g.protein ?? 0) === 0
+    && (localPer100g.carbs ?? 0) === 0
+    && (localPer100g.fat ?? 0) === 0
+    && localPer100g.calories > 0;
+
+  const handleEnrich = async () => {
+    setEnriching(true);
+    try {
+      const n = await estimateFoodNutrition(food.name);
+      setLocalPer100g(prev => ({
+        ...prev,
+        protein: n.protein,
+        carbs: n.carbs,
+        fat: n.fat,
+        fiber: n.fiber ?? prev.fiber,
+        sodium: n.sodium ?? prev.sodium,
+      }));
+    } catch { /* silently ignore */ }
+    setEnriching(false);
+  };
 
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
 
@@ -269,6 +294,24 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
             </div>
           )}
 
+          {/* AI 补全营养（只有卡路里、没有三大营养素时显示） */}
+          {macrosMissing && getGroqKey() && (
+            <button
+              onClick={handleEnrich}
+              disabled={enriching}
+              style={{
+                width: '100%', padding: '9px', borderRadius: 10,
+                background: 'rgba(45,110,64,0.07)', border: '1px solid rgba(45,110,64,0.22)',
+                color: '#2D6E40', fontSize: 12, cursor: enriching ? 'default' : 'pointer',
+                fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              {enriching
+                ? <><span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> AI 补全中…</>
+                : '🤖 AI 估算蛋白 / 碳水 / 脂肪'}
+            </button>
+          )}
+
           {/* 营养数据 */}
           <div className="bg-gray-50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
@@ -303,8 +346,8 @@ export function AddFoodModal({ food: foodProp, quickGrams, quickUnit, onConfirm,
         <div className="px-4 pt-2 pb-1 shrink-0">
           <button
             onMouseDown={e => e.preventDefault()}
-            onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); if (actualGrams > 0) onConfirm(food, actualGrams, displayUnit); }}
-            onClick={() => onConfirm(food, actualGrams, displayUnit)}
+            onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); if (actualGrams > 0) onConfirm({ ...food, per100g: localPer100g }, actualGrams, displayUnit); }}
+            onClick={() => onConfirm({ ...food, per100g: localPer100g }, actualGrams, displayUnit)}
             disabled={actualGrams <= 0}
             className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
