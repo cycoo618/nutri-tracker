@@ -56,7 +56,7 @@
 | 菌株/代谢产物 | 模式生物 | 机制 | 寿命效应 | 验证状态 |
 |--------------|----------|------|----------|----------|
 | **双歧杆菌（Bifidobacterium）** | C. elegans | 激活 p38 MAPK 通路 | 延长寿命 ✅ | ✅ CONFIRMED |
-| **吲哚（Indole）**（大肠杆菌产生） | C. elegans、Drosophila、小鼠 | 通过芳香烃受体（AhR）提高应激抗性 | 延长寿命及生育期 ✅ | ✅ CONFIRMED |
+| **吲哚（Indole）**（大肠杆菌产生） | C. elegans、Drosophila、小鼠 | 通过芳香烃受体（AhR）提高应激抗性 | 延长**健康寿命**（healthspan）：改善运动能力、应激抗性、生育期；对最大寿命（maximal lifespan）无显著影响 ⚠️ | ⚠️ PARTIALLY CORRECT（原文/综述可能将 healthspan 误称为 lifespan） |
 | **大肠杆菌胶质酸（Colanic Acid, CA）** | C. elegans、Drosophila（野生型） | 促进宿主肠道线粒体裂变（fission）→ 线粒体质量控制改善 | 延长寿命 ✅ | ✅ CONFIRMED |
 | **大肠杆菌 BL21（特定菌株）** | C. elegans | 减少致病性肠道菌负荷 | 寿命延长 | ✅（基础研究） |
 
@@ -64,7 +64,7 @@
 
 | 实验设计 | 结果 | 验证状态 |
 |----------|------|----------|
-| **野生型小鼠菌群 → 早衰症（progeroid）小鼠** | 存活时间延长（约160天 vs 140天，P=0.0029）；健康寿命指标改善 ✅ | ✅ CONFIRMED（Nature Medicine 2019）|
+| **野生型小鼠菌群 → 早衰症（progeroid）小鼠** | 存活时间延长（约160天 vs 140天，P=0.0029，log-rank 检验）；健康寿命指标改善 ✅ | ⚠️ 方向与结论已确认（Nature Medicine 2019, PMID 31332389）；具体天数和P值系全文付费版，无法经开放获取通道核实 |
 | **年轻供体菌群 → 老年受体（无菌小鼠）** | 肠道通透性降低，炎症减轻，免疫功能改善 ✅ | ✅ CONFIRMED |
 | **老龄供体菌群 → 年轻无菌小鼠** | 年轻小鼠出现肠漏、肠道失调和炎症衰老表型（TNF-α 升高等）✅ | ✅ CONFIRMED |
 | **单独移植 Akkermansia muciniphila → 早衰小鼠** | 足以产生与 FMT 相似的保护效果，机制涉及次级胆汁酸恢复 ✅ | ✅ CONFIRMED |
