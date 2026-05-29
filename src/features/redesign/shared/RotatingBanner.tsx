@@ -140,16 +140,14 @@ export function RotatingBanner({ nutritionStatus, coveredGroups = new Set() }: R
         style={{ display: 'flex', overflowX: 'hidden', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
       >
         {banners.map((b, i) => (
-          <div key={i} style={{ minWidth: '100%', scrollSnapAlign: 'start', display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0 4px' }}>
-            <span style={{ fontSize: 18, lineHeight: 1.2 }}>{b.icon}</span>
-            <div style={{ flex: 1 }}>
-              <span className="nt-chip" style={{ marginBottom: 3, background: b.tagColor + '18', borderColor: b.tagColor + '33', color: b.tagColor }}>
+          <div key={i} style={{ minWidth: '100%', scrollSnapAlign: 'start', display: 'flex', alignItems: 'baseline', gap: 8, padding: '8px 0 4px' }}>
+            <span style={{ fontSize: 16, lineHeight: 1.2, flexShrink: 0 }}>{b.icon}</span>
+            <p className="nt-serif" style={{ margin: 0, fontSize: 12, color: 'var(--ink-soft)', lineHeight: 1.55 }}>
+              <span className="nt-chip" style={{ marginRight: 5, background: b.tagColor + '18', borderColor: b.tagColor + '33', color: b.tagColor, verticalAlign: 'middle' }}>
                 {b.tag}
               </span>
-              <p className="nt-serif" style={{ margin: 0, fontSize: 12, color: 'var(--ink-soft)', lineHeight: 1.55 }}>
-                {b.body}
-              </p>
-            </div>
+              {b.body}
+            </p>
           </div>
         ))}
       </div>

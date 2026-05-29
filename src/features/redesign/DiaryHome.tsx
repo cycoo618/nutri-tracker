@@ -210,7 +210,7 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
         >‹</button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-          <span className="nt-serif" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+          <span className="nt-serif" style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
             {formatDateCompact(currentDate)}
           </span>
           <span className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)' }}>

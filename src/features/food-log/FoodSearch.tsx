@@ -29,7 +29,7 @@ interface FoodSearchProps {
   recentFoods?: RecentFoodEntry[];
   userId?: string;
   familyId?: string;
-  onSelect: (food: FoodItem) => void;
+  onSelect: (food: FoodItem, quickGrams?: number, quickUnit?: string) => void;
   onClose: () => void;
   embedded?: boolean;
 }
@@ -256,6 +256,31 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
   // Shared inner content (search bar + results)
   const innerContent = (
     <>
+      {/* 最常使用 — 搜索框上方，横向滚动 */}
+      {recentFoods.length > 0 && !query && (
+        <div style={{ padding: '10px 16px 0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(0,0,0,0.4)', fontFamily: 'Noto Serif SC, serif', marginBottom: 6, letterSpacing: '0.05em' }}>
+            最常使用
+          </div>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }}>
+            {recentFoods.map(entry => (
+              <button
+                key={entry.food.id}
+                onClick={() => onSelect(entry.food, entry.lastGrams, entry.lastUnit)}
+                style={{
+                  flexShrink: 0, padding: '5px 12px', borderRadius: 999,
+                  background: 'rgba(31,41,32,0.05)', border: '1px solid rgba(31,41,32,0.1)',
+                  cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
+                  fontSize: 12, color: '#1F2920', whiteSpace: 'nowrap',
+                }}
+              >
+                {entry.food.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 搜索框 */}
       <div className="px-4 pt-3 pb-3 border-b border-gray-100">
           <div className="flex items-stretch gap-2">
@@ -278,7 +303,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                   setSearchTrigger(t => t + 1);
                 }}
                 placeholder={t('searchPlaceholder')}
-                className="flex-1 min-w-0 bg-transparent py-4 focus:outline-none text-base placeholder-gray-400"
+                className="flex-1 min-w-0 bg-transparent py-2.5 focus:outline-none text-sm placeholder-gray-400"
               />
               {query ? (
                 <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500 text-xl shrink-0">×</button>
@@ -472,42 +497,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
                 ))}
               </div>
 
-              {recentFoods.length > 0 ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#1F2920', fontFamily: 'Noto Serif SC, serif' }}>常用食物</span>
-                    <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)', fontFamily: 'Caveat, cursive' }}>your usuals</span>
-                  </div>
-                  {/* Chip 流布局 */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {recentFoods.map(entry => (
-                      <button
-                        key={entry.food.id}
-                        onClick={() => onSelect(entry.food)}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '7px 12px', borderRadius: 999,
-                          background: 'rgba(31,41,32,0.05)', border: '1px solid rgba(31,41,32,0.1)',
-                          cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-                        }}
-                      >
-                        <span style={{ fontSize: 13, color: '#1F2920', fontFamily: 'Noto Serif SC, serif' }}>
-                          {entry.food.name}
-                        </span>
-                        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)' }}>
-                          {localizeServingLabel(entry.lastUnit, locale)}
-                        </span>
-                        {entry.useCount > 1 && (
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, color: '#C0431F',
-                            fontFamily: 'Noto Serif SC, serif',
-                          }}>×{entry.useCount}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
+              {recentFoods.length === 0 && (
                 <div style={{ textAlign: 'center', paddingTop: 24 }}>
                   <div style={{ fontSize: 36, marginBottom: 12 }}>🥗</div>
                   <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.4)' }}>{t('searchHint')}</div>

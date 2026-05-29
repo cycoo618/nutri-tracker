@@ -47,6 +47,7 @@ export function RedesignShell(props: RedesignShellProps) {
   const [sheet, setSheet] = useState<{ open: boolean; meal: MealType }>({ open: false, meal: 'breakfast' });
   const mealTypeRef = useRef<MealType>('breakfast');
   const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
+  const [pendingQuick, setPendingQuick] = useState<{ grams: number; unit: string } | null>(null);
   const [editingLogItem, setEditingLogItem] = useState<MealItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
@@ -105,15 +106,16 @@ export function RedesignShell(props: RedesignShellProps) {
   // 下滑关闭手势
   const { cardRef: sheetRef, dragHandlers: sheetDragHandlers, cardDragHandlers: sheetCardDragHandlers } = useSwipeDown(handleCloseSheet);
 
-  const handleSelectFood = async (food: FoodItem) => {
-    // 关闭搜索 sheet，打开 AddFoodModal 让用户确认份量
+  const handleSelectFood = async (food: FoodItem, quickGrams?: number, quickUnit?: string) => {
     setSheet(s => ({ ...s, open: false }));
     setPendingFood(food);
+    setPendingQuick(quickGrams ? { grams: quickGrams, unit: quickUnit ?? '' } : null);
   };
 
   const handleConfirmFood = async (food: FoodItem, grams: number, displayUnit: string) => {
     await onAddFood(food, grams, displayUnit, mealTypeRef.current);
     setPendingFood(null);
+    setPendingQuick(null);
   };
 
   const renderContent = () => {
@@ -252,57 +254,39 @@ export function RedesignShell(props: RedesignShellProps) {
               }} />
             </div>
 
-            {/* Header */}
-            <div style={{ padding: '6px 20px 0', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <div>
-                  <span className="nt-display" style={{ fontSize: 22, color: 'var(--ink)' }}>记一笔</span>
-                  <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--ink-mute)', marginLeft: 8 }}>jot it down</span>
-                </div>
-                <button
-                  onClick={handleCloseSheet}
-                  style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: 'var(--paper-2)', border: '1px solid var(--line-soft)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer', marginTop: 2,
-                  }}
-                >✕</button>
+            {/* Header — 记一笔 + 餐次 + 关闭，全在一行 */}
+            <div style={{ padding: '6px 16px 10px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="nt-display" style={{ fontSize: 20, color: 'var(--ink)', flexShrink: 0 }}>记一笔</span>
+              <div style={{ display: 'flex', gap: 5, flex: 1 }}>
+                {(['breakfast','lunch','dinner','snack'] as MealType[]).map((key, _, arr) => {
+                  const labels: Record<MealType, string> = { breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'加餐' };
+                  const active = sheet.meal === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => { mealTypeRef.current = key; setSheet(s => ({ ...s, meal: key })); }}
+                      style={{
+                        flex: 1, padding: '5px 2px', borderRadius: 999,
+                        background: active ? '#1F2920' : 'transparent',
+                        color: active ? '#F6F9F2' : '#8B9886',
+                        border: active ? 'none' : '1px solid #d0d8c8',
+                        fontSize: 12, fontWeight: active ? 700 : 400,
+                        cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
+                        transition: 'background .15s', whiteSpace: 'nowrap',
+                      }}
+                    >{labels[key]}</button>
+                  );
+                })}
               </div>
-              {/* Meal tabs */}
-              {(() => {
-                const MEALS = [
-                  { key: 'breakfast' as MealType, label: '早餐' },
-                  { key: 'lunch'     as MealType, label: '午餐' },
-                  { key: 'dinner'    as MealType, label: '晚餐' },
-                  { key: 'snack'     as MealType, label: '加餐' },
-                ];
-                const sel = sheet.meal;
-                return (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 12 }}>
-                    {MEALS.map(m => {
-                      const active = sel === m.key;
-                      return (
-                        <button
-                          key={m.key}
-                          onClick={() => { mealTypeRef.current = m.key; setSheet(s => ({ ...s, meal: m.key })); }}
-                          style={{
-                            padding: '6px 16px', borderRadius: 999,
-                            background: active ? '#1F2920' : '#ffffff',
-                            color: active ? '#F6F9F2' : '#8B9886',
-                            border: active ? 'none' : '1px solid #d0d8c8',
-                            fontSize: 13, fontWeight: active ? 700 : 400,
-                            cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
-                            transition: 'background .15s',
-                          }}
-                        >
-                          {m.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
+              <button
+                onClick={handleCloseSheet}
+                style={{
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--paper-2)', border: '1px solid var(--line-soft)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, color: 'var(--ink-soft)', cursor: 'pointer',
+                }}
+              >✕</button>
             </div>
             <div style={{ borderBottom: '1px solid var(--line-soft)', marginBottom: 0 }} />
 
@@ -325,9 +309,11 @@ export function RedesignShell(props: RedesignShellProps) {
       {pendingFood && (
         <AddFoodModal
           food={pendingFood}
+          quickGrams={pendingQuick?.grams}
+          quickUnit={pendingQuick?.unit}
           onConfirm={handleConfirmFood}
-          onBack={() => { setPendingFood(null); setSheet(s => ({ ...s, open: true })); }}
-          onClose={() => setPendingFood(null)}
+          onBack={() => { setPendingFood(null); setPendingQuick(null); setSheet(s => ({ ...s, open: true })); }}
+          onClose={() => { setPendingFood(null); setPendingQuick(null); }}
         />
       )}
 
