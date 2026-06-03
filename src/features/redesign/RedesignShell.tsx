@@ -91,17 +91,18 @@ export function RedesignShell(props: RedesignShellProps) {
   }, [subView]);
   useEffect(() => { currentDateRef.current = currentDate; },[currentDate]);
 
-  // Adjacent-day logs — synchronous useMemo so adjacent pages never flash null→data
+  // Adjacent-day + current-day logs — all synchronous so strip never flashes on date change
   const adjLogs = useMemo(() => {
     const read = (date: string): DailyLog | null => {
       try { return JSON.parse(localStorage.getItem(`nutri_log_${profile.uid}_${date}`) || 'null'); }
       catch { return null; }
     };
-    return { prev: read(prevDate), next: read(nextDate) };
-  }, [prevDate, nextDate, profile.uid]);
+    return { prev: read(prevDate), current: read(currentDate), next: read(nextDate) };
+  }, [prevDate, currentDate, nextDate, profile.uid]);
 
-  const prevNS = useMemo(() => computeNutritionStatus(profile, adjLogs.prev), [profile, adjLogs.prev]);
-  const nextNS = useMemo(() => computeNutritionStatus(profile, adjLogs.next), [profile, adjLogs.next]);
+  const prevNS    = useMemo(() => computeNutritionStatus(profile, adjLogs.prev),    [profile, adjLogs.prev]);
+  const currentNS = useMemo(() => computeNutritionStatus(profile, adjLogs.current), [profile, adjLogs.current]);
+  const nextNS    = useMemo(() => computeNutritionStatus(profile, adjLogs.next),    [profile, adjLogs.next]);
 
   const doSnap = useCallback((dir: 'next' | 'prev') => {
     const W = window.innerWidth;
@@ -114,13 +115,12 @@ export function RedesignShell(props: RedesignShellProps) {
       const newDate = dir === 'next'
         ? shiftDate(currentDateRef.current, 1)
         : shiftDate(currentDateRef.current, -1);
-      setSnapTransition(false);          // disable transition before reset
-      requestAnimationFrame(() => {
-        dragXRef.current = 0;
-        setDragX(0);
-        onDateChange(newDate);
-        snapping.current = false;
-      });
+      // React 18 batches all state updates in setTimeout → single render, no flash
+      setSnapTransition(false);
+      dragXRef.current = 0;
+      setDragX(0);
+      onDateChange(newDate);
+      snapping.current = false;
     }, 280);
   }, [onDateChange, shiftDate]);
 
@@ -133,7 +133,7 @@ export function RedesignShell(props: RedesignShellProps) {
       touchSY.current = e.touches[0].clientY;
       horizDrag.current = false;
       // Flag: back-swipe starts from left edge while in a sub-view
-      isBackSwiping.current = subViewRef.current !== 'main' && touchSX.current < 60;
+      isBackSwiping.current = subViewRef.current !== 'main' && touchSX.current < 80;
     };
     const onMove = (e: TouchEvent) => {
       if (snapping.current) return;
@@ -142,15 +142,16 @@ export function RedesignShell(props: RedesignShellProps) {
 
       // ── Back-swipe (sub-view → main, right drag from left edge) ──
       if (isBackSwiping.current) {
+        // Prevent scroll lock BEFORE direction is confirmed — without this
+        // the browser locks the touch as a scroll gesture on the first few events
+        e.preventDefault();
         if (!horizDrag.current) {
           if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
           horizDrag.current = Math.abs(dx) > Math.abs(dy);
         }
-        if (horizDrag.current) {
-          e.preventDefault();
-          const x = Math.max(0, dx);
-          backXRef.current = x;
-          setBackX(x);
+        if (horizDrag.current && dx > 0) {
+          backXRef.current = dx;
+          setBackX(dx);
         }
         return;
       }
@@ -359,9 +360,9 @@ export function RedesignShell(props: RedesignShellProps) {
                 willChange: 'transform',
               }}>
                 {([
-                  { date: prevDate,    log: adjLogs.prev,  ns: prevNS,          editable: false },
-                  { date: currentDate, log: dailyLog,      ns: nutritionStatus, editable: true  },
-                  { date: nextDate,    log: adjLogs.next,  ns: nextNS,          editable: false },
+                  { date: prevDate,    log: adjLogs.prev,              ns: prevNS,                        editable: false },
+                  { date: currentDate, log: adjLogs.current ?? dailyLog, ns: currentNS ?? nutritionStatus, editable: true  },
+                  { date: nextDate,    log: adjLogs.next,              ns: nextNS,                        editable: false },
                 ] as const).map(({ date, log, ns, editable }) => (
                   <div
                     key={date}
