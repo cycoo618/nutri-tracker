@@ -51,6 +51,42 @@ export function RedesignShell(props: RedesignShellProps) {
   const [editingLogItem, setEditingLogItem] = useState<MealItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
+  const swipeStartX = useRef(0);
+  const swipeStartY = useRef(0);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const shiftDate = (d: string, delta: number) => {
+    const date = new Date(d + 'T00:00:00');
+    date.setDate(date.getDate() + delta);
+    return date.toISOString().slice(0, 10);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+    swipeStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - swipeStartX.current;
+    const dy = e.changedTouches[0].clientY - swipeStartY.current;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    if (absDx < 50 || absDx < absDy * 1.5) return; // not a horizontal swipe
+
+    // 子页面：从左边缘右滑 → 返回
+    if (subView !== 'main' && dx > 0 && swipeStartX.current < 60) {
+      setSubView('main');
+      return;
+    }
+    // 总览主页：左右滑切日期
+    if (activeTab === '总览' && subView === 'main') {
+      if (dx < 0 && currentDate < today) {
+        onDateChange(shiftDate(currentDate, 1));
+      } else if (dx > 0) {
+        onDateChange(shiftDate(currentDate, -1));
+      }
+    }
+  };
 
   useEffect(() => {
     if (localStorage.getItem('nutri_dark') === '1') document.documentElement.classList.add('dark');
@@ -187,12 +223,14 @@ export function RedesignShell(props: RedesignShellProps) {
       <div
         ref={scrollRef}
         className="nt-scroll-hide"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         style={{
           position: 'absolute',
           inset: 0,
           overflowY: 'auto',
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
-          paddingBottom: 110,
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
           zIndex: 1,
         }}
       >

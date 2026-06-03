@@ -332,13 +332,24 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
 
   // ── 主列表 ──────────────────────────────────────────────────────────
   return (
-    <div className="nt-paper nt-grain" style={{
-      position: 'fixed', inset: 0, top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)',
-      zIndex: 40, display: 'flex', flexDirection: 'column', overflowY: 'auto',
-    }}>
+    <div
+      className="nt-paper nt-grain"
+      style={{
+        position: 'fixed', inset: 0, top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)',
+        zIndex: 40, display: 'flex', flexDirection: 'column', overflowY: 'auto',
+      }}
+      onTouchStart={e => { (e.currentTarget as HTMLDivElement).dataset.sx = String(e.touches[0].clientX); (e.currentTarget as HTMLDivElement).dataset.sy = String(e.touches[0].clientY); }}
+      onTouchEnd={e => {
+        const sx = parseFloat((e.currentTarget as HTMLDivElement).dataset.sx ?? '999');
+        const sy = parseFloat((e.currentTarget as HTMLDivElement).dataset.sy ?? '0');
+        const dx = e.changedTouches[0].clientX - sx;
+        const dy = e.changedTouches[0].clientY - sy;
+        if (sx < 60 && dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) onClose();
+      }}
+    >
 
       {/* Header: back + title/subtitle(with sync dot) + scan + combine */}
-      <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 10px) 16px 0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>‹</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="nt-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.1 }}>食材库</div>

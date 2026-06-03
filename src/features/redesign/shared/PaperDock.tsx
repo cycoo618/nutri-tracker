@@ -20,7 +20,7 @@ export function PaperDock({ active, onAdd, onNav }: PaperDockProps) {
     <div
       style={{
         position: 'fixed',
-        bottom: 14,
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)',
         left: 14,
         right: 14,
         zIndex: 50,
