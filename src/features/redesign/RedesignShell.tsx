@@ -191,7 +191,7 @@ export function RedesignShell(props: RedesignShellProps) {
           position: 'absolute',
           inset: 0,
           overflowY: 'auto',
-          paddingTop: 8,
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
           paddingBottom: 110,
           zIndex: 1,
         }}

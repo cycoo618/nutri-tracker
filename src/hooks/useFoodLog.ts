@@ -88,8 +88,10 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
         if (!cached) setDailyLog(createEmptyDailyLog(userId, currentDate));
         setSyncStatus('error');
         const msg = err instanceof Error ? err.message : String(err);
-        // 超时提示精简一下
-        setSyncError(msg.includes('超时') ? 'Firestore 连接超时，数据可能未同步' : msg.slice(0, 80));
+        // 有本地缓存时数据安全，静默处理超时（不显示 banner 干扰用户）
+        if (!cached) {
+          setSyncError(msg.includes('超时') ? 'Firestore 连接超时，数据可能未同步' : msg.slice(0, 80));
+        }
         console.warn('Firestore load failed:', err);
       })
       .finally(() => setLoading(false));
@@ -158,7 +160,9 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
       .catch(err => {
         setSyncStatus('error');
         const msg = err instanceof Error ? err.message : String(err);
-        setSyncError(msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80));
+        const errMsg = msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80);
+        setSyncError(errMsg);
+        setTimeout(() => setSyncError(null), 5000);
         console.warn('Firestore save failed:', err);
       });
   }, [dailyLog, userId, currentDate, recalculateTotal]);
@@ -185,7 +189,9 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
       .catch(err => {
         setSyncStatus('error');
         const msg = err instanceof Error ? err.message : String(err);
-        setSyncError(msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80));
+        const errMsg = msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80);
+        setSyncError(errMsg);
+        setTimeout(() => setSyncError(null), 5000);
         console.warn('Firestore save failed:', err);
       });
   }, [dailyLog, userId, currentDate, recalculateTotal]);
@@ -219,7 +225,9 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
       .catch(err => {
         setSyncStatus('error');
         const msg = err instanceof Error ? err.message : String(err);
-        setSyncError(msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80));
+        const errMsg = msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80);
+        setSyncError(errMsg);
+        setTimeout(() => setSyncError(null), 5000);
       });
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
