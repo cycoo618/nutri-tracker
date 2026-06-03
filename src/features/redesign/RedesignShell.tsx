@@ -67,29 +67,38 @@ export function RedesignShell(props: RedesignShellProps) {
 
   const [dragX, setDragX] = useState(0);
   const [snapTransition, setSnapTransition] = useState(false);
-  const dragXRef   = useRef(0);
-  const snapping   = useRef(false);
-  const horizDrag  = useRef(false);
-  const touchSX    = useRef(0);
-  const touchSY    = useRef(0);
+  const dragXRef      = useRef(0);
+  const snapping      = useRef(false);
+  const horizDrag     = useRef(false);
+  const touchSX       = useRef(0);
+  const touchSY       = useRef(0);
+
+  // Back-swipe animation (sub-view → main)
+  const [backX, setBackX]       = useState(0);
+  const [backTrans, setBackTrans] = useState(false);
+  const backXRef      = useRef(0);
+  const isBackSwiping = useRef(false);
 
   // Refs so imperative handlers always read current values
   const activeTabRef   = useRef(activeTab);
   const subViewRef     = useRef(subView);
   const currentDateRef = useRef(currentDate);
   useEffect(() => { activeTabRef.current = activeTab; },    [activeTab]);
-  useEffect(() => { subViewRef.current = subView; },        [subView]);
+  useEffect(() => {
+    subViewRef.current = subView;
+    // Reset back-swipe offset whenever subView changes
+    backXRef.current = 0; setBackX(0); setBackTrans(false);
+  }, [subView]);
   useEffect(() => { currentDateRef.current = currentDate; },[currentDate]);
 
-  // Adjacent-day logs from localStorage cache (sync read, instant)
-  const [adjLogs, setAdjLogs] = useState<{ prev: DailyLog | null; next: DailyLog | null }>({ prev: null, next: null });
-  useEffect(() => {
-    const read = (date: string) => {
+  // Adjacent-day logs — synchronous useMemo so adjacent pages never flash null→data
+  const adjLogs = useMemo(() => {
+    const read = (date: string): DailyLog | null => {
       try { return JSON.parse(localStorage.getItem(`nutri_log_${profile.uid}_${date}`) || 'null'); }
       catch { return null; }
     };
-    setAdjLogs({ prev: read(prevDate), next: read(nextDate) });
-  }, [currentDate, profile.uid, prevDate, nextDate]);
+    return { prev: read(prevDate), next: read(nextDate) };
+  }, [prevDate, nextDate, profile.uid]);
 
   const prevNS = useMemo(() => computeNutritionStatus(profile, adjLogs.prev), [profile, adjLogs.prev]);
   const nextNS = useMemo(() => computeNutritionStatus(profile, adjLogs.next), [profile, adjLogs.next]);
@@ -123,12 +132,30 @@ export function RedesignShell(props: RedesignShellProps) {
       touchSX.current = e.touches[0].clientX;
       touchSY.current = e.touches[0].clientY;
       horizDrag.current = false;
+      // Flag: back-swipe starts from left edge while in a sub-view
+      isBackSwiping.current = subViewRef.current !== 'main' && touchSX.current < 60;
     };
     const onMove = (e: TouchEvent) => {
       if (snapping.current) return;
       const dx = e.touches[0].clientX - touchSX.current;
       const dy = e.touches[0].clientY - touchSY.current;
-      // Sub-views: don't intercept vertical scroll
+
+      // ── Back-swipe (sub-view → main, right drag from left edge) ──
+      if (isBackSwiping.current) {
+        if (!horizDrag.current) {
+          if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+          horizDrag.current = Math.abs(dx) > Math.abs(dy);
+        }
+        if (horizDrag.current) {
+          e.preventDefault();
+          const x = Math.max(0, dx);
+          backXRef.current = x;
+          setBackX(x);
+        }
+        return;
+      }
+
+      // ── Date swipe (总览/main only) ──
       if (subViewRef.current !== 'main' || activeTabRef.current !== '总览') return;
       if (!horizDrag.current) {
         if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
@@ -136,33 +163,46 @@ export function RedesignShell(props: RedesignShellProps) {
       }
       if (horizDrag.current) {
         e.preventDefault();
-        // Rubber-band when trying to go past today (future)
-        const raw = dx;
-        const clamped = (raw < 0 && currentDateRef.current >= today)
-          ? raw / 4
-          : raw;
+        const clamped = (dx < 0 && currentDateRef.current >= today) ? dx / 4 : dx;
         dragXRef.current = clamped;
         setDragX(clamped);
       }
     };
-    const onEnd = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - touchSX.current;
-      const dy = e.changedTouches[0].clientY - touchSY.current;
-      // Back-swipe for sub-views (from left edge)
-      if (subViewRef.current !== 'main') {
-        if (touchSX.current < 60 && dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.5)
-          setSubView('main');
+    const onEnd = () => {
+      const W = window.innerWidth;
+
+      // ── Complete or cancel back-swipe ──
+      if (isBackSwiping.current) {
+        isBackSwiping.current = false;
+        if (!horizDrag.current) return;
+        horizDrag.current = false;
+        if (backXRef.current > W * 0.3) {
+          setBackTrans(true);
+          backXRef.current = W;
+          setBackX(W);
+          setTimeout(() => {
+            setBackTrans(false);
+            backXRef.current = 0;
+            setBackX(0);
+            setSubView('main');
+          }, 280);
+        } else {
+          setBackTrans(true);
+          backXRef.current = 0;
+          setBackX(0);
+          setTimeout(() => setBackTrans(false), 300);
+        }
         return;
       }
+
+      // ── Complete or cancel date swipe ──
       if (!horizDrag.current) return;
       horizDrag.current = false;
-      const W = window.innerWidth;
       if (dragXRef.current < -W * 0.3 && currentDateRef.current < today) {
         doSnap('next');
       } else if (dragXRef.current > W * 0.3) {
         doSnap('prev');
       } else {
-        // Spring back
         setSnapTransition(true);
         dragXRef.current = 0;
         setDragX(0);
@@ -296,51 +336,87 @@ export function RedesignShell(props: RedesignShellProps) {
       {/* Navigation container — handles all touch gestures */}
       <div ref={navRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 1 }}>
 
-        {/* 3-page date strip (only for 总览/main) */}
-        {activeTab === '总览' && subView === 'main' ? (
-          <div style={{
-            display: 'flex',
-            width: '300%',
-            height: '100%',
-            transform: `translateX(calc(-33.333% + ${dragX}px))`,
-            transition: snapTransition ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
-            willChange: 'transform',
-          }}>
-            {([
-              { date: prevDate,    log: adjLogs.prev, ns: prevNS,        editable: false },
-              { date: currentDate, log: dailyLog,     ns: nutritionStatus, editable: true  },
-              { date: nextDate,    log: adjLogs.next, ns: nextNS,        editable: false },
-            ] as const).map(({ date, log, ns, editable }) => (
+        {/* ── 3-page date strip (总览/main) ── */}
+        {(activeTab === '总览' && subView === 'main') || (activeTab === '总览' && subView !== 'main') ? (
+          <>
+            {/* 3-page strip — always rendered when on 总览 so back-swipe reveals it */}
+            <div style={{
+              position: 'absolute', inset: 0, overflow: 'hidden',
+              // Parallax behind sub-view: slides left a bit as sub-view slides right
+              transform: subView !== 'main'
+                ? `translateX(${(backX / Math.max(1, window.innerWidth) - 1) * 22}%)`
+                : undefined,
+              opacity: subView !== 'main' ? 0.55 + (backX / Math.max(1, window.innerWidth)) * 0.45 : 1,
+              pointerEvents: subView !== 'main' ? 'none' : undefined,
+              transition: backTrans ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.28s' : 'none',
+            }}>
+              <div style={{
+                display: 'flex',
+                width: '300%',
+                height: '100%',
+                transform: `translateX(calc(-33.333% + ${dragX}px))`,
+                transition: snapTransition ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
+                willChange: 'transform',
+              }}>
+                {([
+                  { date: prevDate,    log: adjLogs.prev,  ns: prevNS,          editable: false },
+                  { date: currentDate, log: dailyLog,      ns: nutritionStatus, editable: true  },
+                  { date: nextDate,    log: adjLogs.next,  ns: nextNS,          editable: false },
+                ] as const).map(({ date, log, ns, editable }) => (
+                  <div
+                    key={date}
+                    className="nt-scroll-hide"
+                    style={{
+                      width: '33.333%', flexShrink: 0, height: '100%', overflowY: 'auto',
+                      paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+                      paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
+                    }}
+                  >
+                    <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
+                      <DiaryHome
+                        profile={profile}
+                        dailyLog={log}
+                        nutritionStatus={ns}
+                        currentDate={date}
+                        onDateChange={onDateChange}
+                        onNav={handleNav}
+                        onOpenAdd={editable ? handleAdd : () => {}}
+                        onRemoveFood={editable ? props.onRemoveFood : undefined}
+                        onEditFood={editable ? handleEditLogItem : undefined}
+                        syncStatus={editable ? syncStatus : 'idle'}
+                        syncError={editable ? props.syncError : null}
+                        onForceSync={editable ? onForceSync : undefined}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sub-view layer (diversity / macros) — slides right on back-swipe */}
+            {subView !== 'main' && (
               <div
-                key={date}
+                ref={scrollRef}
                 className="nt-scroll-hide"
                 style={{
-                  width: '33.333%', flexShrink: 0, height: '100%', overflowY: 'auto',
+                  position: 'absolute', inset: 0, overflowY: 'auto',
                   paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
                   paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
+                  transform: `translateX(${backX}px)`,
+                  transition: backTrans ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
+                  willChange: 'transform',
+                  zIndex: 2,
+                  boxShadow: backX > 0 ? '-4px 0 20px rgba(31,41,32,0.12)' : 'none',
                 }}
               >
                 <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
-                  <DiaryHome
-                    profile={profile}
-                    dailyLog={log}
-                    nutritionStatus={ns}
-                    currentDate={date}
-                    onDateChange={onDateChange}
-                    onNav={handleNav}
-                    onOpenAdd={editable ? handleAdd : () => {}}
-                    onRemoveFood={editable ? props.onRemoveFood : undefined}
-                    onEditFood={editable ? handleEditLogItem : undefined}
-                    syncStatus={editable ? syncStatus : 'idle'}
-                    syncError={editable ? props.syncError : null}
-                    onForceSync={editable ? onForceSync : undefined}
-                  />
+                  {renderContent()}
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
-          /* Single scroll area for all other tabs/subviews */
+          /* Other tabs (趋势, 科学, 我) — single scroll, no animation */
           <div
             ref={scrollRef}
             className="nt-scroll-hide"
