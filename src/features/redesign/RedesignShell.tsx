@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { UserProfile } from '../../types/user';
 import type { DailyLog, MealType, MealItem } from '../../types/log';
 import type { FoodItem } from '../../types/food';
@@ -6,6 +6,7 @@ import { useSwipeDown } from '../../hooks/useSwipeDown';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import type { SyncStatus } from '../../hooks/useFoodLog';
 import type { NutritionStatus } from '../../hooks/useNutrition';
+import { computeNutritionStatus } from '../../hooks/useNutrition';
 import { getFontSize, ZOOM_MAP } from '../../utils/fontSize';
 import type { FontSize } from '../../utils/fontSize';
 import { PaperDock } from './shared/PaperDock';
@@ -50,43 +51,133 @@ export function RedesignShell(props: RedesignShellProps) {
   const [pendingQuick, setPendingQuick] = useState<{ grams: number; unit: string } | null>(null);
   const [editingLogItem, setEditingLogItem] = useState<MealItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
   const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
-  const swipeStartX = useRef(0);
-  const swipeStartY = useRef(0);
 
+  // ── Date-swipe animation ──────────────────────────────────────────────
   const today = new Date().toISOString().slice(0, 10);
-  const shiftDate = (d: string, delta: number) => {
+  const shiftDate = useCallback((d: string, delta: number) => {
     const date = new Date(d + 'T00:00:00');
     date.setDate(date.getDate() + delta);
     return date.toISOString().slice(0, 10);
-  };
+  }, []);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    swipeStartX.current = e.touches[0].clientX;
-    swipeStartY.current = e.touches[0].clientY;
-  };
+  const prevDate = useMemo(() => shiftDate(currentDate, -1), [currentDate, shiftDate]);
+  const nextDate = useMemo(() => shiftDate(currentDate, 1),  [currentDate, shiftDate]);
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - swipeStartX.current;
-    const dy = e.changedTouches[0].clientY - swipeStartY.current;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-    if (absDx < 50 || absDx < absDy * 1.5) return; // not a horizontal swipe
+  const [dragX, setDragX] = useState(0);
+  const [snapTransition, setSnapTransition] = useState(false);
+  const dragXRef   = useRef(0);
+  const snapping   = useRef(false);
+  const horizDrag  = useRef(false);
+  const touchSX    = useRef(0);
+  const touchSY    = useRef(0);
 
-    // 子页面：从左边缘右滑 → 返回
-    if (subView !== 'main' && dx > 0 && swipeStartX.current < 60) {
-      setSubView('main');
-      return;
-    }
-    // 总览主页：左右滑切日期
-    if (activeTab === '总览' && subView === 'main') {
-      if (dx < 0 && currentDate < today) {
-        onDateChange(shiftDate(currentDate, 1));
-      } else if (dx > 0) {
-        onDateChange(shiftDate(currentDate, -1));
+  // Refs so imperative handlers always read current values
+  const activeTabRef   = useRef(activeTab);
+  const subViewRef     = useRef(subView);
+  const currentDateRef = useRef(currentDate);
+  useEffect(() => { activeTabRef.current = activeTab; },    [activeTab]);
+  useEffect(() => { subViewRef.current = subView; },        [subView]);
+  useEffect(() => { currentDateRef.current = currentDate; },[currentDate]);
+
+  // Adjacent-day logs from localStorage cache (sync read, instant)
+  const [adjLogs, setAdjLogs] = useState<{ prev: DailyLog | null; next: DailyLog | null }>({ prev: null, next: null });
+  useEffect(() => {
+    const read = (date: string) => {
+      try { return JSON.parse(localStorage.getItem(`nutri_log_${profile.uid}_${date}`) || 'null'); }
+      catch { return null; }
+    };
+    setAdjLogs({ prev: read(prevDate), next: read(nextDate) });
+  }, [currentDate, profile.uid, prevDate, nextDate]);
+
+  const prevNS = useMemo(() => computeNutritionStatus(profile, adjLogs.prev), [profile, adjLogs.prev]);
+  const nextNS = useMemo(() => computeNutritionStatus(profile, adjLogs.next), [profile, adjLogs.next]);
+
+  const doSnap = useCallback((dir: 'next' | 'prev') => {
+    const W = window.innerWidth;
+    const target = dir === 'next' ? -W : W;
+    snapping.current = true;
+    dragXRef.current = target;
+    setSnapTransition(true);
+    setDragX(target);
+    setTimeout(() => {
+      const newDate = dir === 'next'
+        ? shiftDate(currentDateRef.current, 1)
+        : shiftDate(currentDateRef.current, -1);
+      setSnapTransition(false);          // disable transition before reset
+      requestAnimationFrame(() => {
+        dragXRef.current = 0;
+        setDragX(0);
+        onDateChange(newDate);
+        snapping.current = false;
+      });
+    }, 280);
+  }, [onDateChange, shiftDate]);
+
+  // Imperative touch listeners (non-passive touchmove to allow preventDefault)
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const onStart = (e: TouchEvent) => {
+      touchSX.current = e.touches[0].clientX;
+      touchSY.current = e.touches[0].clientY;
+      horizDrag.current = false;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (snapping.current) return;
+      const dx = e.touches[0].clientX - touchSX.current;
+      const dy = e.touches[0].clientY - touchSY.current;
+      // Sub-views: don't intercept vertical scroll
+      if (subViewRef.current !== 'main' || activeTabRef.current !== '总览') return;
+      if (!horizDrag.current) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        horizDrag.current = Math.abs(dx) > Math.abs(dy);
       }
-    }
-  };
+      if (horizDrag.current) {
+        e.preventDefault();
+        // Rubber-band when trying to go past today (future)
+        const raw = dx;
+        const clamped = (raw < 0 && currentDateRef.current >= today)
+          ? raw / 4
+          : raw;
+        dragXRef.current = clamped;
+        setDragX(clamped);
+      }
+    };
+    const onEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - touchSX.current;
+      const dy = e.changedTouches[0].clientY - touchSY.current;
+      // Back-swipe for sub-views (from left edge)
+      if (subViewRef.current !== 'main') {
+        if (touchSX.current < 60 && dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.5)
+          setSubView('main');
+        return;
+      }
+      if (!horizDrag.current) return;
+      horizDrag.current = false;
+      const W = window.innerWidth;
+      if (dragXRef.current < -W * 0.3 && currentDateRef.current < today) {
+        doSnap('next');
+      } else if (dragXRef.current > W * 0.3) {
+        doSnap('prev');
+      } else {
+        // Spring back
+        setSnapTransition(true);
+        dragXRef.current = 0;
+        setDragX(0);
+        setTimeout(() => setSnapTransition(false), 300);
+      }
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove',  onMove,  { passive: false });
+    el.addEventListener('touchend',   onEnd,   { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove',  onMove);
+      el.removeEventListener('touchend',   onEnd);
+    };
+  }, [doSnap, today]);
 
   useEffect(() => {
     if (localStorage.getItem('nutri_dark') === '1') document.documentElement.classList.add('dark');
@@ -173,23 +264,6 @@ export function RedesignShell(props: RedesignShellProps) {
     }
 
     switch (activeTab) {
-      case '总览':
-        return (
-          <DiaryHome
-            profile={profile}
-            dailyLog={dailyLog}
-            nutritionStatus={nutritionStatus}
-            currentDate={currentDate}
-            onDateChange={onDateChange}
-            onNav={handleNav}
-            onOpenAdd={handleAdd}
-            onRemoveFood={props.onRemoveFood}
-            onEditFood={handleEditLogItem}
-            syncStatus={syncStatus}
-            syncError={props.syncError}
-            onForceSync={onForceSync}
-          />
-        );
       case '趋势':
         return <SevenDayScreen profile={profile} targetCalories={profile.targetCalories} />;
       case '科学':
@@ -219,27 +293,68 @@ export function RedesignShell(props: RedesignShellProps) {
         overflow: 'hidden',
       }}
     >
-      {/* Scroll area */}
-      <div
-        ref={scrollRef}
-        className="nt-scroll-hide"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          overflowY: 'auto',
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
-          zIndex: 1,
-        }}
-      >
-        {/* font-size zoom wrapper — scales all inline px values proportionally.
-            WebkitTextSizeAdjust:'auto' overrides Tailwind's 100% on html,
-            allowing font sizes to scale with zoom on iOS Safari. */}
-        <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
-          {renderContent()}
-        </div>
+      {/* Navigation container — handles all touch gestures */}
+      <div ref={navRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 1 }}>
+
+        {/* 3-page date strip (only for 总览/main) */}
+        {activeTab === '总览' && subView === 'main' ? (
+          <div style={{
+            display: 'flex',
+            width: '300%',
+            height: '100%',
+            transform: `translateX(calc(-33.333% + ${dragX}px))`,
+            transition: snapTransition ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
+            willChange: 'transform',
+          }}>
+            {([
+              { date: prevDate,    log: adjLogs.prev, ns: prevNS,        editable: false },
+              { date: currentDate, log: dailyLog,     ns: nutritionStatus, editable: true  },
+              { date: nextDate,    log: adjLogs.next, ns: nextNS,        editable: false },
+            ] as const).map(({ date, log, ns, editable }) => (
+              <div
+                key={date}
+                className="nt-scroll-hide"
+                style={{
+                  width: '33.333%', flexShrink: 0, height: '100%', overflowY: 'auto',
+                  paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+                  paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
+                }}
+              >
+                <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
+                  <DiaryHome
+                    profile={profile}
+                    dailyLog={log}
+                    nutritionStatus={ns}
+                    currentDate={date}
+                    onDateChange={onDateChange}
+                    onNav={handleNav}
+                    onOpenAdd={editable ? handleAdd : () => {}}
+                    onRemoveFood={editable ? props.onRemoveFood : undefined}
+                    onEditFood={editable ? handleEditLogItem : undefined}
+                    syncStatus={editable ? syncStatus : 'idle'}
+                    syncError={editable ? props.syncError : null}
+                    onForceSync={editable ? onForceSync : undefined}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Single scroll area for all other tabs/subviews */
+          <div
+            ref={scrollRef}
+            className="nt-scroll-hide"
+            style={{
+              position: 'absolute', inset: 0, overflowY: 'auto',
+              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
+            }}
+          >
+            <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
+              {renderContent()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom dock */}

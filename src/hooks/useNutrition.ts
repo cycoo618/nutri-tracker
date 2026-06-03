@@ -31,9 +31,9 @@ export interface NutritionStatus {
   overallStatus: 'excellent' | 'good' | 'warning' | 'danger';
 }
 
-export function useNutrition(profile: UserProfile | null, dailyLog: DailyLog | null) {
-  return useMemo<NutritionStatus | null>(() => {
-    if (!profile || !dailyLog) return null;
+/** Pure version — call outside hooks (e.g. for adjacent-day previews). */
+export function computeNutritionStatus(profile: UserProfile | null, dailyLog: DailyLog | null): NutritionStatus | null {
+  if (!profile || !dailyLog) return null;
 
     const goalConfig = mergeGoalConfigs(getActiveGoals(profile));
 
@@ -122,6 +122,9 @@ export function useNutrition(profile: UserProfile | null, dailyLog: DailyLog | n
       status.overallStatus = status.caloriePercent >= 80 ? 'excellent' : 'good';
     }
 
-    return status;
-  }, [profile, dailyLog]);
+  return status;
+}
+
+export function useNutrition(profile: UserProfile | null, dailyLog: DailyLog | null) {
+  return useMemo(() => computeNutritionStatus(profile, dailyLog), [profile, dailyLog]);
 }
