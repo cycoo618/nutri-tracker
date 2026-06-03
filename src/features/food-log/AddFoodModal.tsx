@@ -55,6 +55,8 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
   const currentServing = mergedServings[selectedServing] ?? { label: '份', grams: 100 };
   const gramsPerUnit = currentServing.grams;
   const unitLabel = localizeServingLabel(currentServing.label, locale);
+  // 提取裸单位词：去掉前导数字和括号说明，如 "1份(约150g)" → "份"
+  const bareUnit = unitLabel.replace(/^[\d.]+\s*/, '').replace(/[（(][^）)]*[）)]/g, '').trim() || unitLabel;
 
   // AI 补全营养（仅当蛋白/碳水/脂肪全为 0 时启用）
   const [localPer100g, setLocalPer100g] = useState<FoodItem['per100g']>(food.per100g);
@@ -69,9 +71,6 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
     quickGrams ? Math.max(0.5, +(quickGrams / gramsPerUnit).toFixed(1)) : 1
   );
   const [grams, setGrams] = useState<number>(quickGrams ?? gramsPerUnit);
-
-  // Custom input
-  const [showCustomInput, setShowCustomInput] = useState(false);
 
   // Computed totals
   const totalGrams = mode === 'serving'
@@ -264,12 +263,29 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
                 }}
               >−</button>
 
-              {/* Hero value */}
+              {/* Hero value — directly editable */}
               <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
-                  <span className="nt-display" style={{
-                    fontSize: 54, color: 'var(--ink)', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-                  }}>{heroValue}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={heroValue}
+                    onChange={e => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v > 0) {
+                        if (mode === 'serving') setServings(Math.max(0.5, v));
+                        else setGrams(Math.max(5, Math.round(v)));
+                      }
+                    }}
+                    onFocus={autoSelect}
+                    style={{
+                      fontFamily: 'ZCOOL QingKe HuangYou, Noto Serif SC, serif',
+                      fontSize: 54, color: 'var(--ink)', lineHeight: 1,
+                      fontVariantNumeric: 'tabular-nums',
+                      border: 'none', outline: 'none', background: 'transparent',
+                      width: '2.8ch', textAlign: 'center', minWidth: '2ch',
+                    }}
+                  />
                   <span className="nt-serif" style={{ fontSize: 19, color: 'var(--ink-mute)', fontWeight: 500 }}>{heroUnit}</span>
                 </div>
                 <div style={{
@@ -301,7 +317,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
                 <PortionChip
                   key={n}
                   active={servings === n}
-                  label={`${n} ${unitLabel}`}
+                  label={`${n} ${bareUnit}`}
                   sub={`${Math.round(n * gramsPerUnit)} g`}
                   onClick={() => setServings(n)}
                 />
@@ -311,49 +327,12 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
                   key={i}
                   active={grams === g}
                   label={`${g} g`}
-                  sub={`≈ ${(g / gramsPerUnit).toFixed(1)} ${unitLabel}`}
+                  sub={`≈ ${(g / gramsPerUnit).toFixed(1)} ${bareUnit}`}
                   onClick={() => setGrams(g)}
                 />
               ))
             }
-            <button
-              onClick={() => setShowCustomInput(v => !v)}
-              style={{
-                flex: '0 0 auto', padding: '7px 14px 8px',
-                background: 'transparent', border: '1px dashed var(--line)',
-                borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 12.5, color: 'var(--ink-mute)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                whiteSpace: 'nowrap',
-              }}
-            >＋ 自定义</button>
           </div>
-
-          {/* Custom input (expandable) */}
-          {showCustomInput && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="number"
-                placeholder={mode === 'serving' ? '份数' : '克数'}
-                onFocus={autoSelect}
-                onChange={e => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v) && v > 0) {
-                    if (mode === 'serving') setServings(v);
-                    else setGrams(Math.round(v));
-                  }
-                }}
-                style={{
-                  flex: 1, border: '1px solid var(--line-soft)', borderRadius: 10,
-                  padding: '8px 12px', fontSize: 15, color: 'var(--ink)',
-                  background: 'var(--card)', outline: 'none', fontFamily: 'inherit',
-                }}
-              />
-              <span className="nt-serif" style={{ fontSize: 13, color: 'var(--ink-mute)', flexShrink: 0 }}>
-                {mode === 'serving' ? unitLabel : 'g'}
-              </span>
-            </div>
-          )}
 
           {/* 食材组成 (combo foods only) */}
           {food.ingredients && food.ingredients.length > 0 && (

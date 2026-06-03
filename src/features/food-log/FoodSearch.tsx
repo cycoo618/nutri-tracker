@@ -262,13 +262,13 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
           <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(0,0,0,0.4)', fontFamily: 'Noto Serif SC, serif', marginBottom: 6, letterSpacing: '0.05em' }}>
             最常使用
           </div>
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 4 }}>
             {recentFoods.map(entry => (
               <button
                 key={entry.food.id}
                 onClick={() => onSelect(entry.food, entry.lastGrams, entry.lastUnit)}
                 style={{
-                  flexShrink: 0, padding: '5px 12px', borderRadius: 999,
+                  padding: '5px 12px', borderRadius: 999,
                   background: 'rgba(31,41,32,0.05)', border: '1px solid rgba(31,41,32,0.1)',
                   cursor: 'pointer', fontFamily: 'Noto Serif SC, serif',
                   fontSize: 12, color: '#1F2920', whiteSpace: 'nowrap',
