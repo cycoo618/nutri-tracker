@@ -74,10 +74,10 @@ export function RedesignShell(props: RedesignShellProps) {
   const touchSY       = useRef(0);
 
   // Back-swipe animation (sub-view → main)
-  const [backX, setBackX]       = useState(0);
+  const [backX, setBackX]        = useState(0);
   const [backTrans, setBackTrans] = useState(false);
-  const backXRef      = useRef(0);
-  const isBackSwiping = useRef(false);
+  const backXRef  = useRef(0);
+  const edgeRef   = useRef<HTMLDivElement>(null); // transparent left-edge detector
 
   // Refs so imperative handlers always read current values
   const activeTabRef   = useRef(activeTab);
@@ -132,29 +132,11 @@ export function RedesignShell(props: RedesignShellProps) {
       touchSX.current = e.touches[0].clientX;
       touchSY.current = e.touches[0].clientY;
       horizDrag.current = false;
-      // Flag: back-swipe starts from left edge while in a sub-view
-      isBackSwiping.current = subViewRef.current !== 'main' && touchSX.current < 80;
     };
     const onMove = (e: TouchEvent) => {
       if (snapping.current) return;
       const dx = e.touches[0].clientX - touchSX.current;
       const dy = e.touches[0].clientY - touchSY.current;
-
-      // ── Back-swipe (sub-view → main, right drag from left edge) ──
-      if (isBackSwiping.current) {
-        // Prevent scroll lock BEFORE direction is confirmed — without this
-        // the browser locks the touch as a scroll gesture on the first few events
-        e.preventDefault();
-        if (!horizDrag.current) {
-          if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-          horizDrag.current = Math.abs(dx) > Math.abs(dy);
-        }
-        if (horizDrag.current && dx > 0) {
-          backXRef.current = dx;
-          setBackX(dx);
-        }
-        return;
-      }
 
       // ── Date swipe (总览/main only) ──
       if (subViewRef.current !== 'main' || activeTabRef.current !== '总览') return;
@@ -170,35 +152,9 @@ export function RedesignShell(props: RedesignShellProps) {
       }
     };
     const onEnd = () => {
-      const W = window.innerWidth;
-
-      // ── Complete or cancel back-swipe ──
-      if (isBackSwiping.current) {
-        isBackSwiping.current = false;
-        if (!horizDrag.current) return;
-        horizDrag.current = false;
-        if (backXRef.current > W * 0.3) {
-          setBackTrans(true);
-          backXRef.current = W;
-          setBackX(W);
-          setTimeout(() => {
-            setBackTrans(false);
-            backXRef.current = 0;
-            setBackX(0);
-            setSubView('main');
-          }, 280);
-        } else {
-          setBackTrans(true);
-          backXRef.current = 0;
-          setBackX(0);
-          setTimeout(() => setBackTrans(false), 300);
-        }
-        return;
-      }
-
-      // ── Complete or cancel date swipe ──
       if (!horizDrag.current) return;
       horizDrag.current = false;
+      const W = window.innerWidth;
       if (dragXRef.current < -W * 0.3 && currentDateRef.current < today) {
         doSnap('next');
       } else if (dragXRef.current > W * 0.3) {
@@ -219,6 +175,57 @@ export function RedesignShell(props: RedesignShellProps) {
       el.removeEventListener('touchend',   onEnd);
     };
   }, [doSnap, today]);
+
+  // ── Left-edge back-swipe overlay (sub-views only) ───────────────────
+  // Separate element from the scrollable sub-view avoids the browser
+  // locking the touch as a scroll gesture before we can intercept it.
+  useEffect(() => {
+    const el = edgeRef.current;
+    if (!el) return;
+    const eStart = { x: 0, y: 0 };
+    let active = false;
+
+    const onStart = (e: TouchEvent) => {
+      eStart.x = e.touches[0].clientX;
+      eStart.y = e.touches[0].clientY;
+      active = false;
+    };
+    const onMove = (e: TouchEvent) => {
+      e.preventDefault(); // always block native scroll inside this thin strip
+      const dx = e.touches[0].clientX - eStart.x;
+      const dy = e.touches[0].clientY - eStart.y;
+      if (!active) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        active = dx > 0 && Math.abs(dx) > Math.abs(dy) * 0.8;
+      }
+      if (active && dx > 0) { backXRef.current = dx; setBackX(dx); }
+    };
+    const onEnd = () => {
+      if (!active) return;
+      active = false;
+      const W = window.innerWidth;
+      if (backXRef.current > W * 0.28) {
+        setBackTrans(true);
+        backXRef.current = W; setBackX(W);
+        setTimeout(() => {
+          setBackTrans(false); backXRef.current = 0; setBackX(0); setSubView('main');
+        }, 280);
+      } else {
+        setBackTrans(true);
+        backXRef.current = 0; setBackX(0);
+        setTimeout(() => setBackTrans(false), 300);
+      }
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove',  onMove,  { passive: false });
+    el.addEventListener('touchend',   onEnd,   { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove',  onMove);
+      el.removeEventListener('touchend',   onEnd);
+    };
+  }); // no deps: re-attaches whenever edgeRef mounts/unmounts with subView
 
   useEffect(() => {
     if (localStorage.getItem('nutri_dark') === '1') document.documentElement.classList.add('dark');
@@ -396,24 +403,39 @@ export function RedesignShell(props: RedesignShellProps) {
 
             {/* Sub-view layer (diversity / macros) — slides right on back-swipe */}
             {subView !== 'main' && (
-              <div
-                ref={scrollRef}
-                className="nt-scroll-hide"
-                style={{
-                  position: 'absolute', inset: 0, overflowY: 'auto',
-                  paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
-                  paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
-                  transform: `translateX(${backX}px)`,
-                  transition: backTrans ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
-                  willChange: 'transform',
-                  zIndex: 2,
-                  boxShadow: backX > 0 ? '-4px 0 20px rgba(31,41,32,0.12)' : 'none',
-                }}
-              >
-                <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
-                  {renderContent()}
+              <>
+                <div
+                  ref={scrollRef}
+                  className="nt-scroll-hide"
+                  style={{
+                    position: 'absolute', inset: 0, overflowY: 'auto',
+                    paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+                    paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
+                    transform: `translateX(${backX}px)`,
+                    transition: backTrans ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
+                    willChange: 'transform',
+                    zIndex: 2,
+                    boxShadow: backX > 0 ? '-4px 0 20px rgba(31,41,32,0.12)' : 'none',
+                  }}
+                >
+                  <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
+                    {renderContent()}
+                  </div>
                 </div>
-              </div>
+
+                {/* Transparent left-edge strip — sole purpose is non-passive touchmove
+                    so the browser can't lock the gesture as a scroll before we intercept */}
+                <div
+                  ref={edgeRef}
+                  style={{
+                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                    width: 24,
+                    zIndex: 10,
+                    // touch-action none: browser won't try native scroll in this zone
+                    touchAction: 'none',
+                  }}
+                />
+              </>
             )}
           </>
         ) : (
