@@ -430,7 +430,7 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                       <div
                         key={item.id}
                         onClick={() => onEditFood?.(item)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '2px 4px', margin: '0 -4px', cursor: onEditFood ? 'pointer' : 'default' }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '2px 4px', margin: '0 -4px', cursor: onEditFood ? 'pointer' : 'default', minHeight: 32 }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
                           <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-soft)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

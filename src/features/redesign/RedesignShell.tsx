@@ -77,7 +77,6 @@ export function RedesignShell(props: RedesignShellProps) {
   const [backX, setBackX]        = useState(0);
   const [backTrans, setBackTrans] = useState(false);
   const backXRef  = useRef(0);
-  const edgeRef   = useRef<HTMLDivElement>(null); // transparent left-edge detector
 
   // Refs so imperative handlers always read current values
   const activeTabRef   = useRef(activeTab);
@@ -176,56 +175,7 @@ export function RedesignShell(props: RedesignShellProps) {
     };
   }, [doSnap, today]);
 
-  // ── Left-edge back-swipe overlay (sub-views only) ───────────────────
-  // Separate element from the scrollable sub-view avoids the browser
-  // locking the touch as a scroll gesture before we can intercept it.
-  useEffect(() => {
-    const el = edgeRef.current;
-    if (!el) return;
-    const eStart = { x: 0, y: 0 };
-    let active = false;
-
-    const onStart = (e: TouchEvent) => {
-      eStart.x = e.touches[0].clientX;
-      eStart.y = e.touches[0].clientY;
-      active = false;
-    };
-    const onMove = (e: TouchEvent) => {
-      e.preventDefault(); // always block native scroll inside this thin strip
-      const dx = e.touches[0].clientX - eStart.x;
-      const dy = e.touches[0].clientY - eStart.y;
-      if (!active) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        active = dx > 0 && Math.abs(dx) > Math.abs(dy) * 0.8;
-      }
-      if (active && dx > 0) { backXRef.current = dx; setBackX(dx); }
-    };
-    const onEnd = () => {
-      if (!active) return;
-      active = false;
-      const W = window.innerWidth;
-      if (backXRef.current > W * 0.28) {
-        setBackTrans(true);
-        backXRef.current = W; setBackX(W);
-        setTimeout(() => {
-          setBackTrans(false); backXRef.current = 0; setBackX(0); setSubView('main');
-        }, 280);
-      } else {
-        setBackTrans(true);
-        backXRef.current = 0; setBackX(0);
-        setTimeout(() => setBackTrans(false), 300);
-      }
-    };
-
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchmove',  onMove,  { passive: false });
-    el.addEventListener('touchend',   onEnd,   { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove',  onMove);
-      el.removeEventListener('touchend',   onEnd);
-    };
-  }); // no deps: re-attaches whenever edgeRef mounts/unmounts with subView
+  const handleBackComplete = useCallback(() => setSubView('main'), []);
 
   useEffect(() => {
     if (localStorage.getItem('nutri_dark') === '1') document.documentElement.classList.add('dark');
@@ -423,17 +373,12 @@ export function RedesignShell(props: RedesignShellProps) {
                   </div>
                 </div>
 
-                {/* Transparent left-edge strip — sole purpose is non-passive touchmove
-                    so the browser can't lock the gesture as a scroll before we intercept */}
-                <div
-                  ref={edgeRef}
-                  style={{
-                    position: 'absolute', left: 0, top: 0, bottom: 0,
-                    width: 24,
-                    zIndex: 10,
-                    // touch-action none: browser won't try native scroll in this zone
-                    touchAction: 'none',
-                  }}
+                {/* Edge strip: separate component so useEffect(fn,[]) binds ONCE on mount */}
+                <BackSwipeEdge
+                  backXRef={backXRef}
+                  setBackX={setBackX}
+                  setBackTrans={setBackTrans}
+                  onComplete={handleBackComplete}
                 />
               </>
             )}
@@ -604,5 +549,76 @@ export function RedesignShell(props: RedesignShellProps) {
         />
       )}
     </div>
+  );
+}
+
+// ── BackSwipeEdge ─────────────────────────────────────────────────────────
+// A 24px-wide transparent overlay on the left edge of sub-views.
+// Lives in its own component so useEffect(fn,[]) binds listeners EXACTLY ONCE
+// on mount and removes them on unmount — no listener churn during re-renders.
+interface BackSwipeEdgeProps {
+  backXRef: React.MutableRefObject<number>;
+  setBackX: (x: number) => void;
+  setBackTrans: (v: boolean) => void;
+  onComplete: () => void;
+}
+function BackSwipeEdge({ backXRef, setBackX, setBackTrans, onComplete }: BackSwipeEdgeProps) {
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const W = () => window.innerWidth;
+    const start = { x: 0, y: 0 };
+    let active = false;
+
+    const onStart = (e: TouchEvent) => {
+      start.x = e.touches[0].clientX;
+      start.y = e.touches[0].clientY;
+      active = false;
+    };
+    const onMove = (e: TouchEvent) => {
+      e.preventDefault(); // block native scroll — this is the key benefit of a separate element
+      const dx = e.touches[0].clientX - start.x;
+      const dy = e.touches[0].clientY - start.y;
+      if (!active) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        active = dx > 0 && Math.abs(dx) > Math.abs(dy) * 0.7;
+      }
+      if (active && dx > 0) { backXRef.current = dx; setBackX(dx); }
+    };
+    const onEnd = () => {
+      if (!active) return;
+      active = false;
+      if (backXRef.current > W() * 0.28) {
+        setBackTrans(true);
+        backXRef.current = W(); setBackX(W());
+        setTimeout(() => { setBackTrans(false); backXRef.current = 0; setBackX(0); onComplete(); }, 280);
+      } else {
+        setBackTrans(true);
+        backXRef.current = 0; setBackX(0);
+        setTimeout(() => setBackTrans(false), 300);
+      }
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove',  onMove,  { passive: false });
+    el.addEventListener('touchend',   onEnd,   { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove',  onMove);
+      el.removeEventListener('touchend',   onEnd);
+    };
+  }, []); // empty deps: runs once on mount, cleans up on unmount
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0,
+        width: 24, zIndex: 10,
+        touchAction: 'none', // prevent browser treating this zone as scroll area
+      }}
+    />
   );
 }
