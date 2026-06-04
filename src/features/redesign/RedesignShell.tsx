@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { UserProfile } from '../../types/user';
 import type { DailyLog, MealType, MealItem } from '../../types/log';
+import { createEmptyDailyLog } from '../../types/log';
 import type { FoodItem } from '../../types/food';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
@@ -90,11 +91,13 @@ export function RedesignShell(props: RedesignShellProps) {
   }, [subView]);
   useEffect(() => { currentDateRef.current = currentDate; },[currentDate]);
 
-  // Adjacent-day + current-day logs — all synchronous so strip never flashes on date change
+  // Adjacent-day + current-day logs — synchronous, always a valid DailyLog (empty fallback)
   const adjLogs = useMemo(() => {
-    const read = (date: string): DailyLog | null => {
-      try { return JSON.parse(localStorage.getItem(`nutri_log_${profile.uid}_${date}`) || 'null'); }
-      catch { return null; }
+    const read = (date: string): DailyLog => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(`nutri_log_${profile.uid}_${date}`) || 'null');
+        return cached ?? createEmptyDailyLog(profile.uid, date);
+      } catch { return createEmptyDailyLog(profile.uid, date); }
     };
     return { prev: read(prevDate), current: read(currentDate), next: read(nextDate) };
   }, [prevDate, currentDate, nextDate, profile.uid]);
@@ -341,9 +344,9 @@ export function RedesignShell(props: RedesignShellProps) {
                         onOpenAdd={editable ? handleAdd : () => {}}
                         onRemoveFood={editable ? props.onRemoveFood : undefined}
                         onEditFood={editable ? handleEditLogItem : undefined}
-                        syncStatus={editable ? syncStatus : 'idle'}
+                        syncStatus={syncStatus}
                         syncError={editable ? props.syncError : null}
-                        onForceSync={editable ? onForceSync : undefined}
+                        onForceSync={onForceSync}
                       />
                     </div>
                   </div>
@@ -373,12 +376,14 @@ export function RedesignShell(props: RedesignShellProps) {
                   </div>
                 </div>
 
-                {/* Edge strip: separate component so useEffect(fn,[]) binds ONCE on mount */}
+                {/* Edge strip: separate component so useEffect(fn,[]) binds ONCE on mount.
+                    topOffset skips the header row (back button at x=22-54px, top ~60px) */}
                 <BackSwipeEdge
                   backXRef={backXRef}
                   setBackX={setBackX}
                   setBackTrans={setBackTrans}
                   onComplete={handleBackComplete}
+                  topOffset={68}
                 />
               </>
             )}
@@ -561,8 +566,9 @@ interface BackSwipeEdgeProps {
   setBackX: (x: number) => void;
   setBackTrans: (v: boolean) => void;
   onComplete: () => void;
+  topOffset?: number;
 }
-function BackSwipeEdge({ backXRef, setBackX, setBackTrans, onComplete }: BackSwipeEdgeProps) {
+function BackSwipeEdge({ backXRef, setBackX, setBackTrans, onComplete, topOffset = 0 }: BackSwipeEdgeProps) {
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -615,9 +621,9 @@ function BackSwipeEdge({ backXRef, setBackX, setBackTrans, onComplete }: BackSwi
     <div
       ref={ref}
       style={{
-        position: 'absolute', left: 0, top: 0, bottom: 0,
-        width: 24, zIndex: 10,
-        touchAction: 'none', // prevent browser treating this zone as scroll area
+        position: 'absolute', left: 0, top: topOffset, bottom: 0,
+        width: 50, zIndex: 10,
+        touchAction: 'none',
       }}
     />
   );
