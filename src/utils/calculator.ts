@@ -3,7 +3,7 @@
 // ============================================
 
 /** 本地时区日期 → YYYY-MM-DD 字符串（避免 toISOString() 的 UTC 偏差） */
-function toLocalDateStr(d: Date): string {
+export function toLocalDateStr(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');

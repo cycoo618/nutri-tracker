@@ -66,16 +66,19 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
   const defaultMode: InputMode = quickGrams ? 'grams' : 'serving';
   const [mode, setMode] = useState<InputMode>(defaultMode);
 
-  // Serving & grams states
-  const [servings, setServings] = useState<number>(
-    quickGrams ? Math.max(0.5, +(quickGrams / gramsPerUnit).toFixed(1)) : 1
-  );
-  const [grams, setGrams] = useState<number>(quickGrams ?? gramsPerUnit);
+  // Serving & grams states — stored as strings to allow empty/in-progress input
+  const initServings = quickGrams ? String(+(quickGrams / gramsPerUnit).toFixed(1)) : '1';
+  const initGrams    = String(quickGrams ?? gramsPerUnit);
+  const [servingsStr, setServingsStr] = useState<string>(initServings);
+  const [gramsStr,    setGramsStr]    = useState<string>(initGrams);
 
-  // Computed totals
+  const servings = parseFloat(servingsStr) || 0;
+  const grams    = parseFloat(gramsStr)    || 0;
+
+  // Computed totals (used for nutrition preview and confirmation)
   const totalGrams = mode === 'serving'
-    ? Math.max(1, Math.round(servings * gramsPerUnit))
-    : Math.max(1, grams);
+    ? Math.round(servings * gramsPerUnit)
+    : grams;
   const f = totalGrams / 100;
 
   const r1 = (n: number) => {
@@ -91,23 +94,24 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
   const sugar  = localPer100g.sugar  != null ? r1(localPer100g.sugar  * f) : null;
   const sodium = localPer100g.sodium != null ? r1(localPer100g.sodium * f) : null;
 
-  const heroValue = mode === 'serving' ? servings : grams;
+  const heroStr   = mode === 'serving' ? servingsStr : gramsStr;
+  const setHeroStr = mode === 'serving' ? setServingsStr : setGramsStr;
   const heroUnit  = mode === 'serving' ? unitLabel : 'g';
   const heroConv  = mode === 'serving'
-    ? `≈ ${totalGrams} 克`
-    : `≈ ${(grams / gramsPerUnit).toFixed(1)} ${unitLabel}`;
+    ? (totalGrams > 0 ? `≈ ${totalGrams} 克` : '')
+    : (grams > 0 ? `≈ ${(grams / gramsPerUnit).toFixed(1)} ${unitLabel}` : '');
 
   const displayUnit = mode === 'serving'
     ? (servings === 1 ? unitLabel : `${servings} × ${unitLabel}`)
     : `${totalGrams}g`;
 
   const inc = () => {
-    if (mode === 'serving') setServings(s => +(Math.max(0.5, s) + 1).toFixed(1));
-    else setGrams(g => g + 10);
+    if (mode === 'serving') setServingsStr(s => String(+(Math.max(0.5, parseFloat(s) || 0) + 1).toFixed(1)));
+    else setGramsStr(s => String(Math.max(10, (parseFloat(s) || 0) + 10)));
   };
   const dec = () => {
-    if (mode === 'serving') setServings(s => +Math.max(0.5, s - 0.5).toFixed(1));
-    else setGrams(g => Math.max(5, g - 10));
+    if (mode === 'serving') setServingsStr(s => String(+Math.max(0.5, (parseFloat(s) || 1) - 0.5).toFixed(1)));
+    else setGramsStr(s => String(Math.max(1, (parseFloat(s) || 10) - 10)));
   };
 
   const macrosMissing = (localPer100g.protein ?? 0) === 0
@@ -149,8 +153,11 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
 
   return (
     <div
-      className="fixed inset-x-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)', background: 'rgba(31,41,32,0.35)', backdropFilter: 'blur(2px)' }}
+      style={{
+        position: 'absolute', inset: 0, zIndex: 200,
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        background: 'rgba(31,41,32,0.35)', backdropFilter: 'blur(2px)',
+      }}
       onClick={onClose}
     >
       <div
@@ -158,7 +165,12 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
         className="nt-sheet-in nt-paper nt-grain w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
         style={{ maxHeight: 'var(--vvh, 92vh)' }}
         onClick={e => e.stopPropagation()}
-        {...cardDragHandlers}
+        {...{
+          ...cardDragHandlers,
+          onTouchStart: (e: React.TouchEvent<HTMLDivElement>) => { e.stopPropagation(); cardDragHandlers.onTouchStart(e); },
+          onTouchMove:  (e: React.TouchEvent<HTMLDivElement>) => { e.stopPropagation(); cardDragHandlers.onTouchMove(e); },
+          onTouchEnd:   (e: React.TouchEvent<HTMLDivElement>) => { e.stopPropagation(); cardDragHandlers.onTouchEnd(e); },
+        }}
       >
         {/* Drag handle */}
         <div
@@ -186,7 +198,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
         </div>
 
         {/* Scroll area */}
-        <div className="nt-scroll-hide flex-1" style={{ overflowY: 'auto', padding: '10px 18px 0' }}>
+        <div className="nt-scroll-hide flex-1 min-h-0" style={{ overflowY: 'auto', padding: '10px 18px calc(env(safe-area-inset-bottom, 0px) + 20px)' }}>
 
           {/* Multi-serving selector (only when food has >1 serving size) */}
           {mergedServings.length > 1 && (
@@ -194,7 +206,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
               {mergedServings.map((s, i) => (
                 <button
                   key={i}
-                  onClick={() => { setSelectedServing(i); setGrams(s.grams); setServings(1); }}
+                  onClick={() => { setSelectedServing(i); setGramsStr(String(s.grams)); setServingsStr('1'); }}
                   style={{
                     flexShrink: 0, padding: '4px 12px', borderRadius: 999,
                     background: selectedServing === i ? 'var(--ink)' : 'var(--card)',
@@ -267,16 +279,9 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
               <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    value={heroValue}
-                    onChange={e => {
-                      const v = parseFloat(e.target.value);
-                      if (!isNaN(v) && v > 0) {
-                        if (mode === 'serving') setServings(Math.max(0.5, v));
-                        else setGrams(Math.max(5, Math.round(v)));
-                      }
-                    }}
+                    type="text" inputMode="decimal"
+                    value={heroStr}
+                    onChange={e => setHeroStr(e.target.value)}
                     onFocus={autoSelect}
                     style={{
                       fontFamily: 'ZCOOL QingKe HuangYou, Noto Serif SC, serif',
@@ -319,7 +324,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
                   active={servings === n}
                   label={`${n} ${bareUnit}`}
                   sub={`${Math.round(n * gramsPerUnit)} g`}
-                  onClick={() => setServings(n)}
+                  onClick={() => setServingsStr(String(n))}
                 />
               ))
               : gramsChips.map((g, i) => (
@@ -328,7 +333,7 @@ export function AddFoodModal({ food: foodProp, quickGrams, onConfirm, onBack, on
                   active={grams === g}
                   label={`${g} g`}
                   sub={`≈ ${(g / gramsPerUnit).toFixed(1)} ${bareUnit}`}
-                  onClick={() => setGrams(g)}
+                  onClick={() => setGramsStr(String(g))}
                 />
               ))
             }

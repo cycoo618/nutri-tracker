@@ -61,14 +61,38 @@ export function inferCategoryFromName(name: string): FoodCategory {
   return 'other';
 }
 
+/** FoodCategory → FOOD_GROUP key 映射（用于自定义食物的分类字段） */
+const CATEGORY_TO_GROUP: Record<string, string> = {
+  vegetable: 'veg',
+  fruit:     'fruit',
+  grain:     'grain',
+  soy:       'bean',
+  nut:       'nut',
+  seafood:   'fish',
+  // fermented/dairy maps to ferm when name keyword confirms it
+};
+
 /** 从当日日志计算覆盖了哪些食物类别（FOOD_GROUP key 集合） */
 export function computeCoveredGroups(dailyLog: DailyLog | null): Set<string> {
   if (!dailyLog) return new Set();
   const covered = new Set<string>();
   for (const meal of dailyLog.meals) {
     for (const item of meal.items) {
-      const group = inferFoodGroupFromName(item.foodName);
-      if (group) covered.add(group);
+      // 1. 先按名字关键词匹配
+      const byName = inferFoodGroupFromName(item.foodName);
+      if (byName) covered.add(byName);
+      // 2. 再按存储的 category 字段匹配（主要覆盖自定义食物）
+      if (item.category) {
+        const byCategory = CATEGORY_TO_GROUP[item.category];
+        if (byCategory) covered.add(byCategory);
+      }
+      // 3. 对于组合食材，遍历每个食材名检测（食材里有蔬菜/豆类等就算覆盖）
+      if (item.recipeIngredients) {
+        for (const ing of item.recipeIngredients) {
+          const g = inferFoodGroupFromName(ing.foodName);
+          if (g) covered.add(g);
+        }
+      }
     }
   }
   return covered;

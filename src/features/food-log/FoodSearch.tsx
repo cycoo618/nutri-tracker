@@ -20,7 +20,7 @@ import { RecipeBuilder } from './RecipeBuilder';
 import { NutritionLabelScanner } from './NutritionLabelScanner';
 import { FoodPhotoScanner } from './FoodPhotoScanner';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
-import { estimateFoodNutrition, getGroqKey } from '../../services/nutrition-vision';
+import { estimateFoodNutrition, getGroqKey, saveGroqKey } from '../../services/nutrition-vision';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeServingLabel } from '../../utils/servingLabels';
 import { inferCategoryFromName } from '../../utils/foodGroupCoverage';
@@ -352,6 +352,43 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
 
               {aiState === 'error' && aiError && (
                 <div className="text-xs text-red-500 text-center">{aiError}</div>
+              )}
+              {/* Inline Groq key setup when AI estimate fails due to missing key */}
+              {aiState === 'error' && aiError?.includes('Groq API Key') && (
+                <div style={{ background: 'rgba(31,41,32,0.04)', border: '1px solid var(--line-soft)', borderRadius: 12, padding: '12px 14px' }}>
+                  <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 8 }}>
+                    免费获取：<a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--sage)', textDecoration: 'underline' }}>console.groq.com/keys</a>
+                  </p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="password"
+                      placeholder="gsk_..."
+                      defaultValue={getGroqKey() ?? ''}
+                      id="groq-key-inline-input"
+                      style={{
+                        flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 13,
+                        border: '1px solid var(--line)', background: 'var(--paper)',
+                        color: 'var(--ink)', outline: 'none',
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        const input = document.getElementById('groq-key-inline-input') as HTMLInputElement;
+                        const k = input?.value.trim();
+                        if (k) {
+                          saveGroqKey(k);
+                          setAiState('idle');
+                          setAiError(null);
+                        }
+                      }}
+                      style={{
+                        padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                        background: 'var(--ink)', color: '#fff', border: 'none', cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >保存</button>
+                  </div>
+                </div>
               )}
 
               {/* 拍照识别 — 蓝色，排第一 */}

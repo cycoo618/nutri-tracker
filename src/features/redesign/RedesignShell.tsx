@@ -9,6 +9,7 @@ import type { SyncStatus } from '../../hooks/useFoodLog';
 import type { NutritionStatus } from '../../hooks/useNutrition';
 import { computeNutritionStatus } from '../../hooks/useNutrition';
 import { getFontSize, ZOOM_MAP } from '../../utils/fontSize';
+import { getTodayString, toLocalDateStr } from '../../utils/calculator';
 import type { FontSize } from '../../utils/fontSize';
 import { PaperDock } from './shared/PaperDock';
 import { DiaryHome } from './DiaryHome';
@@ -56,11 +57,11 @@ export function RedesignShell(props: RedesignShellProps) {
   const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
 
   // ── Date-swipe animation ──────────────────────────────────────────────
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayString();
   const shiftDate = useCallback((d: string, delta: number) => {
     const date = new Date(d + 'T00:00:00');
     date.setDate(date.getDate() + delta);
-    return date.toISOString().slice(0, 10);
+    return toLocalDateStr(date);
   }, []);
 
   const prevDate = useMemo(() => shiftDate(currentDate, -1), [currentDate, shiftDate]);
@@ -93,14 +94,18 @@ export function RedesignShell(props: RedesignShellProps) {
 
   // Adjacent-day + current-day logs — synchronous, always a valid DailyLog (empty fallback)
   const adjLogs = useMemo(() => {
+    const empty = (date: string) => createEmptyDailyLog(profile.uid, date);
     const read = (date: string): DailyLog => {
       try {
         const cached = JSON.parse(localStorage.getItem(`nutri_log_${profile.uid}_${date}`) || 'null');
-        return cached ?? createEmptyDailyLog(profile.uid, date);
-      } catch { return createEmptyDailyLog(profile.uid, date); }
+        // Validate: must have 4 meal slots; fall back if malformed
+        if (cached && Array.isArray(cached.meals) && cached.meals.length === 4) return cached;
+        return empty(date);
+      } catch { return empty(date); }
     };
     return { prev: read(prevDate), current: read(currentDate), next: read(nextDate) };
-  }, [prevDate, currentDate, nextDate, profile.uid]);
+  // dailyLog dependency: re-reads localStorage after Firestore saves fresh data
+  }, [prevDate, currentDate, nextDate, profile.uid, dailyLog]);
 
   const prevNS    = useMemo(() => computeNutritionStatus(profile, adjLogs.prev),    [profile, adjLogs.prev]);
   const currentNS = useMemo(() => computeNutritionStatus(profile, adjLogs.current), [profile, adjLogs.current]);
@@ -143,8 +148,16 @@ export function RedesignShell(props: RedesignShellProps) {
       // ── Date swipe (总览/main only) ──
       if (subViewRef.current !== 'main' || activeTabRef.current !== '总览') return;
       if (!horizDrag.current) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        horizDrag.current = Math.abs(dx) > Math.abs(dy);
+        const absDx = Math.abs(dx), absDy = Math.abs(dy);
+        if (absDx < 2 && absDy < 2) return; // too small to decide
+        if (absDx >= absDy) {
+          // Clearly horizontal — claim immediately before iOS locks vertical scroll
+          horizDrag.current = true;
+          e.preventDefault();
+        } else {
+          // Clearly vertical — let browser scroll, ignore this gesture
+          return;
+        }
       }
       if (horizDrag.current) {
         e.preventDefault();
@@ -203,7 +216,7 @@ export function RedesignShell(props: RedesignShellProps) {
     setSubView('main');
     setActiveTab(tab as TabKey);
     // 点总览时回到今日
-    if (tab === '总览') onDateChange(new Date().toISOString().slice(0, 10));
+    if (tab === '总览') onDateChange(getTodayString());
   };
 
   const handleEditLogItem = useCallback((item: MealItem) => {
@@ -260,6 +273,19 @@ export function RedesignShell(props: RedesignShellProps) {
           onBack={() => setSubView('main')}
           onOpenAdd={handleAdd}
           onNav={handleNav}
+        />
+      );
+    }
+    if (subView === 'pantry') {
+      return (
+        <FoodPantryPage
+          onClose={() => setSubView('main')}
+          userId={profile.uid}
+          familyId={profile.familyId}
+          onAddToLog={(food) => {
+            setSubView('main');
+            setPendingFood(food);
+          }}
         />
       );
     }
@@ -321,7 +347,8 @@ export function RedesignShell(props: RedesignShellProps) {
               }}>
                 {([
                   { date: prevDate,    log: adjLogs.prev,              ns: prevNS,                        editable: false },
-                  { date: currentDate, log: adjLogs.current ?? dailyLog, ns: currentNS ?? nutritionStatus, editable: true  },
+                  // Use live data only when it belongs to currentDate; otherwise fall back to localStorage
+                  { date: currentDate, log: (dailyLog?.date === currentDate ? dailyLog : null) ?? adjLogs.current, ns: (dailyLog?.date === currentDate ? nutritionStatus : null) ?? currentNS, editable: true  },
                   { date: nextDate,    log: adjLogs.next,              ns: nextNS,                        editable: false },
                 ] as const).map(({ date, log, ns, editable }) => (
                   <div
@@ -331,6 +358,7 @@ export function RedesignShell(props: RedesignShellProps) {
                       width: '33.333%', flexShrink: 0, height: '100%', overflowY: 'auto',
                       paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
                       paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
+                      touchAction: 'pan-y',
                     }}
                   >
                     <div style={{ zoom: fontZoom, WebkitTextSizeAdjust: 'auto' }}>
@@ -344,9 +372,9 @@ export function RedesignShell(props: RedesignShellProps) {
                         onOpenAdd={editable ? handleAdd : () => {}}
                         onRemoveFood={editable ? props.onRemoveFood : undefined}
                         onEditFood={editable ? handleEditLogItem : undefined}
-                        syncStatus={syncStatus}
+                        syncStatus={editable ? syncStatus : undefined}
                         syncError={editable ? props.syncError : null}
-                        onForceSync={onForceSync}
+                        onForceSync={editable ? onForceSync : undefined}
                       />
                     </div>
                   </div>
@@ -362,8 +390,9 @@ export function RedesignShell(props: RedesignShellProps) {
                   className="nt-scroll-hide"
                   style={{
                     position: 'absolute', inset: 0, overflowY: 'auto',
-                    paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
-                    paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
+                    background: 'var(--paper)',
+                    paddingTop: subView === 'pantry' ? 0 : 'calc(env(safe-area-inset-top, 0px) + 8px)',
+                    paddingBottom: subView === 'pantry' ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 110px)',
                     transform: `translateX(${backX}px)`,
                     transition: backTrans ? 'transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
                     willChange: 'transform',
@@ -406,11 +435,78 @@ export function RedesignShell(props: RedesignShellProps) {
         )}
       </div>
 
+      {/* Fixed top overlay: greeting row + buttons (总览/main only, never moves during date swipe) */}
+      {activeTab === '总览' && subView === 'main' && (() => {
+        const name = profile.displayName?.split(' ')[0] || '朋友';
+        const h = new Date().getHours();
+        const greeting = h < 6 ? '夜深了' : h < 11 ? '早安' : h < 14 ? '午安' : h < 18 ? '下午好' : '晚上好';
+        const goals = profile.goals ?? [profile.goal];
+        const goalMap: Record<string, { emoji: string; label: string; color: string; bg: string; border: string }> = {
+          fat_loss:          { emoji: '🔥', label: '减脂',  color: 'var(--tomato)', bg: 'rgba(255,107,87,0.1)', border: 'rgba(255,107,87,0.25)' },
+          anti_inflammatory: { emoji: '🫒', label: '抗炎',  color: 'var(--moss)',   bg: 'rgba(45,110,64,0.1)', border: 'rgba(45,110,64,0.25)' },
+          muscle_gain:       { emoji: '💪', label: '增肌',  color: 'var(--mustard)',bg: 'rgba(244,181,54,0.1)', border: 'rgba(244,181,54,0.25)' },
+          blood_sugar:       { emoji: '🩸', label: '控血糖', color: 'var(--plum)',   bg: 'rgba(212,93,127,0.1)', border: 'rgba(212,93,127,0.25)' },
+        };
+        return (
+          <div style={{
+            position: 'absolute',
+            top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+            left: 0, right: 0,
+            padding: '6px 20px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            zIndex: 10,
+            pointerEvents: 'none', // let touches pass through to swipe handler
+          }}>
+            {/* Left: greeting */}
+            <span className="nt-caveat" style={{ fontSize: 16, color: 'var(--ink)', pointerEvents: 'none' }}>
+              {greeting}, <span style={{ color: 'var(--ink-mute)' }}>{name}</span>
+            </span>
+            {/* Right: goal chips + sync + pantry */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, pointerEvents: 'auto' }}>
+              {goals.slice(0, 2).filter(g => goalMap[g]).map(g => {
+                const info = goalMap[g];
+                return (
+                  <span key={g} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    padding: '3px 8px', borderRadius: 999,
+                    background: info.bg, border: `1px solid ${info.border}`,
+                    fontSize: 11, color: info.color, fontWeight: 600,
+                  }}>{info.emoji} {info.label}</span>
+                );
+              })}
+              <button
+                onClick={onForceSync}
+                disabled={syncStatus === 'syncing'}
+                style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.6)', border: '1px solid var(--line-soft)',
+                  justifyContent: 'center',
+                  fontSize: 14, cursor: syncStatus === 'syncing' ? 'default' : 'pointer',
+                  color: syncStatus === 'error' ? 'var(--tomato)' : 'var(--ink-soft)',
+                }}
+              >
+                <span style={{ display: 'inline-block', animation: syncStatus === 'syncing' ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
+              </button>
+              <button
+                onClick={() => handleNav('pantry')}
+                style={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.6)', border: '1px solid var(--line-soft)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer',
+                }}
+              >📦</button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Bottom dock */}
       <PaperDock
         active={activeTab}
         onAdd={handleAdd}
-        onNav={(tab) => { setSubView('main'); setActiveTab(tab as TabKey); if (tab === '总览') onDateChange(new Date().toISOString().slice(0, 10)); }}
+        onNav={(tab) => { setSubView('main'); setActiveTab(tab as TabKey); if (tab === '总览') onDateChange(getTodayString()); }}
       />
 
       {/* Add food sheet */}
@@ -541,18 +637,7 @@ export function RedesignShell(props: RedesignShellProps) {
         );
       })()}
 
-      {/* Food Pantry — full-screen overlay */}
-      {subView === 'pantry' && (
-        <FoodPantryPage
-          onClose={() => setSubView('main')}
-          userId={profile.uid}
-          familyId={profile.familyId}
-          onAddToLog={(food) => {
-            setSubView('main');
-            setPendingFood(food);
-          }}
-        />
-      )}
+      {/* Food Pantry is now rendered inside the sub-view layer (with back-swipe animation) */}
     </div>
   );
 }

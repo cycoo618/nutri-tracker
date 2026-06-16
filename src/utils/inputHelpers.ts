@@ -1,22 +1,29 @@
 import type { FocusEvent } from 'react';
 
 /**
- * Auto-select all text on focus, then scroll the input into the center of
- * the viewport after the iOS keyboard has finished appearing (~350 ms).
+ * Auto-select all text on focus.
  *
- * Apply to every <input> / <textarea> that may be partially hidden by the
- * keyboard — this is the global handler, no per-component tweaking needed.
+ * iOS quirk: type="number" inputs do NOT support select() / setSelectionRange()
+ * in WebKit — calling setSelectionRange on a number input triggers an
+ * InvalidStateError and can cause phantom key insertions (the infamous "5" bug).
+ *
+ * Solution: use type="text" inputMode="decimal" for all numeric inputs that
+ * need auto-select. That shows the same numeric keypad on iOS while supporting
+ * the full selection API.
+ *
+ * Note: scrollIntoView is intentionally removed here — each component that
+ * needs it should call it explicitly after the keyboard settles (~300ms).
  */
 export const autoSelect = (e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
   const el = e.target;
-  // Select text — iOS sometimes ignores .select() on text inputs, so also
-  // explicitly set the selection range as a fallback.
+  // Skip entirely for type="number" — not supported by WebKit
+  if ((el as HTMLInputElement).type === 'number') return;
   setTimeout(() => {
     try {
       el.select();
-      el.setSelectionRange(0, el.value.length); // iOS text input fallback
-    } catch { /* number inputs may not support setSelectionRange — ignore */ }
+      el.setSelectionRange(0, el.value.length);
+    } catch {
+      // ignore — some input types don't support setSelectionRange
+    }
   }, 50);
-  // After iOS keyboard is fully expanded, scroll the field into view
-  setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
 };

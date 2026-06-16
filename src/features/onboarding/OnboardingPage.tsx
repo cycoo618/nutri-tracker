@@ -272,7 +272,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
                 </label>
                 <div className="relative">
                   <input
-                    type="number"
+                    type="text" inputMode="decimal"
                     value={field.value}
                     onChange={e => { field.onChange(e.target.value); setBodyError(null); }}
                     onFocus={focusAndReveal}
@@ -292,7 +292,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                   value={bodyFat}
                   onChange={e => setBodyFat(e.target.value)}
                   onFocus={focusAndReveal}
@@ -391,7 +391,7 @@ export function OnboardingPage({ displayName, onComplete }: OnboardingPageProps)
             {calorieMode === 'manual' && (
               <div className="relative">
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                   value={manualCalories}
                   onChange={e => setManualCalories(e.target.value)}
                   onFocus={focusAndReveal}

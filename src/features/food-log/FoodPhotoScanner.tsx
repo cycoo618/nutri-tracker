@@ -145,7 +145,9 @@ export function FoodPhotoScanner({ onClose, onSelect }: FoodPhotoScannerProps) {
         className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
         style={{ maxHeight: 'var(--vvh, 92vh)' }}
         onClick={e => e.stopPropagation()}
-        {...cardDragHandlers}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
       >
         {/* Drag handle */}
         <div
@@ -162,7 +164,7 @@ export function FoodPhotoScanner({ onClose, onSelect }: FoodPhotoScannerProps) {
           <span className="font-semibold text-gray-800">{t('identifyFood')}</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
 
           {/* ── Key Setup ── */}
           {needsKey && (
@@ -302,7 +304,7 @@ export function FoodPhotoScanner({ onClose, onSelect }: FoodPhotoScannerProps) {
                   />
                   <div className="flex items-center gap-1 bg-gray-100 rounded-xl px-3 py-2.5">
                     <input
-                      type="number"
+                      type="text" inputMode="decimal"
                       value={grams}
                       onChange={e => setGrams(e.target.value)}
                       onFocus={autoSelect}

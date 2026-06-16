@@ -33,6 +33,8 @@ export interface MealItem {
   nutrition: NutritionData;
   calories: number;     // 冗余存储 nutrition.calories，方便汇总
   gi?: number;
+  category?: string;    // 食物分类（FoodCategory），用于多样性检测
+  recipeIngredients?: { foodName: string; grams: number }[];  // 组合食材的食材列表
   loggedAt?: string;    // ISO timestamp，用于时间线显示
 }
 

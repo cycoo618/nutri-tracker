@@ -149,40 +149,8 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
 
   return (
     <div style={{ padding: '0 0 8px' }}>
-      {/* Top row: greeting + goal chips + sync */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 20px' }}>
-        <span className="nt-caveat" style={{ fontSize: 16, color: 'var(--ink)' }}>
-          {getGreeting()}, <span style={{ color: 'var(--ink-mute)' }}>{name}</span>
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          {goals.slice(0, 2).map(g => <GoalChip key={g} goalKey={g} />)}
-          {onForceSync && (
-            <button
-              onClick={onForceSync}
-              disabled={syncStatus === 'syncing'}
-              style={{
-                display: 'inline-flex', alignItems: 'center',
-                width: 28, height: 28, borderRadius: '50%',
-                background: 'rgba(255,255,255,0.6)', border: '1px solid var(--line-soft)',
-                justifyContent: 'center',
-                fontSize: 14, cursor: syncStatus === 'syncing' ? 'default' : 'pointer',
-                color: syncStatus === 'error' ? 'var(--tomato)' : 'var(--ink-soft)',
-              }}
-            >
-              <span style={{ display: 'inline-block', animation: syncStatus === 'syncing' ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
-            </button>
-          )}
-          <button
-            onClick={() => onNav('pantry')}
-            style={{
-              width: 28, height: 28, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.6)', border: '1px solid var(--line-soft)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer',
-            }}
-          >📦</button>
-        </div>
-      </div>
+      {/* Top row is now a fixed overlay in RedesignShell — keep spacing */}
+      <div style={{ height: 40 }} />
 
       {/* Sync error banner */}
       {syncError && (

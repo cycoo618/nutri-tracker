@@ -30,19 +30,21 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
   const [saving, setSaving] = useState(false);
 
   const handleGoalClick = (key: string) => {
-    setGoals(prev => {
-      if (prev[0] === key) {
-        // primary clicked → demote (remove)
-        return prev.slice(1);
-      }
-      if (prev[1] === key) {
-        // secondary clicked → promote to primary
-        return [key, prev[0]].filter(Boolean);
-      }
-      // not selected → add as secondary (replace if 2 already)
-      if (prev.length < 2) return [...prev, key];
-      return [prev[0], key];
-    });
+    let next: string[];
+    if (goals[0] === key) {
+      next = goals.slice(1);
+    } else if (goals[1] === key) {
+      next = [key, goals[0]].filter(Boolean);
+    } else if (goals.length < 2) {
+      next = [...goals, key];
+    } else {
+      next = [goals[0], key];
+    }
+    setGoals(next);
+    onProfileUpdate({
+      goals: next as UserProfile['goals'],
+      goal: (next[0] ?? profile.goal) as UserProfile['goal'],
+    }).catch(console.warn);
   };
 
   const handleSave = async () => {
@@ -182,7 +184,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
             <div key={f.label} className="nt-card" style={{ padding: '12px 14px' }}>
               <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>{f.label}</div>
               <input
-                type="number"
+                type="text" inputMode="decimal"
                 value={f.value}
                 onChange={e => f.setter(e.target.value)}
                 placeholder={f.placeholder}
@@ -198,7 +200,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
         <div className="nt-card" style={{ padding: '12px 16px' }}>
           <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>热量目标 (kcal)</div>
           <input
-            type="number"
+            type="text" inputMode="decimal"
             value={calTarget}
             onChange={e => setCalTarget(e.target.value)}
             style={{
@@ -314,6 +316,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
       <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
         <button
           onClick={handleSave}
+          onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); if (!saving) handleSave(); }}
           disabled={saving}
           className="nt-serif"
           style={{

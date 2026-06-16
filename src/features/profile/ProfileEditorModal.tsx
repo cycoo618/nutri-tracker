@@ -140,7 +140,7 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">{t('bodyWeight')}</label>
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                   value={weight}
                   onChange={e => setWeight(e.target.value)}
                   onFocus={autoSelect}
@@ -151,7 +151,7 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">{t('bodyFat')} <span className="text-gray-300">{t('optional')}</span></label>
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                   value={bodyFat}
                   onChange={e => setBodyFat(e.target.value)}
                   onFocus={autoSelect}
@@ -167,7 +167,7 @@ export function ProfileEditorModal({ profile, onSave, onClose }: Props) {
             <div className="text-sm font-medium text-gray-700 mb-3">{t('calorieTarget')}</div>
             <div className="relative">
               <input
-                type="number"
+                type="text" inputMode="decimal"
                 value={targetCal}
                 onChange={e => setTargetCal(e.target.value)}
                 onFocus={autoSelect}

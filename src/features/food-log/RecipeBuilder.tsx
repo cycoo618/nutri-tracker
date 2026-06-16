@@ -177,8 +177,16 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
   };
 
   return (
-    <div className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }} onClick={onClose}>
-      <div ref={cardRef} className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }} onClick={e => e.stopPropagation()} {...cardDragHandlers}>
+    <div className="fixed inset-x-0 z-50 flex items-end justify-center" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }} onClick={onClose}>
+      <div
+        ref={cardRef}
+        className="bg-white w-full sm:max-w-lg rounded-t-2xl flex flex-col"
+        style={{ height: 'calc(var(--vvh, 100vh) - 60px)' }}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
+      >
 
         {/* Drag handle */}
         <div
@@ -203,7 +211,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
           </button>
         </div>
 
-        <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div ref={scrollAreaRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-5">
 
           {/* 食物名称 */}
           <div>

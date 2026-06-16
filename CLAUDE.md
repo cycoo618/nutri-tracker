@@ -14,6 +14,17 @@ npm run test         # Vitest (single run)
 npm run test:watch   # Vitest watch mode
 ```
 
+## 工作流规则（必须遵守）
+
+**每次代码改动后，Claude 必须自动执行以下步骤，不需要用户提醒：**
+
+1. `npm run build:ios` — 编译 + 同步到 Xcode（包含 TypeScript 检查）
+2. 如果编译报错，立刻修复，直到编译通过为止
+
+**用户不需要自己跑任何 CLI 命令。** Claude 有完整的 Bash 权限，所有构建、安装、脚本都应由 Claude 直接执行。
+
+构建完成后告知用户只需在 Xcode 里按 Cmd+R 即可。
+
 **Always run `npm run build` before `git push`.** The CI/CD pipeline runs the same build and will fail the GitHub Pages deployment if there are TypeScript errors.
 
 ## iOS / Capacitor

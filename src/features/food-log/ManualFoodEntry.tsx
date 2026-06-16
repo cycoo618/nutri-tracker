@@ -94,16 +94,18 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
 
   return (
     <div
-      className="fixed inset-x-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+      className="fixed inset-x-0 z-50 flex items-end justify-center"
       style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
       onClick={onClose}
     >
       <div
         ref={cardRef}
-        className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col"
-        style={{ maxHeight: 'var(--vvh, 90vh)' }}
+        className="bg-white w-full sm:max-w-lg rounded-t-2xl flex flex-col"
+        style={{ height: 'calc(var(--vvh, 100vh) - 60px)' }}
         onClick={e => e.stopPropagation()}
-        {...cardDragHandlers}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
       >
         {/* Drag handle */}
         <div
@@ -118,7 +120,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
           <h3 className="font-semibold text-gray-900 text-center">{t('manualEntryTitle')}</h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           <div className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
             💡 {t('per100gNote')}
           </div>
@@ -157,7 +159,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
                 <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
                 <div className="relative">
                   <input
-                    type="number"
+                    type="text" inputMode="decimal"
                     value={f.value}
                     onChange={e => f.onChange(e.target.value)}
                     onFocus={autoSelect}
@@ -189,7 +191,7 @@ export function ManualFoodEntry({ initialName = '', onConfirm, onBack, onClose, 
               />
               <div className="relative w-28">
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                   value={servingGrams}
                   onChange={e => setServingGrams(e.target.value)}
                   onFocus={autoSelect}

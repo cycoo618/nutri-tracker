@@ -1,0 +1,1 @@
+breakpoint set --name "__UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke" --auto-continue true

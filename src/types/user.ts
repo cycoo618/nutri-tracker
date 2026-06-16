@@ -88,12 +88,18 @@ export interface UserProfile {
   updatedAt: string;
 }
 
+const VALID_GOALS = new Set<string>(['fat_loss', 'muscle_gain', 'anti_inflammatory', 'blood_sugar']);
+
 /** 获取用户实际目标列表（兼容旧数据只有 goal 字段的情况） */
 export function getActiveGoals(profile: Pick<UserProfile, 'goal' | 'goals'>): GoalType[] {
-  if (profile.goals && profile.goals.length > 0) return profile.goals;
+  if (profile.goals && profile.goals.length > 0) {
+    const valid = profile.goals.filter(g => VALID_GOALS.has(g));
+    if (valid.length > 0) return valid;
+  }
   // 旧数据迁移：healthy_eating → anti_inflammatory
   const g = profile.goal === ('healthy_eating' as GoalType) ? 'anti_inflammatory' : profile.goal;
-  return [g];
+  if (g && VALID_GOALS.has(g)) return [g];
+  return ['anti_inflammatory']; // 数据损坏时的安全兜底
 }
 
 /** 默认用户配置 */

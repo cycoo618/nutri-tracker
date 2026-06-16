@@ -133,6 +133,8 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
       nutrition,
       calories: Math.round(nutrition.calories),
       gi: food.gi,
+      category: food.category,
+      recipeIngredients: food.ingredients && food.ingredients.length > 0 ? food.ingredients : undefined,
       loggedAt: new Date().toISOString(),
     };
 

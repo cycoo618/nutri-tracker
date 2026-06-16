@@ -1310,7 +1310,7 @@ export function DashboardPage({
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">{t('bodyWeight')} (kg)</label>
                   <input
-                    type="number"
+                    type="text" inputMode="decimal"
                     value={tabWeight}
                     onChange={e => setTabWeight(e.target.value)}
                     placeholder="65"
@@ -1322,7 +1322,7 @@ export function DashboardPage({
                     {t('bodyFat')} (%) <span className="text-gray-300">{t('optional')}</span>
                   </label>
                   <input
-                    type="number"
+                    type="text" inputMode="decimal"
                     value={tabBodyFat}
                     onChange={e => setTabBodyFat(e.target.value)}
                     placeholder="22"
@@ -1337,7 +1337,7 @@ export function DashboardPage({
               <div className="text-sm font-semibold text-gray-800 mb-3">{t('calorieTarget')}</div>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                   value={tabTargetCal}
                   onChange={e => setTabTargetCal(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-14 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"

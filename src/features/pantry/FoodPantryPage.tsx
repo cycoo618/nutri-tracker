@@ -42,15 +42,19 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
 
   return (
     <div
-      className="fixed inset-x-0 bg-black/40 z-50 flex items-end"
-      style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
+      style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}
       onClick={onClose}
     >
       <div
         ref={cardRef}
-        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl modal-enter flex flex-col overflow-y-auto max-h-[80vh]"
+        className="bg-white w-full max-w-lg mx-auto rounded-t-2xl modal-enter flex flex-col"
+        style={{ maxHeight: 'calc(var(--vvh, 100vh) - 60px)' }}
         onClick={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
       >
+        {/* 拖动条 */}
         <div
           className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab"
           style={{ touchAction: 'none' }}
@@ -58,6 +62,7 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
         >
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
+        {/* 标题 */}
         <div className="px-5 pt-2 pb-4 border-b border-gray-100 flex items-start gap-3 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-gray-900 text-base">{record.name}</div>
@@ -72,17 +77,36 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
             />
           )}
         </div>
-        <div className="flex items-baseline justify-center gap-1 py-5">
-          <span className="text-4xl font-bold text-green-600">{n.calories}</span>
-          <span className="text-sm text-gray-400">{localizeUnit('kcal', locale)} / 100{localizeUnit('g', locale)}</span>
-        </div>
-        <div className="px-5 grid grid-cols-2 gap-2 pb-2">
-          {rows.map(r => (
-            <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
-              <span className="text-sm text-gray-500">{r.label}</span>
-              <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{localizeUnit(r.unit, locale)}</span>
+        {/* 滚动内容 */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex items-baseline justify-center gap-1 py-5">
+            <span className="text-4xl font-bold text-green-600">{n.calories}</span>
+            <span className="text-sm text-gray-400">{localizeUnit('kcal', locale)} / 100{localizeUnit('g', locale)}</span>
+          </div>
+          <div className="px-5 grid grid-cols-2 gap-2 pb-2">
+            {rows.map(r => (
+              <div key={r.label} className="bg-gray-50 rounded-xl px-4 py-3 flex justify-between items-center">
+                <span className="text-sm text-gray-500">{r.label}</span>
+                <span className="text-sm font-semibold text-gray-800">{formatNumber(r.value)}{localizeUnit(r.unit, locale)}</span>
+              </div>
+            ))}
+          </div>
+          {/* 组合食材的食材配比 */}
+          {record.ingredients && record.ingredients.length > 0 && (
+            <div className="px-5 pb-4 mt-2">
+              <div className="text-sm font-semibold text-gray-700 mb-2">食材配比</div>
+              <div className="grid grid-cols-2 gap-2">
+                {record.ingredients.map((ing, i) => (
+                  <div key={i} className="bg-gray-50 rounded-xl px-4 py-2.5 flex justify-between items-center">
+                    <span className="text-sm text-gray-500 flex-1 min-w-0 truncate mr-2">{ing.foodName}</span>
+                    <span className="text-sm font-semibold text-gray-800 shrink-0">{ing.grams}g</span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs text-gray-400 mt-2 text-center">共 {record.ingredients.reduce((s, i) => s + i.grams, 0)}g</div>
             </div>
-          ))}
+          )}
+          <div style={{ height: 8 }} />
         </div>
         <BottomReturnButton onClick={onClose} />
       </div>

@@ -236,6 +236,18 @@ export async function leaveFamily(userId: string, familyId: string): Promise<voi
   await updateUserProfile(userId, { familyId: undefined });
 }
 
+/** 将 Groq API Key 保存到家庭文档（供家庭成员共享） */
+export async function saveFamilyGroqKey(familyId: string, key: string): Promise<void> {
+  await withTimeout(updateDoc(doc(db, FAMILIES_COLLECTION, familyId), { groqKey: key }));
+}
+
+/** 从家庭文档获取 Groq API Key */
+export async function getFamilyGroqKey(familyId: string): Promise<string | null> {
+  const snap = await withTimeout(getDoc(doc(db, FAMILIES_COLLECTION, familyId)));
+  if (!snap.exists()) return null;
+  return (snap.data() as { groqKey?: string }).groqKey ?? null;
+}
+
 /** 获取家庭成员的食物（排除自己），返回带 ownerName 的扁平数组 */
 export async function getFamilyMemberFoods(
   memberUids: string[],

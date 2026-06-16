@@ -3,13 +3,13 @@
 // 拍照 / 上传 → Claude Vision 识别 → 确认保存
 // ============================================
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
 import { BottomReturnButton } from '../../components/ui/BottomReturnButton';
 import { autoSelect } from '../../utils/inputHelpers';
 import type { FoodItem } from '../../types/food';
 import { saveCustomFood, recordToFoodItem } from '../../utils/customFoods';
-import { saveUserFood } from '../../services/firestore';
+import { saveUserFood, getFamilyGroqKey, saveFamilyGroqKey } from '../../services/firestore';
 import { getGroqKey, saveGroqKey, isKeyFromEnv } from '../../services/nutrition-vision';
 import { useLocale } from '../../i18n/useLocale';
 import { localizeUnit } from '../../utils/servingLabels';
@@ -99,10 +99,22 @@ export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: Nu
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
   const [keyInput, setKeyInput]       = useState('');
+  const keyInputRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
+
+  // 如果本地没有 key，尝试从家庭文档获取
+  useEffect(() => {
+    if (getGroqKey() || !familyId) return;
+    getFamilyGroqKey(familyId).then(key => {
+      if (key) {
+        saveGroqKey(key);
+        setStep('capture');
+      }
+    }).catch(() => {});
+  }, [familyId]);
 
 
   // ── 图片选择处理 ──────────────────────────
@@ -148,6 +160,7 @@ export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: Nu
     const k = keyInput.trim();
     if (!k) return;
     saveGroqKey(k);
+    if (familyId) saveFamilyGroqKey(familyId, k).catch(() => {});
     setKeyInput('');
     setStep('capture');
   };
@@ -231,7 +244,7 @@ export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: Nu
 
   return (
     <div className="fixed inset-x-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }} onClick={onClose}>
-      <div ref={cardRef} className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }} onClick={e => e.stopPropagation()} {...cardDragHandlers}>
+      <div ref={cardRef} className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl flex flex-col" style={{ maxHeight: 'var(--vvh, 92vh)' }} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
 
         {/* Drag handle */}
         <div
@@ -249,7 +262,7 @@ export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: Nu
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
 
           {/* ── Step 0: Setup API Key ── */}
           {step === 'setup' && (
@@ -272,17 +285,22 @@ export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: Nu
               </div>
 
               <input
+                ref={keyInputRef}
                 type="text"
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
-                onFocus={autoSelect}
+                onFocus={e => {
+                  autoSelect(e);
+                  setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+                }}
                 onKeyDown={e => e.key === 'Enter' && handleSaveKey()}
-                placeholder="AIza..."
+                placeholder="gsk_..."
                 className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
                 autoFocus
               />
               <button
                 onMouseDown={e => e.preventDefault()}
+                onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); if (keyInput.trim()) handleSaveKey(); }}
                 onClick={handleSaveKey}
                 disabled={!keyInput.trim()}
                 className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-xl font-medium transition-colors"
@@ -387,7 +405,7 @@ export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: Nu
                           {isOptional && val == null && <span className="text-gray-300 ml-1">—</span>}
                         </label>
                         <input
-                          type="number"
+                          type="text" inputMode="decimal"
                           value={val ?? ''}
                           onChange={e => updateField(f.key, e.target.value)}
                           onFocus={autoSelect}
@@ -416,7 +434,7 @@ export function NutritionLabelScanner({ onSaved, onClose, userId, familyId }: Nu
                   />
                   <div className="flex items-center gap-1 bg-gray-100 rounded-xl px-3 py-2.5">
                     <input
-                      type="number"
+                      type="text" inputMode="decimal"
                       value={extracted.servingGrams ?? ''}
                       onChange={e => updateField('servingGrams', e.target.value)}
                       onFocus={autoSelect}
