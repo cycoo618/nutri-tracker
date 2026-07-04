@@ -36,6 +36,7 @@ export interface MealItem {
   category?: string;    // 食物分类（FoodCategory），用于多样性检测
   recipeIngredients?: { foodName: string; grams: number }[];  // 组合食材的食材列表
   loggedAt?: string;    // ISO timestamp，用于时间线显示
+  notionPageId?: string; // Notion 页面 ID，用于更新/删除同步
 }
 
 /** 一餐 */

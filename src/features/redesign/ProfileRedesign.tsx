@@ -3,6 +3,13 @@ import type { UserProfile } from '../../types/user';
 import { GOAL_OPTIONS } from './tokens';
 import { setFontSize as applyFontSize, getFontSize } from '../../utils/fontSize';
 import { setLocale, getLocale } from '../../i18n';
+import {
+  getNotionSettings,
+  saveNotionSettings,
+  clearNotionSettings,
+  notionTestConnection,
+  type NotionSettings,
+} from '../../services/notion';
 
 interface ProfileRedesignProps {
   profile: UserProfile;
@@ -28,6 +35,16 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(profile.displayName);
   const [saving, setSaving] = useState(false);
+
+  // Notion settings
+  const [notionSettings, setNotionSettings] = useState<NotionSettings>(() => {
+    return getNotionSettings() ?? { workerUrl: '', token: '', databaseId: '' };
+  });
+  const [notionTesting, setNotionTesting] = useState(false);
+  const [notionStatus, setNotionStatus] = useState<'idle' | 'ok' | 'error'>(() =>
+    getNotionSettings() ? 'ok' : 'idle'
+  );
+  const [notionError, setNotionError] = useState('');
 
   const handleGoalClick = (key: string) => {
     let next: string[];
@@ -289,6 +306,127 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
               }} />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Notion Sync */}
+      <div style={{ padding: '0 16px', marginBottom: 12 }}>
+        <div className="nt-serif" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+          Notion 同步
+          {notionStatus === 'ok' && (
+            <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--sage)', fontWeight: 400 }}>● 已连接</span>
+          )}
+        </div>
+        <div className="nt-card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-mute)', margin: 0, lineHeight: 1.5 }}>
+            每次记录食物自动同步到你的 Notion 数据库，每条食物单独一行，包含全部营养数据。
+          </p>
+
+          {/* Worker URL */}
+          <div>
+            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Cloudflare Worker URL</div>
+            <input
+              type="url"
+              value={notionSettings.workerUrl}
+              onChange={e => setNotionSettings(s => ({ ...s, workerUrl: e.target.value }))}
+              placeholder="https://notion-proxy.xxx.workers.dev"
+              style={{
+                width: '100%', padding: '8px 10px', borderRadius: 8,
+                border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
+                fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {/* Token */}
+          <div>
+            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Integration Token</div>
+            <input
+              type="password"
+              value={notionSettings.token}
+              onChange={e => setNotionSettings(s => ({ ...s, token: e.target.value }))}
+              placeholder="secret_xxxxxxxxxxxxxxxx"
+              style={{
+                width: '100%', padding: '8px 10px', borderRadius: 8,
+                border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
+                fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {/* Database ID */}
+          <div>
+            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Database ID</div>
+            <input
+              type="text"
+              value={notionSettings.databaseId}
+              onChange={e => setNotionSettings(s => ({ ...s, databaseId: e.target.value.replace(/-/g, '') }))}
+              placeholder="32位数据库 ID"
+              style={{
+                width: '100%', padding: '8px 10px', borderRadius: 8,
+                border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
+                fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {notionError && (
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--tomato)' }}>{notionError}</p>
+          )}
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              disabled={notionTesting || !notionSettings.workerUrl || !notionSettings.token || !notionSettings.databaseId}
+              onClick={async () => {
+                setNotionTesting(true);
+                setNotionError('');
+                const err = await notionTestConnection(notionSettings);
+                if (err) {
+                  setNotionStatus('error');
+                  setNotionError(err);
+                } else {
+                  saveNotionSettings(notionSettings);
+                  setNotionStatus('ok');
+                }
+                setNotionTesting(false);
+              }}
+              className="nt-serif"
+              style={{
+                flex: 1, padding: '8px', borderRadius: 10,
+                background: notionStatus === 'ok' ? 'var(--sage)' : 'var(--ink)',
+                color: '#fff', border: 'none', fontSize: 12,
+                cursor: notionTesting ? 'default' : 'pointer',
+                opacity: (notionTesting || !notionSettings.workerUrl) ? 0.5 : 1,
+              }}
+            >
+              {notionTesting ? '连接中…' : notionStatus === 'ok' ? '✓ 已连接' : '测试并保存'}
+            </button>
+            {notionStatus === 'ok' && (
+              <button
+                onClick={() => {
+                  clearNotionSettings();
+                  setNotionSettings({ workerUrl: '', token: '', databaseId: '' });
+                  setNotionStatus('idle');
+                }}
+                className="nt-serif"
+                style={{
+                  padding: '8px 14px', borderRadius: 10,
+                  background: 'transparent', color: 'var(--tomato)',
+                  border: '1px solid var(--line-soft)', fontSize: 12, cursor: 'pointer',
+                }}
+              >
+                断开
+              </button>
+            )}
+          </div>
+
+          <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: 0, lineHeight: 1.6 }}>
+            需要先在 Cloudflare 部署 Worker（代码在项目 cloudflare-worker/ 目录），然后在 Notion 创建 Integration 并分享数据库。
+          </p>
         </div>
       </div>
 

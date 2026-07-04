@@ -14,6 +14,7 @@ import type { DocumentData } from 'firebase/firestore';
 import { getTodayString, generateId } from '../utils/calculator';
 import { recordFoodUsage, getRecentFoods } from '../utils/recentFoods';
 import type { RecentFoodEntry } from '../utils/recentFoods';
+import { notionAddEntry, notionUpdateEntry, notionDeleteEntry, getNotionSettings } from '../services/notion';
 
 /** 根据当前时间自动判断餐次（内部使用，不暴露给用户） */
 function getMealTypeFromTime(): MealType {
@@ -167,11 +168,39 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
         setTimeout(() => setSyncError(null), 5000);
         console.warn('Firestore save failed:', err);
       });
+
+    // Notion 自动同步（fire-and-forget，不影响主流程）
+    if (getNotionSettings()) {
+      notionAddEntry(item, currentDate, mealType).then(notionPageId => {
+        if (!notionPageId) return;
+        // 把 notionPageId 写回 MealItem 并重新持久化
+        setDailyLog(prev => {
+          if (!prev) return prev;
+          const patched = {
+            ...prev,
+            meals: prev.meals.map(m => ({
+              ...m,
+              items: m.items.map(i => i.id === item.id ? { ...i, notionPageId } : i),
+            })),
+          };
+          if (userId) saveToLocal(userId, currentDate, patched);
+          saveDailyLog(patched).catch(() => {});
+          return patched;
+        });
+      }).catch(() => {});
+    }
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
   /** 移除食物 — 按 itemId 搜索所有餐次，无需指定餐次 */
   const removeFood = useCallback(async (itemId: string) => {
     if (!dailyLog) return;
+
+    // 找到要删的条目（提前拿到 notionPageId）
+    let notionPageId: string | undefined;
+    for (const m of dailyLog.meals) {
+      const found = m.items.find(i => i.id === itemId);
+      if (found) { notionPageId = found.notionPageId; break; }
+    }
 
     const updatedLog = {
       ...dailyLog,
@@ -196,6 +225,9 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
         setTimeout(() => setSyncError(null), 5000);
         console.warn('Firestore save failed:', err);
       });
+
+    // Notion 自动删除
+    if (notionPageId) notionDeleteEntry(notionPageId).catch(() => {});
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
   /** 修改已录入条目的计量 */
@@ -207,6 +239,15 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
   ) => {
     if (!dailyLog) return;
     const nutrition = scaleNutrition(per100g, grams);
+
+    // 找到更新前的条目（取 notionPageId 和 mealType）
+    let notionPageId: string | undefined;
+    let mealType: import('../types/log').MealType = 'lunch';
+    for (const m of dailyLog.meals) {
+      const found = m.items.find(i => i.id === itemId);
+      if (found) { notionPageId = found.notionPageId; mealType = m.type; break; }
+    }
+
     const updatedLog = {
       ...dailyLog,
       meals: dailyLog.meals.map(m => ({
@@ -231,6 +272,12 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
         setSyncError(errMsg);
         setTimeout(() => setSyncError(null), 5000);
       });
+
+    // Notion 自动更新
+    if (notionPageId) {
+      const updatedItem = finalLog.meals.flatMap(m => m.items).find(i => i.id === itemId);
+      if (updatedItem) notionUpdateEntry(notionPageId, updatedItem, currentDate, mealType).catch(() => {});
+    }
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
   /** 获取日期范围内的记录（用于周/月分析） */
