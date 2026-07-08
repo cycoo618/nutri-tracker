@@ -1,15 +1,22 @@
-import type { MealItem, MealType } from '../types/log';
+import type { MealItem, MealType, DailyLog } from '../types/log';
 import { FOOD_CATEGORY_LABELS } from '../types/food';
 import { MEAL_LABELS } from '../types/log';
+import {
+  saveUserNotionSettings,
+  deleteUserNotionSettings,
+  getAllDailyLogs,
+  saveDailyLog,
+} from './firestore';
 
 export interface NotionSettings {
-  workerUrl: string;   // e.g. https://notion-proxy.xxx.workers.dev
-  token: string;       // Notion Integration secret (secret_xxx)
-  databaseId: string;  // 32-char database ID
+  workerUrl: string;
+  token: string;
+  databaseId: string;
 }
 
 const STORAGE_KEY = 'notion_settings';
 
+// localStorage 用于即时读取（不等 Firestore 异步）
 export function getNotionSettings(): NotionSettings | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -20,12 +27,26 @@ export function getNotionSettings(): NotionSettings | null {
   } catch { return null; }
 }
 
-export function saveNotionSettings(s: NotionSettings): void {
+// 同时写 localStorage（即时生效）和 Firestore（跨设备同步）
+export function saveNotionSettings(s: NotionSettings, uid?: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  if (uid) saveUserNotionSettings(uid, s).catch(console.warn);
 }
 
-export function clearNotionSettings(): void {
+// 从 Firestore 加载设置并写入 localStorage（登录时调用）
+export async function loadNotionSettingsFromFirestore(uid: string): Promise<NotionSettings | null> {
+  const { getUserNotionSettings } = await import('./firestore');
+  const s = await getUserNotionSettings(uid);
+  if (s && s.workerUrl && s.token && s.databaseId) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    return s;
+  }
+  return null;
+}
+
+export function clearNotionSettings(uid?: string): void {
   localStorage.removeItem(STORAGE_KEY);
+  if (uid) deleteUserNotionSettings(uid).catch(console.warn);
 }
 
 // ─── API helpers ────────────────────────────────────────────────
@@ -168,4 +189,70 @@ export async function notionTestConnection(settings: NotionSettings): Promise<st
   } catch {
     return '无法连接，请检查 Worker URL';
   }
+}
+
+/** 批量导入历史记录到 Notion（跳过已有 notionPageId 的条目） */
+export async function importHistoricalToNotion(
+  userId: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ imported: number; skipped: number }> {
+  const settings = getNotionSettings();
+  if (!settings) return { imported: 0, skipped: 0 };
+
+  const logs: DailyLog[] = await getAllDailyLogs(userId);
+
+  // 收集所有未同步条目
+  const tasks: { log: DailyLog; mealType: MealType; item: MealItem }[] = [];
+  for (const log of logs) {
+    for (const meal of log.meals) {
+      for (const item of meal.items) {
+        if (!item.notionPageId) {
+          tasks.push({ log, mealType: meal.type, item });
+        }
+      }
+    }
+  }
+
+  let imported = 0;
+  let skipped = 0;
+  const total = tasks.length;
+
+  // 按日志分组，方便批量回写 Firestore
+  const logMap = new Map<string, DailyLog>(logs.map(l => [l.id, l]));
+
+  for (const { log, mealType, item } of tasks) {
+    try {
+      const notionPageId = await notionAddEntry(item, log.date, mealType);
+      if (notionPageId) {
+        // 更新内存中的 log
+        const currentLog = logMap.get(log.id)!;
+        const patched: DailyLog = {
+          ...currentLog,
+          meals: currentLog.meals.map(m => ({
+            ...m,
+            items: m.items.map(i =>
+              i.id === item.id ? { ...i, notionPageId } : i
+            ),
+          })),
+        };
+        logMap.set(log.id, patched);
+        imported++;
+      } else {
+        skipped++;
+      }
+    } catch {
+      skipped++;
+    }
+    onProgress?.(imported + skipped, total);
+    // 限速：Notion API 3 req/s
+    await new Promise(r => setTimeout(r, 350));
+  }
+
+  // 批量回写有变更的日志到 Firestore
+  const changedLogs = [...logMap.values()].filter(l =>
+    l.meals.some(m => m.items.some(i => i.notionPageId))
+  );
+  await Promise.allSettled(changedLogs.map(l => saveDailyLog(l)));
+
+  return { imported, skipped };
 }

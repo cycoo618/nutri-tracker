@@ -268,3 +268,36 @@ export async function getFamilyMemberFoods(
   );
   return results.flat();
 }
+
+// ---- Notion 设置（存在用户文档里，跨设备同步） ----
+
+export interface NotionSettingsRecord {
+  workerUrl: string;
+  token: string;
+  databaseId: string;
+}
+
+export async function saveUserNotionSettings(uid: string, settings: NotionSettingsRecord): Promise<void> {
+  await withTimeout(updateDoc(doc(db, USERS_COLLECTION, uid), { notionSettings: settings }));
+}
+
+export async function getUserNotionSettings(uid: string): Promise<NotionSettingsRecord | null> {
+  const snap = await withTimeout(getDoc(doc(db, USERS_COLLECTION, uid)));
+  if (!snap.exists()) return null;
+  return (snap.data() as { notionSettings?: NotionSettingsRecord }).notionSettings ?? null;
+}
+
+export async function deleteUserNotionSettings(uid: string): Promise<void> {
+  await withTimeout(updateDoc(doc(db, USERS_COLLECTION, uid), { notionSettings: null }));
+}
+
+/** 拉取用户所有历史日志（不限日期） */
+export async function getAllDailyLogs(userId: string): Promise<DailyLog[]> {
+  const q = query(
+    collection(db, LOGS_COLLECTION),
+    where('userId', '==', userId),
+    orderBy('date', 'asc'),
+  );
+  const snap = await withTimeout(getDocs(q), 30000);
+  return snap.docs.map(d => d.data() as DailyLog);
+}

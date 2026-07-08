@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { UserProfile } from '../../types/user';
 import { GOAL_OPTIONS } from './tokens';
 import { setFontSize as applyFontSize, getFontSize } from '../../utils/fontSize';
@@ -7,7 +7,9 @@ import {
   getNotionSettings,
   saveNotionSettings,
   clearNotionSettings,
+  loadNotionSettingsFromFirestore,
   notionTestConnection,
+  importHistoricalToNotion,
   type NotionSettings,
 } from '../../services/notion';
 
@@ -45,6 +47,19 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
     getNotionSettings() ? 'ok' : 'idle'
   );
   const [notionError, setNotionError] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+
+  // 登录后从 Firestore 加载 Notion 设置（跨设备同步）
+  useEffect(() => {
+    if (notionStatus === 'ok') return; // 本地已有，不覆盖
+    loadNotionSettingsFromFirestore(profile.uid).then(s => {
+      if (s) {
+        setNotionSettings(s);
+        setNotionStatus('ok');
+      }
+    }).catch(() => {});
+  }, [profile.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGoalClick = (key: string) => {
     let next: string[];
@@ -374,7 +389,23 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           </div>
 
           {notionError && (
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--tomato)' }}>{notionError}</p>
+            <p style={{ margin: 0, fontSize: 11, color: notionError.startsWith('✓') ? 'var(--sage)' : 'var(--tomato)' }}>{notionError}</p>
+          )}
+          {importing && importProgress && (
+            <div style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
+              <div style={{ marginBottom: 4 }}>
+                正在导入历史数据… {importProgress.done}/{importProgress.total}
+              </div>
+              {importProgress.total > 0 && (
+                <div style={{ height: 4, borderRadius: 999, background: 'var(--line-soft)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 999, background: 'var(--sage)',
+                    width: `${Math.round(importProgress.done / importProgress.total * 100)}%`,
+                    transition: 'width 0.3s',
+                  }} />
+                </div>
+              )}
+            </div>
           )}
 
           {/* Buttons */}
@@ -389,8 +420,18 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
                   setNotionStatus('error');
                   setNotionError(err);
                 } else {
-                  saveNotionSettings(notionSettings);
+                  saveNotionSettings(notionSettings, profile.uid);
                   setNotionStatus('ok');
+                  // 连接成功后自动导入历史数据
+                  setImporting(true);
+                  setImportProgress({ done: 0, total: 0 });
+                  importHistoricalToNotion(profile.uid, (done, total) => {
+                    setImportProgress({ done, total });
+                  }).then(({ imported }) => {
+                    setImportProgress(null);
+                    setImporting(false);
+                    if (imported > 0) setNotionError(`✓ 已导入 ${imported} 条历史记录`);
+                  }).catch(() => setImporting(false));
                 }
                 setNotionTesting(false);
               }}
@@ -408,9 +449,10 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
             {notionStatus === 'ok' && (
               <button
                 onClick={() => {
-                  clearNotionSettings();
+                  clearNotionSettings(profile.uid);
                   setNotionSettings({ workerUrl: '', token: '', databaseId: '' });
                   setNotionStatus('idle');
+                  setNotionError('');
                 }}
                 className="nt-serif"
                 style={{
