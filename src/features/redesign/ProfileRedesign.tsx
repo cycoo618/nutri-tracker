@@ -50,15 +50,21 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
 
-  // 登录后从 Firestore 加载 Notion 设置（跨设备同步）
+  // 登录后同步 Notion 设置到 Firestore / 从 Firestore 加载
   useEffect(() => {
-    if (notionStatus === 'ok') return; // 本地已有，不覆盖
-    loadNotionSettingsFromFirestore(profile.uid).then(s => {
-      if (s) {
-        setNotionSettings(s);
-        setNotionStatus('ok');
-      }
-    }).catch(() => {});
+    const local = getNotionSettings();
+    if (local) {
+      // 本地有设置 → 推到 Firestore（确保跨设备可用）
+      saveNotionSettings(local, profile.uid);
+    } else {
+      // 本地没有 → 从 Firestore 拉取
+      loadNotionSettingsFromFirestore(profile.uid).then(s => {
+        if (s) {
+          setNotionSettings(s);
+          setNotionStatus('ok');
+        }
+      }).catch(() => {});
+    }
   }, [profile.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGoalClick = (key: string) => {
@@ -465,6 +471,35 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
               </button>
             )}
           </div>
+
+          {/* 导入历史数据按钮（已连接时显示） */}
+          {notionStatus === 'ok' && !importing && (
+            <button
+              onClick={() => {
+                setImporting(true);
+                setImportProgress({ done: 0, total: 0 });
+                setNotionError('');
+                importHistoricalToNotion(profile.uid, (done, total) => {
+                  setImportProgress({ done, total });
+                }).then(({ imported, skipped }) => {
+                  setImportProgress(null);
+                  setImporting(false);
+                  setNotionError(imported > 0
+                    ? `✓ 已导入 ${imported} 条记录${skipped > 0 ? `，${skipped} 条已跳过` : ''}`
+                    : '✓ 所有记录已是最新，无需导入'
+                  );
+                }).catch(() => { setImporting(false); setNotionError('导入失败，请重试'); });
+              }}
+              className="nt-serif"
+              style={{
+                width: '100%', padding: '8px', borderRadius: 10,
+                background: 'transparent', color: 'var(--ink-mute)',
+                border: '1px dashed var(--line)', fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              ↑ 导入历史数据到 Notion
+            </button>
+          )}
 
           <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: 0, lineHeight: 1.6 }}>
             需要先在 Cloudflare 部署 Worker（代码在项目 cloudflare-worker/ 目录），然后在 Notion 创建 Integration 并分享数据库。
