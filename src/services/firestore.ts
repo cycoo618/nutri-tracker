@@ -276,6 +276,7 @@ export interface NotionSettingsRecord {
   token: string;
   databaseId: string;
   workspaceName?: string;
+  databaseUrl?: string;
 }
 
 export async function saveUserNotionSettings(uid: string, settings: NotionSettingsRecord): Promise<void> {

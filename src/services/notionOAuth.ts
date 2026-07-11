@@ -167,6 +167,7 @@ async function completeConnection(code: string, uid: string): Promise<NotionSett
     workerUrl: WORKER_URL,
     token,
     databaseId,
+    databaseUrl: `https://www.notion.so/${databaseId}`,
     ...(workspaceName ? { workspaceName } : {}),
   };
   saveNotionSettings(settings, uid);

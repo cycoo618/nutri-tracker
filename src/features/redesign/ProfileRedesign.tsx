@@ -444,9 +444,28 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           )}
 
           {/* 已连接状态 */}
-          {notionStatus === 'ok' && notionSettings.workspaceName && (
-            <p className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', margin: 0 }}>
-              工作区：{notionSettings.workspaceName}
+          {notionStatus === 'ok' && (notionSettings.workspaceName || notionSettings.databaseUrl) && (
+            <p className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', margin: 0, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <span>{notionSettings.workspaceName ? `工作区：${notionSettings.workspaceName}` : ''}</span>
+              {notionSettings.databaseUrl && (
+                <a
+                  href={notionSettings.databaseUrl}
+                  onClick={async e => {
+                    e.preventDefault();
+                    const url = notionSettings.databaseUrl!;
+                    const { Capacitor } = await import('@capacitor/core');
+                    if (Capacitor.isNativePlatform()) {
+                      const { Browser } = await import('@capacitor/browser');
+                      Browser.open({ url }).catch(() => {});
+                    } else {
+                      window.open(url, '_blank', 'noopener');
+                    }
+                  }}
+                  style={{ color: 'var(--sage)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                >
+                  打开同步数据库 ↗
+                </a>
+              )}
             </p>
           )}
 

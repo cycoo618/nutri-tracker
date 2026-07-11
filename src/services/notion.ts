@@ -14,6 +14,8 @@ export interface NotionSettings {
   databaseId: string;
   /** OAuth 连接时记录的 workspace 名称（手动配置时没有） */
   workspaceName?: string;
+  /** 同步目标数据库的 Notion 链接（OAuth 连接时记录） */
+  databaseUrl?: string;
 }
 
 const STORAGE_KEY = 'notion_settings';
