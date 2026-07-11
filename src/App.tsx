@@ -9,6 +9,7 @@ import { useFoodLog } from './hooks/useFoodLog';
 import { useNutrition } from './hooks/useNutrition';
 import { useKeyboardScroll } from './hooks/useKeyboardScroll';
 import { initFoodDatabase } from './services/food-lookup';
+import { handleNotionOAuthRedirect } from './services/notionOAuth';
 import { LoginPage } from './features/auth/LoginPage';
 import { OnboardingPage } from './features/onboarding/OnboardingPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
@@ -28,6 +29,13 @@ export default function App() {
     initFontSize();
     initFoodDatabase().then(() => setDbReady(true));
   }, []);
+
+  // Notion OAuth 网页版回调：授权后带 ?notion_code=... 跳回，登录就绪后完成连接
+  const uid = auth.profile?.uid;
+  useEffect(() => {
+    if (!uid) return;
+    handleNotionOAuthRedirect(uid).catch(console.warn);
+  }, [uid]);
 
   // Loading
   if (auth.loading || !dbReady) {

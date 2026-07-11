@@ -12,6 +12,8 @@ export interface NotionSettings {
   workerUrl: string;
   token: string;
   databaseId: string;
+  /** OAuth 连接时记录的 workspace 名称（手动配置时没有） */
+  workspaceName?: string;
 }
 
 const STORAGE_KEY = 'notion_settings';

@@ -12,6 +12,12 @@ import {
   importHistoricalToNotion,
   type NotionSettings,
 } from '../../services/notion';
+import {
+  connectNotion,
+  isNotionOAuthAvailable,
+  consumeJustConnectedFlag,
+  type NotionConnectEventDetail,
+} from '../../services/notionOAuth';
 
 interface ProfileRedesignProps {
   profile: UserProfile;
@@ -43,12 +49,34 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
     return getNotionSettings() ?? { workerUrl: '', token: '', databaseId: '' };
   });
   const [notionTesting, setNotionTesting] = useState(false);
+  const [notionConnecting, setNotionConnecting] = useState(false);
+  const [showManualConfig, setShowManualConfig] = useState(() => !isNotionOAuthAvailable());
   const [notionStatus, setNotionStatus] = useState<'idle' | 'ok' | 'error'>(() =>
     getNotionSettings() ? 'ok' : 'idle'
   );
   const [notionError, setNotionError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const runImport = (silent = false) => {
+    setImporting(true);
+    setImportProgress({ done: 0, total: 0 });
+    if (!silent) setNotionError('');
+    importHistoricalToNotion(profile.uid, (done, total) => {
+      setImportProgress({ done, total });
+    }).then(({ imported, skipped }) => {
+      setImportProgress(null);
+      setImporting(false);
+      if (imported > 0) {
+        setNotionError(`✓ 已导入 ${imported} 条历史记录${skipped > 0 ? `，${skipped} 条已跳过` : ''}`);
+      } else if (!silent) {
+        setNotionError('✓ 所有记录已是最新，无需导入');
+      }
+    }).catch(() => {
+      setImporting(false);
+      if (!silent) setNotionError('导入失败，请重试');
+    });
+  };
 
   // 登录后同步 Notion 设置到 Firestore / 从 Firestore 加载
   useEffect(() => {
@@ -65,7 +93,51 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
         }
       }).catch(() => {});
     }
+    // Web OAuth 回跳后刚连接成功 → 自动导入历史
+    if (consumeJustConnectedFlag()) {
+      const s = getNotionSettings();
+      if (s) {
+        setNotionSettings(s);
+        setNotionStatus('ok');
+        runImport(true);
+      }
+    }
+    // Web OAuth 回调在 App.tsx 异步完成，若本组件已挂载则通过事件刷新
+    const onConnect = (e: Event) => {
+      const detail = (e as CustomEvent<NotionConnectEventDetail>).detail;
+      if (detail.ok && detail.settings) {
+        consumeJustConnectedFlag();
+        setNotionSettings(detail.settings);
+        setNotionStatus('ok');
+        setNotionError('');
+        runImport(true);
+      } else {
+        setNotionStatus('error');
+        setNotionError(detail.message ?? '连接失败，请重试');
+      }
+    };
+    window.addEventListener('notion-connect', onConnect);
+    return () => window.removeEventListener('notion-connect', onConnect);
   }, [profile.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleNotionConnect = async () => {
+    setNotionError('');
+    setNotionConnecting(true);
+    try {
+      const settings = await connectNotion(profile.uid);
+      // Web 整页跳转时返回 null（页面即将离开）；原生直接拿到结果
+      if (settings) {
+        setNotionSettings(settings);
+        setNotionStatus('ok');
+        setNotionConnecting(false);
+        runImport(true);
+      }
+    } catch (err) {
+      setNotionStatus('error');
+      setNotionError((err as Error).message || '连接失败，请重试');
+      setNotionConnecting(false);
+    }
+  };
 
   const handleGoalClick = (key: string) => {
     let next: string[];
@@ -343,56 +415,40 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
             每次记录食物自动同步到你的 Notion 数据库，每条食物单独一行，包含全部营养数据。
           </p>
 
-          {/* Worker URL */}
-          <div>
-            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Cloudflare Worker URL</div>
-            <input
-              type="url"
-              value={notionSettings.workerUrl}
-              onChange={e => setNotionSettings(s => ({ ...s, workerUrl: e.target.value }))}
-              placeholder="https://notion-proxy.xxx.workers.dev"
-              style={{
-                width: '100%', padding: '8px 10px', borderRadius: 8,
-                border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
-                fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
-                outline: 'none', boxSizing: 'border-box',
+          {/* 一键 OAuth 连接（未连接时的主入口） */}
+          {notionStatus !== 'ok' && isNotionOAuthAvailable() && (
+            <button
+              disabled={notionConnecting}
+              onClick={handleNotionConnect}
+              onTouchEnd={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!notionConnecting) handleNotionConnect();
               }}
-            />
-          </div>
+              className="nt-serif"
+              style={{
+                width: '100%', padding: '11px', borderRadius: 10,
+                background: 'var(--ink)', color: '#fff', border: 'none',
+                fontSize: 13, fontWeight: 600,
+                cursor: notionConnecting ? 'default' : 'pointer',
+                opacity: notionConnecting ? 0.6 : 1,
+              }}
+            >
+              {notionConnecting ? '正在连接…' : '⚡ 连接 Notion'}
+            </button>
+          )}
+          {notionStatus !== 'ok' && isNotionOAuthAvailable() && (
+            <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: 0, lineHeight: 1.6 }}>
+              点击后登录 Notion 并勾选一个页面授权，应用会自动在该页面下创建「每日饮食记录」数据库，无需任何手动配置。
+            </p>
+          )}
 
-          {/* Token */}
-          <div>
-            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Integration Token</div>
-            <input
-              type="password"
-              value={notionSettings.token}
-              onChange={e => setNotionSettings(s => ({ ...s, token: e.target.value }))}
-              placeholder="secret_xxxxxxxxxxxxxxxx"
-              style={{
-                width: '100%', padding: '8px 10px', borderRadius: 8,
-                border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
-                fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
-                outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          {/* Database ID */}
-          <div>
-            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Database ID</div>
-            <input
-              type="text"
-              value={notionSettings.databaseId}
-              onChange={e => setNotionSettings(s => ({ ...s, databaseId: e.target.value.replace(/-/g, '') }))}
-              placeholder="32位数据库 ID"
-              style={{
-                width: '100%', padding: '8px 10px', borderRadius: 8,
-                border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
-                fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
-                outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
+          {/* 已连接状态 */}
+          {notionStatus === 'ok' && notionSettings.workspaceName && (
+            <p className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', margin: 0 }}>
+              工作区：{notionSettings.workspaceName}
+            </p>
+          )}
 
           {notionError && (
             <p style={{ margin: 0, fontSize: 11, color: notionError.startsWith('✓') ? 'var(--sage)' : 'var(--tomato)' }}>{notionError}</p>
@@ -414,45 +470,18 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
             </div>
           )}
 
-          {/* Buttons */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              disabled={notionTesting || !notionSettings.workerUrl || !notionSettings.token || !notionSettings.databaseId}
-              onClick={async () => {
-                setNotionTesting(true);
-                setNotionError('');
-                const err = await notionTestConnection(notionSettings);
-                if (err) {
-                  setNotionStatus('error');
-                  setNotionError(err);
-                } else {
-                  saveNotionSettings(notionSettings, profile.uid);
-                  setNotionStatus('ok');
-                  // 连接成功后自动导入历史数据
-                  setImporting(true);
-                  setImportProgress({ done: 0, total: 0 });
-                  importHistoricalToNotion(profile.uid, (done, total) => {
-                    setImportProgress({ done, total });
-                  }).then(({ imported }) => {
-                    setImportProgress(null);
-                    setImporting(false);
-                    if (imported > 0) setNotionError(`✓ 已导入 ${imported} 条历史记录`);
-                  }).catch(() => setImporting(false));
-                }
-                setNotionTesting(false);
-              }}
-              className="nt-serif"
-              style={{
-                flex: 1, padding: '8px', borderRadius: 10,
-                background: notionStatus === 'ok' ? 'var(--sage)' : 'var(--ink)',
-                color: '#fff', border: 'none', fontSize: 12,
-                cursor: notionTesting ? 'default' : 'pointer',
-                opacity: (notionTesting || !notionSettings.workerUrl) ? 0.5 : 1,
-              }}
-            >
-              {notionTesting ? '连接中…' : notionStatus === 'ok' ? '✓ 已连接' : '测试并保存'}
-            </button>
-            {notionStatus === 'ok' && (
+          {/* 已连接：断开 */}
+          {notionStatus === 'ok' && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div
+                className="nt-serif"
+                style={{
+                  flex: 1, padding: '8px', borderRadius: 10, textAlign: 'center',
+                  background: 'var(--sage)', color: '#fff', fontSize: 12,
+                }}
+              >
+                ✓ 已连接
+              </div>
               <button
                 onClick={() => {
                   clearNotionSettings(profile.uid);
@@ -469,27 +498,13 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
               >
                 断开
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* 导入历史数据按钮（已连接时显示） */}
           {notionStatus === 'ok' && !importing && (
             <button
-              onClick={() => {
-                setImporting(true);
-                setImportProgress({ done: 0, total: 0 });
-                setNotionError('');
-                importHistoricalToNotion(profile.uid, (done, total) => {
-                  setImportProgress({ done, total });
-                }).then(({ imported, skipped }) => {
-                  setImportProgress(null);
-                  setImporting(false);
-                  setNotionError(imported > 0
-                    ? `✓ 已导入 ${imported} 条记录${skipped > 0 ? `，${skipped} 条已跳过` : ''}`
-                    : '✓ 所有记录已是最新，无需导入'
-                  );
-                }).catch(() => { setImporting(false); setNotionError('导入失败，请重试'); });
-              }}
+              onClick={() => runImport()}
               className="nt-serif"
               style={{
                 width: '100%', padding: '8px', borderRadius: 10,
@@ -501,9 +516,106 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
             </button>
           )}
 
-          <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: 0, lineHeight: 1.6 }}>
-            需要先在 Cloudflare 部署 Worker（代码在项目 cloudflare-worker/ 目录），然后在 Notion 创建 Integration 并分享数据库。
-          </p>
+          {/* 手动配置（高级，未连接时可展开） */}
+          {notionStatus !== 'ok' && isNotionOAuthAvailable() && (
+            <button
+              onClick={() => setShowManualConfig(v => !v)}
+              className="nt-serif"
+              style={{
+                background: 'none', border: 'none', padding: 0, textAlign: 'left',
+                fontSize: 11, color: 'var(--ink-faint)', cursor: 'pointer',
+              }}
+            >
+              {showManualConfig ? '收起手动配置 ▴' : '手动配置（高级）▾'}
+            </button>
+          )}
+          {notionStatus !== 'ok' && showManualConfig && (
+            <>
+              {/* Worker URL */}
+              <div>
+                <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Cloudflare Worker URL</div>
+                <input
+                  type="url"
+                  value={notionSettings.workerUrl}
+                  onChange={e => setNotionSettings(s => ({ ...s, workerUrl: e.target.value }))}
+                  placeholder="https://notion-proxy.xxx.workers.dev"
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8,
+                    border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
+                    fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
+                    outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Token */}
+              <div>
+                <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Integration Token</div>
+                <input
+                  type="password"
+                  value={notionSettings.token}
+                  onChange={e => setNotionSettings(s => ({ ...s, token: e.target.value }))}
+                  placeholder="secret_xxxxxxxxxxxxxxxx"
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8,
+                    border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
+                    fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
+                    outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Database ID */}
+              <div>
+                <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 4 }}>Database ID</div>
+                <input
+                  type="text"
+                  value={notionSettings.databaseId}
+                  onChange={e => setNotionSettings(s => ({ ...s, databaseId: e.target.value.replace(/-/g, '') }))}
+                  placeholder="32位数据库 ID"
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8,
+                    border: '1px solid var(--line-soft)', background: 'var(--paper-2)',
+                    fontSize: 12, fontFamily: 'ui-monospace, monospace', color: 'var(--ink)',
+                    outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <button
+                disabled={notionTesting || !notionSettings.workerUrl || !notionSettings.token || !notionSettings.databaseId}
+                onClick={async () => {
+                  setNotionTesting(true);
+                  setNotionError('');
+                  const err = await notionTestConnection(notionSettings);
+                  if (err) {
+                    setNotionStatus('error');
+                    setNotionError(err);
+                  } else {
+                    saveNotionSettings(notionSettings, profile.uid);
+                    setNotionStatus('ok');
+                    // 连接成功后自动导入历史数据
+                    runImport(true);
+                  }
+                  setNotionTesting(false);
+                }}
+                className="nt-serif"
+                style={{
+                  width: '100%', padding: '8px', borderRadius: 10,
+                  background: 'var(--ink)',
+                  color: '#fff', border: 'none', fontSize: 12,
+                  cursor: notionTesting ? 'default' : 'pointer',
+                  opacity: (notionTesting || !notionSettings.workerUrl) ? 0.5 : 1,
+                }}
+              >
+                {notionTesting ? '连接中…' : '测试并保存'}
+              </button>
+
+              <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: 0, lineHeight: 1.6 }}>
+                需要先在 Cloudflare 部署 Worker（代码在项目 cloudflare-worker/ 目录），然后在 Notion 创建 Integration 并分享数据库。
+              </p>
+            </>
+          )}
         </div>
       </div>
 

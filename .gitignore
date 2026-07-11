@@ -34,3 +34,6 @@ ios/App/App/GoogleService-Info.plist
 *.njsproj
 *.sln
 *.sw?
+
+# wrangler local dev cache
+cloudflare-worker/.wrangler/

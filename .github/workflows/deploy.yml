@@ -38,6 +38,7 @@ jobs:
           VITE_USDA_API_KEY: ${{ secrets.VITE_USDA_API_KEY }}
           VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
           VITE_TAVILY_API_KEY: ${{ secrets.VITE_TAVILY_API_KEY }}
+          VITE_NOTION_WORKER_URL: ${{ secrets.VITE_NOTION_WORKER_URL }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@v3
