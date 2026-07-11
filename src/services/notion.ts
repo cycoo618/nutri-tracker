@@ -195,7 +195,37 @@ export async function notionTestConnection(settings: NotionSettings): Promise<st
   }
 }
 
-/** 批量导入历史记录到 Notion（跳过已有 notionPageId 的条目） */
+/** 查询数据库里已存在的条目（条目ID → Notion page id），失败返回 null */
+async function fetchExistingEntryMap(settings: NotionSettings): Promise<Map<string, string> | null> {
+  const map = new Map<string, string>();
+  let cursor: string | undefined;
+  try {
+    do {
+      const resp = await notionFetch(settings, `/v1/databases/${settings.databaseId}/query`, 'POST', {
+        page_size: 100,
+        ...(cursor ? { start_cursor: cursor } : {}),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json() as {
+        results?: { id: string; properties?: Record<string, { rich_text?: { plain_text?: string }[] }> }[];
+        has_more?: boolean;
+        next_cursor?: string | null;
+      };
+      for (const page of data.results ?? []) {
+        const entryId = page.properties?.['条目ID']?.rich_text?.[0]?.plain_text;
+        if (entryId) map.set(entryId, page.id);
+      }
+      cursor = data.has_more && data.next_cursor ? data.next_cursor : undefined;
+    } while (cursor);
+    return map;
+  } catch {
+    return null;
+  }
+}
+
+/** 批量导入历史记录到 Notion（增量：以数据库实际内容为准，只补缺失的条目）。
+ *  以「条目ID」比对当前数据库，本地 notionPageId 指向别的库/已删页面时会重新导入并修复映射；
+ *  数据库查询失败时退回旧判断（跳过已有 notionPageId 的条目），保证绝不重复导入。 */
 export async function importHistoricalToNotion(
   userId: string,
   onProgress?: (done: number, total: number) => void,
@@ -204,59 +234,68 @@ export async function importHistoricalToNotion(
   if (!settings) return { imported: 0, skipped: 0 };
 
   const logs: DailyLog[] = await getAllDailyLogs(userId);
+  const existing = await fetchExistingEntryMap(settings);
 
-  // 收集所有未同步条目
-  const tasks: { log: DailyLog; mealType: MealType; item: MealItem }[] = [];
+  // 按日志分组，方便批量回写 Firestore
+  const logMap = new Map<string, DailyLog>(logs.map(l => [l.id, l]));
+  const changedLogIds = new Set<string>();
+  const patchItem = (logId: string, itemId: string, notionPageId: string) => {
+    const current = logMap.get(logId);
+    if (!current) return;
+    logMap.set(logId, {
+      ...current,
+      meals: current.meals.map(m => ({
+        ...m,
+        items: m.items.map(i => (i.id === itemId ? { ...i, notionPageId } : i)),
+      })),
+    });
+    changedLogIds.add(logId);
+  };
+
+  // 收集缺失条目
+  const tasks: { logId: string; date: string; mealType: MealType; item: MealItem }[] = [];
+  let skipped = 0;
   for (const log of logs) {
     for (const meal of log.meals) {
       for (const item of meal.items) {
-        if (!item.notionPageId) {
-          tasks.push({ log, mealType: meal.type, item });
+        const knownPageId = existing?.get(item.id);
+        if (knownPageId) {
+          // 数据库里已有：只在映射不一致时修复（如切换过数据库）
+          if (item.notionPageId !== knownPageId) patchItem(log.id, item.id, knownPageId);
+          skipped++;
+        } else if (!existing && item.notionPageId) {
+          // 查询失败的保守兜底：沿用旧判断，避免重复导入
+          skipped++;
+        } else {
+          tasks.push({ logId: log.id, date: log.date, mealType: meal.type, item });
         }
       }
     }
   }
 
   let imported = 0;
-  let skipped = 0;
+  let failed = 0;
   const total = tasks.length;
 
-  // 按日志分组，方便批量回写 Firestore
-  const logMap = new Map<string, DailyLog>(logs.map(l => [l.id, l]));
-
-  for (const { log, mealType, item } of tasks) {
+  for (const { logId, date, mealType, item } of tasks) {
     try {
-      const notionPageId = await notionAddEntry(item, log.date, mealType);
+      const notionPageId = await notionAddEntry(item, date, mealType);
       if (notionPageId) {
-        // 更新内存中的 log
-        const currentLog = logMap.get(log.id)!;
-        const patched: DailyLog = {
-          ...currentLog,
-          meals: currentLog.meals.map(m => ({
-            ...m,
-            items: m.items.map(i =>
-              i.id === item.id ? { ...i, notionPageId } : i
-            ),
-          })),
-        };
-        logMap.set(log.id, patched);
+        patchItem(logId, item.id, notionPageId);
         imported++;
       } else {
-        skipped++;
+        failed++;
       }
     } catch {
-      skipped++;
+      failed++;
     }
-    onProgress?.(imported + skipped, total);
+    onProgress?.(imported + failed, total);
     // 限速：Notion API 3 req/s
     await new Promise(r => setTimeout(r, 350));
   }
 
   // 批量回写有变更的日志到 Firestore
-  const changedLogs = [...logMap.values()].filter(l =>
-    l.meals.some(m => m.items.some(i => i.notionPageId))
-  );
-  await Promise.allSettled(changedLogs.map(l => saveDailyLog(l)));
+  await Promise.allSettled([...changedLogIds].map(id => saveDailyLog(logMap.get(id)!)));
 
-  return { imported, skipped };
+  return { imported, skipped: skipped + failed };
 }
