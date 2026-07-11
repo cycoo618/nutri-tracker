@@ -14,7 +14,7 @@ import type { DocumentData } from 'firebase/firestore';
 import { getTodayString, generateId } from '../utils/calculator';
 import { recordFoodUsage, getRecentFoods } from '../utils/recentFoods';
 import type { RecentFoodEntry } from '../utils/recentFoods';
-import { notionAddEntry, notionUpdateEntry, notionDeleteEntry, getNotionSettings } from '../services/notion';
+import { notionAddEntry, notionUpdateEntry, notionDeleteEntry, notionUpsertFood, getNotionSettings } from '../services/notion';
 
 /** 根据当前时间自动判断餐次（内部使用，不暴露给用户） */
 function getMealTypeFromTime(): MealType {
@@ -171,6 +171,8 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
 
     // Notion 自动同步（fire-and-forget，不影响主流程）
     if (getNotionSettings()) {
+      // 食物 reference 表：把这次吃的食物 upsert 到「食物数据库」
+      notionUpsertFood(food, userId).catch(() => {});
       notionAddEntry(item, currentDate, mealType).then(notionPageId => {
         if (!notionPageId) return;
         // 把 notionPageId 写回 MealItem 并重新持久化

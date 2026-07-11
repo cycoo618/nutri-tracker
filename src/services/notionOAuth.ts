@@ -8,7 +8,7 @@
 // ============================================
 
 import { Capacitor } from '@capacitor/core';
-import { saveNotionSettings, type NotionSettings } from './notion';
+import { saveNotionSettings, FOOD_DB_TITLE, FOOD_DB_SCHEMA, type NotionSettings } from './notion';
 
 const WORKER_URL = ((import.meta.env.VITE_NOTION_WORKER_URL as string | undefined) ?? '').replace(/\/$/, '');
 const CALLBACK_URL = 'https://cycoo618.github.io/nutri-tracker/notion-callback.html';
@@ -127,11 +127,16 @@ interface BlockResult {
   child_database?: { title?: string };
 }
 
-/** 从授权页面逐层向下遍历（blocks API 实时无索引延迟），找已有的同名数据库 */
-async function walkForDatabase(token: string, rootPageIds: string[]): Promise<string | null> {
+/** 从授权页面逐层向下遍历（blocks API 实时无索引延迟），找已有的同名数据库（可同时找多个） */
+async function walkForDatabases(
+  token: string,
+  rootPageIds: string[],
+  titles: string[],
+): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
   const queue = rootPageIds.map(id => ({ id, depth: 0 }));
   let requests = 0;
-  while (queue.length > 0 && requests < 30) {
+  while (queue.length > 0 && requests < 30 && found.size < titles.length) {
     const { id, depth } = queue.shift()!;
     if (depth > 4) continue;
     requests++;
@@ -140,30 +145,46 @@ async function walkForDatabase(token: string, rootPageIds: string[]): Promise<st
       if (!resp.ok) continue;
       const blocks = (await resp.json() as { results?: BlockResult[] }).results ?? [];
       for (const b of blocks) {
-        if (b.type === 'child_database' && b.child_database?.title === DB_TITLE) {
-          return b.id.replace(/-/g, '');
+        const title = b.type === 'child_database' ? b.child_database?.title : undefined;
+        if (title && titles.includes(title) && !found.has(title)) {
+          found.set(title, b.id.replace(/-/g, ''));
         }
         if (b.type === 'child_page') queue.push({ id: b.id, depth: depth + 1 });
       }
     } catch { /* 单页失败不影响整体遍历 */ }
   }
-  return null;
+  return found;
 }
 
-/** 找到用户已有的「每日饮食记录」数据库，否则在授权的第一个页面下自动创建 */
-async function findOrCreateDatabase(token: string): Promise<string> {
-  // 1) search 快速路径：已有同名数据库（重复连接 / 手动创建过）
-  const dbResp = await api(token, '/v1/search', 'POST', {
-    query: DB_TITLE,
+/** search 快速路径：找已有同名数据库（重复连接 / 手动创建过） */
+async function searchDatabase(token: string, title: string): Promise<string | null> {
+  const resp = await api(token, '/v1/search', 'POST', {
+    query: title,
     filter: { property: 'object', value: 'database' },
   });
-  if (dbResp.ok) {
-    const data = await dbResp.json() as { results?: SearchResult[] };
-    const existing = data.results?.find(r =>
-      r.object === 'database' && (r.title?.[0]?.plain_text ?? '') === DB_TITLE
-    );
-    if (existing) return existing.id.replace(/-/g, '');
-  }
+  if (!resp.ok) return null;
+  const data = await resp.json() as { results?: SearchResult[] };
+  const existing = data.results?.find(r =>
+    r.object === 'database' && (r.title?.[0]?.plain_text ?? '') === title
+  );
+  return existing ? existing.id.replace(/-/g, '') : null;
+}
+
+async function createDatabase(token: string, parentPageId: string, title: string, schema: Record<string, unknown>): Promise<string> {
+  const resp = await api(token, '/v1/databases', 'POST', {
+    parent: { type: 'page_id', page_id: parentPageId },
+    title: [{ type: 'text', text: { content: title } }],
+    properties: schema,
+  });
+  if (!resp.ok) throw new Error(`创建 Notion 数据库失败 (${resp.status})`);
+  return ((await resp.json()) as { id: string }).id.replace(/-/g, '');
+}
+
+/** 找到用户已有的「每日饮食记录」和「食物数据库」，缺哪个建哪个（两库放同一父页面下） */
+async function findOrCreateDatabases(token: string): Promise<{ databaseId: string; foodDatabaseId: string | null }> {
+  // 1) search 快速路径
+  let databaseId = await searchDatabase(token, DB_TITLE);
+  let foodDatabaseId = await searchDatabase(token, FOOD_DB_TITLE);
 
   // 2) 列出授权的页面（新建时也要用）
   const pageResp = await api(token, '/v1/search', 'POST', {
@@ -178,29 +199,56 @@ async function findOrCreateDatabase(token: string): Promise<string> {
   }
 
   // 3) search 对刚授权的深层内容有索引延迟，用 blocks API 逐层遍历兜底
-  const found = await walkForDatabase(token, pages.map(p => p.id));
-  if (found) return found;
-
-  const createResp = await api(token, '/v1/databases', 'POST', {
-    parent: { type: 'page_id', page_id: page.id },
-    title: [{ type: 'text', text: { content: DB_TITLE } }],
-    properties: DB_SCHEMA,
-  });
-  if (!createResp.ok) {
-    throw new Error(`创建 Notion 数据库失败 (${createResp.status})`);
+  if (!databaseId || !foodDatabaseId) {
+    const missing = [
+      ...(!databaseId ? [DB_TITLE] : []),
+      ...(!foodDatabaseId ? [FOOD_DB_TITLE] : []),
+    ];
+    const found = await walkForDatabases(token, pages.map(p => p.id), missing);
+    databaseId ??= found.get(DB_TITLE) ?? null;
+    foodDatabaseId ??= found.get(FOOD_DB_TITLE) ?? null;
   }
-  const created = await createResp.json() as { id: string };
-  return created.id.replace(/-/g, '');
+
+  // 4) 确定食物数据库的父页面：跟随已有每日库的位置，否则用第一个授权页面
+  let foodParentId = page.id;
+  if (databaseId) {
+    try {
+      const dbResp = await api(token, `/v1/databases/${databaseId}`, 'GET');
+      if (dbResp.ok) {
+        const parent = ((await dbResp.json()) as { parent?: { page_id?: string } }).parent;
+        if (parent?.page_id) foodParentId = parent.page_id;
+      }
+    } catch { /* 拿不到父页面就用授权页面 */ }
+  }
+
+  // 5) 缺哪个建哪个（食物数据库创建失败不阻塞连接，之后同步时会自动重试）
+  if (!databaseId) {
+    databaseId = await createDatabase(token, page.id, DB_TITLE, DB_SCHEMA);
+    foodParentId = page.id;
+  }
+  if (!foodDatabaseId) {
+    try {
+      foodDatabaseId = await createDatabase(token, foodParentId, FOOD_DB_TITLE, FOOD_DB_SCHEMA);
+    } catch (e) {
+      console.warn('创建食物数据库失败（稍后同步时会重试）:', e);
+    }
+  }
+
+  return { databaseId, foodDatabaseId };
 }
 
 async function completeConnection(code: string, uid: string): Promise<NotionSettings> {
   const { token, workspaceName } = await exchangeCode(code);
-  const databaseId = await findOrCreateDatabase(token);
+  const { databaseId, foodDatabaseId } = await findOrCreateDatabases(token);
   const settings: NotionSettings = {
     workerUrl: WORKER_URL,
     token,
     databaseId,
     databaseUrl: `https://www.notion.so/${databaseId}`,
+    ...(foodDatabaseId ? {
+      foodDatabaseId,
+      foodDatabaseUrl: `https://www.notion.so/${foodDatabaseId}`,
+    } : {}),
     ...(workspaceName ? { workspaceName } : {}),
   };
   saveNotionSettings(settings, uid);

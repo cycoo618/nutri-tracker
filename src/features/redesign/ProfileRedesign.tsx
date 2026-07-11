@@ -10,6 +10,7 @@ import {
   loadNotionSettingsFromFirestore,
   notionTestConnection,
   importHistoricalToNotion,
+  importFoodsToNotion,
   type NotionSettings,
 } from '../../services/notion';
 import {
@@ -30,6 +31,17 @@ type Lang = '中文' | 'EN';
 
 const FONT_MAP: Record<FontSizeLabel, 'small' | 'standard' | 'large'> = { '小': 'small', '标准': 'standard', '大': 'large' };
 const FONT_REVERSE: Record<string, FontSizeLabel> = { small: '小', standard: '标准', large: '大' };
+
+/** 打开 Notion 链接：原生 iOS 用应用内浏览器，Web 开新标签页 */
+async function openNotionUrl(url: string): Promise<void> {
+  const { Capacitor } = await import('@capacitor/core');
+  if (Capacitor.isNativePlatform()) {
+    const { Browser } = await import('@capacitor/browser');
+    Browser.open({ url }).catch(() => {});
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+}
 
 export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileRedesignProps) {
   const activeGoals: string[] = profile.goals?.length ? profile.goals : [profile.goal];
@@ -57,25 +69,38 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
   const [notionError, setNotionError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+  const [importPhase, setImportPhase] = useState<'历史数据' | '食物数据库'>('历史数据');
 
-  const runImport = (silent = false) => {
+  const runImport = async (silent = false) => {
     setImporting(true);
+    setImportPhase('历史数据');
     setImportProgress({ done: 0, total: 0 });
     if (!silent) setNotionError('');
-    importHistoricalToNotion(profile.uid, (done, total) => {
-      setImportProgress({ done, total });
-    }).then(({ imported, skipped }) => {
+    try {
+      const { imported, skipped } = await importHistoricalToNotion(profile.uid, (done, total) => {
+        setImportProgress({ done, total });
+      });
+      // 第二阶段：食物 reference 表
+      setImportPhase('食物数据库');
+      setImportProgress({ done: 0, total: 0 });
+      const foods = await importFoodsToNotion(profile.uid, (done, total) => {
+        setImportProgress({ done, total });
+      });
+      // ensureFoodDatabase 可能刚创建了食物数据库并更新了设置 → 刷新状态（显示链接）
+      const fresh = getNotionSettings();
+      if (fresh) setNotionSettings(fresh);
       setImportProgress(null);
       setImporting(false);
-      if (imported > 0) {
-        setNotionError(`✓ 已导入 ${imported} 条历史记录${skipped > 0 ? `，${skipped} 条已跳过` : ''}`);
+      if (imported > 0 || foods.imported > 0) {
+        const skips = skipped + foods.skipped;
+        setNotionError(`✓ 已导入 ${imported} 条历史记录、${foods.imported} 个食物${skips > 0 ? `，${skips} 条已跳过` : ''}`);
       } else if (!silent) {
         setNotionError('✓ 所有记录已是最新，无需导入');
       }
-    }).catch(() => {
+    } catch {
       setImporting(false);
       if (!silent) setNotionError('导入失败，请重试');
-    });
+    }
   };
 
   // 登录后同步 Notion 设置到 Firestore / 从 Firestore 加载
@@ -439,33 +464,34 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           )}
           {notionStatus !== 'ok' && isNotionOAuthAvailable() && (
             <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: 0, lineHeight: 1.6 }}>
-              点击后登录 Notion 并勾选一个页面授权，应用会自动在该页面下创建「每日饮食记录」数据库，无需任何手动配置。
+              点击后登录 Notion 并勾选一个页面授权，应用会自动在该页面下创建「每日饮食记录」和「食物数据库」两个数据库，无需任何手动配置。
             </p>
           )}
 
           {/* 已连接状态 */}
           {notionStatus === 'ok' && (notionSettings.workspaceName || notionSettings.databaseUrl) && (
-            <p className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', margin: 0, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <p className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', margin: 0, display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <span>{notionSettings.workspaceName ? `工作区：${notionSettings.workspaceName}` : ''}</span>
-              {notionSettings.databaseUrl && (
-                <a
-                  href={notionSettings.databaseUrl}
-                  onClick={async e => {
-                    e.preventDefault();
-                    const url = notionSettings.databaseUrl!;
-                    const { Capacitor } = await import('@capacitor/core');
-                    if (Capacitor.isNativePlatform()) {
-                      const { Browser } = await import('@capacitor/browser');
-                      Browser.open({ url }).catch(() => {});
-                    } else {
-                      window.open(url, '_blank', 'noopener');
-                    }
-                  }}
-                  style={{ color: 'var(--sage)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                >
-                  打开同步数据库 ↗
-                </a>
-              )}
+              <span style={{ display: 'flex', gap: 10 }}>
+                {notionSettings.databaseUrl && (
+                  <a
+                    href={notionSettings.databaseUrl}
+                    onClick={e => { e.preventDefault(); openNotionUrl(notionSettings.databaseUrl!); }}
+                    style={{ color: 'var(--sage)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    饮食记录 ↗
+                  </a>
+                )}
+                {notionSettings.foodDatabaseUrl && (
+                  <a
+                    href={notionSettings.foodDatabaseUrl}
+                    onClick={e => { e.preventDefault(); openNotionUrl(notionSettings.foodDatabaseUrl!); }}
+                    style={{ color: 'var(--sage)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    食物数据库 ↗
+                  </a>
+                )}
+              </span>
             </p>
           )}
 
@@ -475,7 +501,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           {importing && importProgress && (
             <div style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
               <div style={{ marginBottom: 4 }}>
-                正在导入历史数据… {importProgress.done}/{importProgress.total}
+                正在导入{importPhase}… {importProgress.done}/{importProgress.total}
               </div>
               {importProgress.total > 0 && (
                 <div style={{ height: 4, borderRadius: 999, background: 'var(--line-soft)', overflow: 'hidden' }}>
@@ -531,7 +557,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
                 border: '1px dashed var(--line)', fontSize: 12, cursor: 'pointer',
               }}
             >
-              ↑ 导入历史数据到 Notion
+              ↑ 导入历史数据和食物库到 Notion
             </button>
           )}
 
