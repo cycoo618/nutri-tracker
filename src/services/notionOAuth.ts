@@ -121,9 +121,38 @@ interface SearchResult {
   title?: { plain_text?: string }[];
 }
 
+interface BlockResult {
+  id: string;
+  type?: string;
+  child_database?: { title?: string };
+}
+
+/** 从授权页面逐层向下遍历（blocks API 实时无索引延迟），找已有的同名数据库 */
+async function walkForDatabase(token: string, rootPageIds: string[]): Promise<string | null> {
+  const queue = rootPageIds.map(id => ({ id, depth: 0 }));
+  let requests = 0;
+  while (queue.length > 0 && requests < 30) {
+    const { id, depth } = queue.shift()!;
+    if (depth > 4) continue;
+    requests++;
+    try {
+      const resp = await api(token, `/v1/blocks/${id}/children?page_size=100`, 'GET');
+      if (!resp.ok) continue;
+      const blocks = (await resp.json() as { results?: BlockResult[] }).results ?? [];
+      for (const b of blocks) {
+        if (b.type === 'child_database' && b.child_database?.title === DB_TITLE) {
+          return b.id.replace(/-/g, '');
+        }
+        if (b.type === 'child_page') queue.push({ id: b.id, depth: depth + 1 });
+      }
+    } catch { /* 单页失败不影响整体遍历 */ }
+  }
+  return null;
+}
+
 /** 找到用户已有的「每日饮食记录」数据库，否则在授权的第一个页面下自动创建 */
 async function findOrCreateDatabase(token: string): Promise<string> {
-  // 1) 已有同名数据库（重复连接 / 手动创建过）
+  // 1) search 快速路径：已有同名数据库（重复连接 / 手动创建过）
   const dbResp = await api(token, '/v1/search', 'POST', {
     query: DB_TITLE,
     filter: { property: 'object', value: 'database' },
@@ -136,7 +165,7 @@ async function findOrCreateDatabase(token: string): Promise<string> {
     if (existing) return existing.id.replace(/-/g, '');
   }
 
-  // 2) 在用户授权的第一个页面下新建
+  // 2) 列出授权的页面（新建时也要用）
   const pageResp = await api(token, '/v1/search', 'POST', {
     filter: { property: 'object', value: 'page' },
     page_size: 10,
@@ -147,6 +176,10 @@ async function findOrCreateDatabase(token: string): Promise<string> {
   if (!page) {
     throw new Error('授权时没有选择任何页面。请重新连接，并在 Notion 授权页勾选至少一个页面');
   }
+
+  // 3) search 对刚授权的深层内容有索引延迟，用 blocks API 逐层遍历兜底
+  const found = await walkForDatabase(token, pages.map(p => p.id));
+  if (found) return found;
 
   const createResp = await api(token, '/v1/databases', 'POST', {
     parent: { type: 'page_id', page_id: page.id },
