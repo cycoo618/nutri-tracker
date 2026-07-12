@@ -28,9 +28,24 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(() => {});
-        });
+        // 本地开发（localhost / 127.0.0.1 / 私网 IP）：绝不注册 SW。
+        // cache-first 的 SW 会缓存 Vite dev 模块并优先返回旧版本 → 改代码/重启后白屏。
+        // 同时主动注销已存在的旧 SW 并清缓存，让此前中招的浏览器自愈。
+        var host = location.hostname;
+        var isDev = host === 'localhost' || host === '127.0.0.1' ||
+          /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(host);
+        if (isDev) {
+          navigator.serviceWorker.getRegistrations().then(function (rs) {
+            rs.forEach(function (r) { r.unregister(); });
+          });
+          if (window.caches && caches.keys) {
+            caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
+          }
+        } else {
+          window.addEventListener('load', function () {
+            navigator.serviceWorker.register('./sw.js').catch(function () {});
+          });
+        }
       }
     </script>
   </body>
