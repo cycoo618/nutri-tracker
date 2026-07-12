@@ -181,6 +181,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
   const [renameValue, setRenameValue] = useState('');
   const [addedId, setAddedId] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>('idle');
+  const [cloudError, setCloudError] = useState<string | null>(null);
 
   // ── New UI state ──────────────────────────────────────────────────────
   const [density, setDensity] = useState<'list' | 'card' | 'grid'>('card');
@@ -293,8 +294,11 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
   const handleForceSync = useCallback(async () => {
     if (!userId) return;
     setCloudStatus('syncing');
+    setCloudError(null);
+    let step = '';
     try {
       // 1. 把本地所有 push 上去（writeBatch 批量提交）
+      step = '上传';
       const all = getAllCustomFoods();
       await saveUserFoods(
         userId,
@@ -302,11 +306,15 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
         familyId,
       );
       // 2. 再 pull 合并
+      step = '拉取';
       const data = await getUserFoods(userId);
       if (data.length > 0) mergeCustomFoods(data as CustomFoodRecord[]);
       setRecords(getAllCustomFoods());
       setCloudStatus('synced');
-    } catch {
+    } catch (err) {
+      console.error('[FoodPantry] forceSync', step, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setCloudError(msg.includes('超时') ? `${step}超时` : `${step}失败：${msg.slice(0, 60)}`);
       setCloudStatus('error');
     }
   }, [userId, familyId]);
@@ -381,7 +389,10 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       <div style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 10px) 16px 0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink-soft)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>‹</button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="nt-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.1 }}>食材库</div>
+          <div className="nt-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.1 }}>
+            食材库
+            <span className="nt-serif" style={{ fontSize: 8, color: 'var(--ink-faint)', fontWeight: 400, marginLeft: 6 }}>v{__BUILD_TIME__}</span>
+          </div>
           <button
             onClick={handleForceSync}
             disabled={cloudStatus === 'syncing' || !userId}
@@ -390,8 +401,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
             <span style={{ fontSize: 10, color: cloudStatus === 'error' ? 'var(--tomato)' : cloudStatus === 'synced' ? 'var(--sage)' : 'var(--ink-mute)' }}>
               {cloudStatus === 'syncing' ? '⟳' : cloudStatus === 'error' ? '⚠' : '☁'}
             </span>
-            <span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>
-              {records.length} 件 · {cloudStatus === 'syncing' ? '同步中' : cloudStatus === 'synced' ? '已同步' : cloudStatus === 'error' ? '点击重试' : '未同步'}
+            <span className="nt-serif" style={{ fontSize: 10, color: cloudStatus === 'error' ? 'var(--tomato)' : 'var(--ink-mute)' }}>
+              {records.length} 件 · {cloudStatus === 'syncing' ? '同步中' : cloudStatus === 'synced' ? '已同步' : cloudStatus === 'error' ? (cloudError ?? '点击重试') : '未同步'}
             </span>
           </button>
         </div>

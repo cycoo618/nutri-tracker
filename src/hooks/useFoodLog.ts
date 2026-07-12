@@ -298,12 +298,15 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
     if (!userId) return;
     setSyncStatus('syncing');
     setSyncError(null);
+    let step = '';
     try {
       // Step 1: 把本地饮食记录推到 Firestore
+      step = '①上传今日记录';
       if (dailyLog) {
         await saveDailyLog(dailyLog);
       }
       // Step 2: 从 Firestore 拉取最新饮食记录
+      step = '②拉取今日记录';
       const serverLog = await getDailyLog(userId, currentDate);
       if (serverLog) {
         setDailyLog(serverLog);
@@ -312,6 +315,7 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
         setDailyLog(createEmptyDailyLog(userId, currentDate));
       }
       // Step 3: 把本地食材库推到 Firestore
+      step = '③上传食材库';
       const localFoods = getAllCustomFoods();
       if (localFoods.length > 0) {
         await saveUserFoods(
@@ -321,6 +325,7 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
         );
       }
       // Step 4: 从 Firestore 拉取食材库并合并
+      step = '④拉取食材库';
       const serverFoods = await getUserFoods(userId);
       if (serverFoods.length > 0) {
         mergeCustomFoods(serverFoods as CustomFoodRecord[]);
@@ -330,7 +335,12 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
     } catch (err) {
       setSyncStatus('error');
       const msg = err instanceof Error ? err.message : String(err);
-      setSyncError(msg.includes('超时') ? 'Firestore 连接超时，请检查网络' : msg.slice(0, 80));
+      console.error('[forceSync]', step, err);
+      setSyncError(
+        msg.includes('超时')
+          ? `${step}超时（Firestore 无响应）`
+          : `${step}失败：${msg.slice(0, 80)}`
+      );
     }
   }, [userId, familyId, dailyLog, currentDate]);
 

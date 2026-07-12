@@ -8,4 +8,8 @@ export default defineConfig({
     tailwindcss(),
   ],
   base: './',
+  define: {
+    // 构建时间戳，显示在食材库标题栏，用于确认线上跑的是哪个版本
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString().slice(5, 16).replace('T', ' ')),
+  },
 });
