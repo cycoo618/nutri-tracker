@@ -8,7 +8,7 @@ import {
   getAllDailyLogs,
   saveDailyLog,
 } from './firestore';
-import { getAllCustomFoods, recordToFoodItem } from '../utils/customFoods';
+import { getAllCustomFoods, recordToFoodItem, inferCategory, type RecipeIngredient } from '../utils/customFoods';
 
 export interface NotionSettings {
   workerUrl: string;
@@ -22,6 +22,10 @@ export interface NotionSettings {
   foodDatabaseId?: string;
   /** 「食物数据库」的 Notion 链接 */
   foodDatabaseUrl?: string;
+  /** 「配方明细」（组合食物 × 食材连接表）的 Database ID，缺失时首次同步组合食物会自动创建 */
+  recipeDatabaseId?: string;
+  /** 「配方明细」的 Notion 链接 */
+  recipeDatabaseUrl?: string;
 }
 
 const STORAGE_KEY = 'notion_settings';
@@ -171,6 +175,48 @@ export const FOOD_DB_SCHEMA: Record<string, unknown> = {
   '首次记录': { date: {} },
   '最近记录': { date: {} },
 };
+
+// ─── 配方明细（组合食物 × 食材连接表） ──────────────────────────
+// 每行 = 一个组合食物里的一种食材及其克数。两个 relation 都指向「食物数据库」，
+// 用 dual_property 让食物数据库上能直接看到反向关联（组合行看到配方，食材行看到被哪些配方使用）。
+
+export const RECIPE_DB_TITLE = '配方明细';
+
+// relation 需要目标 database id，所以 schema 是函数（notionOAuth.ts 一键建库也用这份）
+export function buildRecipeDbSchema(foodDatabaseId: string): Record<string, unknown> {
+  return {
+    '名称': { title: {} },
+    '组合食物': { relation: { database_id: foodDatabaseId, type: 'dual_property', dual_property: {} } },
+    '食材': { relation: { database_id: foodDatabaseId, type: 'dual_property', dual_property: {} } },
+    '克数(g)': { number: {} },
+    '占比(%)': { number: {} },
+    '热量贡献(千卡)': { number: {} },
+    '组合ID': { rich_text: {} },
+    '食材ID': { rich_text: {} },
+  };
+}
+
+// dual_property 在食物数据库上自动生成的反向属性名是 "Related to 配方明细 (…)"，
+// 建库后改成可读的中文名（改名失败不影响功能）
+export const RECIPE_SYNCED_PROP_NAMES: Record<string, string> = {
+  '组合食物': '配方明细',
+  '食材': '作为食材用于',
+};
+
+export interface CreatedRecipeDb {
+  id: string;
+  properties?: Record<string, { relation?: { dual_property?: { synced_property_name?: string } } }>;
+}
+
+/** 从建库响应里取出自动生成的反向属性名 → 目标中文名 的改名映射 */
+export function buildSyncedPropRenames(created: CreatedRecipeDb): Record<string, { name: string }> {
+  const renames: Record<string, { name: string }> = {};
+  for (const [prop, newName] of Object.entries(RECIPE_SYNCED_PROP_NAMES)) {
+    const synced = created.properties?.[prop]?.relation?.dual_property?.synced_property_name;
+    if (synced && synced !== newName) renames[synced] = { name: newName };
+  }
+  return renames;
+}
 
 function richText(s: string | undefined) {
   return { rich_text: s ? [{ text: { content: s } }] : [] };
@@ -501,55 +547,264 @@ async function findOrCreateFoodDatabase(settings: NotionSettings, uid?: string):
   }
 }
 
-/** 把一个食物 upsert 到「食物数据库」（按 食物ID 去重）。fire-and-forget。 */
-export async function notionUpsertFood(food: FoodItem, uid?: string): Promise<void> {
+/** 把一个食物 upsert 到「食物数据库」（按 食物ID 去重），返回 Notion page id */
+async function upsertFoodPage(food: FoodItem, uid?: string, firstLogged?: string): Promise<string | null> {
   const settings = getNotionSettings();
-  if (!settings) return;
-  try {
-    const dbId = await ensureFoodDatabase(uid);
-    if (!dbId) return;
-    const freshSettings = getNotionSettings() ?? settings;
+  if (!settings) return null;
+  const dbId = await ensureFoodDatabase(uid);
+  if (!dbId) return null;
+  const freshSettings = getNotionSettings() ?? settings;
 
-    const map = loadFoodPageMap();
-    let pageId: string | undefined = map[food.id];
+  const map = loadFoodPageMap();
+  let pageId: string | undefined = map[food.id];
 
-    // 本地没有映射 → 按 食物ID 查库（跨设备/清缓存后防重复）
-    if (!pageId) {
-      const q = await notionFetch(freshSettings, `/v1/databases/${dbId}/query`, 'POST', {
-        filter: { property: '食物ID', rich_text: { equals: food.id } },
-        page_size: 1,
-      });
-      if (q.ok) {
-        pageId = ((await q.json()) as { results?: { id: string }[] }).results?.[0]?.id;
-      }
+  // 本地没有映射 → 按 食物ID 查库（跨设备/清缓存后防重复）
+  if (!pageId) {
+    const q = await notionFetch(freshSettings, `/v1/databases/${dbId}/query`, 'POST', {
+      filter: { property: '食物ID', rich_text: { equals: food.id } },
+      page_size: 1,
+    });
+    if (q.ok) {
+      pageId = ((await q.json()) as { results?: { id: string }[] }).results?.[0]?.id;
     }
+  }
 
-    if (pageId) {
-      // 已有 → 更新（刷新营养数据和「最近记录」）
-      const resp = await notionFetch(freshSettings, `/v1/pages/${pageId}`, 'PATCH', {
-        properties: buildFoodProperties(food),
-      });
-      if (resp.ok) {
-        map[food.id] = pageId;
-        saveFoodPageMap(map);
-        return;
-      }
-      // 页面已被删除/归档 → 清掉映射，走新建
-      delete map[food.id];
-    }
-
-    const resp = await notionFetch(freshSettings, '/v1/pages', 'POST', {
-      parent: { database_id: dbId },
-      properties: buildFoodProperties(food, { firstLogged: new Date().toISOString() }),
+  if (pageId) {
+    // 已有 → 更新（刷新营养数据和「最近记录」）
+    const resp = await notionFetch(freshSettings, `/v1/pages/${pageId}`, 'PATCH', {
+      properties: buildFoodProperties(food),
     });
     if (resp.ok) {
-      map[food.id] = ((await resp.json()) as { id: string }).id;
+      map[food.id] = pageId;
       saveFoodPageMap(map);
-    } else {
-      console.warn('Notion upsertFood failed:', await resp.text());
+      return pageId;
+    }
+    // 页面已被删除/归档 → 清掉映射，走新建
+    delete map[food.id];
+  }
+
+  const resp = await notionFetch(freshSettings, '/v1/pages', 'POST', {
+    parent: { database_id: dbId },
+    properties: buildFoodProperties(food, { firstLogged: firstLogged ?? new Date().toISOString() }),
+  });
+  if (!resp.ok) {
+    console.warn('Notion upsertFood failed:', await resp.text());
+    return null;
+  }
+  const newId = ((await resp.json()) as { id: string }).id;
+  map[food.id] = newId;
+  saveFoodPageMap(map);
+  return newId;
+}
+
+/** 把一个食物 upsert 到「食物数据库」（组合食物会同步「配方明细」行）。fire-and-forget。 */
+export async function notionUpsertFood(food: FoodItem, uid?: string): Promise<void> {
+  try {
+    const pageId = await upsertFoodPage(food, uid);
+    if (pageId && food.ingredients && food.ingredients.length > 0) {
+      await syncRecipeLines(food.id, pageId, uid);
     }
   } catch (e) {
     console.warn('Notion upsertFood error:', e);
+  }
+}
+
+// ─── 配方明细：自动建库 + 明细行同步 ────────────────────────────
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// 并发去重：同时同步多个组合食物时只建一次库
+let ensureRecipeDbPromise: Promise<string | null> | null = null;
+
+/** 确保「配方明细」库存在（在食物数据库的同一父页面下自动找/建），返回 database id */
+export function ensureRecipeDatabase(uid?: string): Promise<string | null> {
+  const settings = getNotionSettings();
+  if (!settings) return Promise.resolve(null);
+  if (settings.recipeDatabaseId) return Promise.resolve(settings.recipeDatabaseId);
+  if (!ensureRecipeDbPromise) {
+    ensureRecipeDbPromise = findOrCreateRecipeDatabase(uid)
+      .finally(() => { ensureRecipeDbPromise = null; });
+  }
+  return ensureRecipeDbPromise;
+}
+
+async function findOrCreateRecipeDatabase(uid?: string): Promise<string | null> {
+  try {
+    // relation 指向食物数据库，所以必须先有食物数据库
+    const foodDbId = await ensureFoodDatabase(uid);
+    if (!foodDbId) return null;
+    const settings = getNotionSettings();
+    if (!settings) return null;
+
+    // 1) 食物数据库的父页面（即「健康饮食」）
+    const dbResp = await notionFetch(settings, `/v1/databases/${foodDbId}`, 'GET');
+    if (!dbResp.ok) return null;
+    const db = await dbResp.json() as { parent?: { page_id?: string } };
+    const parentPageId = db.parent?.page_id;
+
+    // 2) 父页面直接子块里找已有的「配方明细」（blocks API 实时、无索引延迟）
+    let recipeDbId: string | null = null;
+    if (parentPageId) {
+      const kids = await notionFetch(settings, `/v1/blocks/${parentPageId}/children?page_size=100`, 'GET');
+      if (kids.ok) {
+        const blocks = (await kids.json() as { results?: { id: string; type?: string; child_database?: { title?: string } }[] }).results ?? [];
+        const hit = blocks.find(b => b.type === 'child_database' && b.child_database?.title === RECIPE_DB_TITLE);
+        if (hit) recipeDbId = hit.id;
+      }
+    }
+
+    // 3) search 兜底（库可能被挪过位置）
+    if (!recipeDbId) {
+      const s = await notionFetch(settings, '/v1/search', 'POST', {
+        query: RECIPE_DB_TITLE,
+        filter: { property: 'object', value: 'database' },
+      });
+      if (s.ok) {
+        const data = await s.json() as { results?: { object: string; id: string; title?: { plain_text?: string }[] }[] };
+        const hit = data.results?.find(r => r.object === 'database' && (r.title?.[0]?.plain_text ?? '') === RECIPE_DB_TITLE);
+        if (hit) recipeDbId = hit.id;
+      }
+    }
+
+    // 4) 都没有 → 在父页面下新建，并把食物数据库上的反向属性改成中文名
+    if (!recipeDbId && parentPageId) {
+      const createResp = await notionFetch(settings, '/v1/databases', 'POST', {
+        parent: { type: 'page_id', page_id: parentPageId },
+        title: [{ type: 'text', text: { content: RECIPE_DB_TITLE } }],
+        properties: buildRecipeDbSchema(foodDbId),
+      });
+      if (createResp.ok) {
+        const created = await createResp.json() as CreatedRecipeDb;
+        recipeDbId = created.id;
+        const renames = buildSyncedPropRenames(created);
+        if (Object.keys(renames).length > 0) {
+          await notionFetch(settings, `/v1/databases/${foodDbId}`, 'PATCH', { properties: renames })
+            .catch(() => { /* 改名失败不影响功能 */ });
+        }
+      }
+    }
+    if (!recipeDbId) return null;
+
+    const cleanId = recipeDbId.replace(/-/g, '');
+    const fresh = getNotionSettings() ?? settings;
+    saveNotionSettings({
+      ...fresh,
+      recipeDatabaseId: cleanId,
+      recipeDatabaseUrl: `https://www.notion.so/${cleanId}`,
+    }, uid);
+    return cleanId;
+  } catch (e) {
+    console.warn('Notion ensureRecipeDatabase error:', e);
+    return null;
+  }
+}
+
+/** 食材 → FoodItem：优先自定义食材库/内置库的完整数据，兜底用配方里的营养快照 */
+async function resolveIngredientFood(ing: RecipeIngredient, customById: Map<string, FoodItem>): Promise<FoodItem> {
+  const custom = customById.get(ing.foodId);
+  if (custom) return custom;
+  const { initFoodDatabase, getDatabase } = await import('./food-lookup');
+  await initFoodDatabase();
+  const builtin = getDatabase().find(f => f.id === ing.foodId);
+  if (builtin) return builtin;
+  return {
+    id: ing.foodId,
+    name: ing.foodName,
+    category: inferCategory(ing.foodName),
+    per100g: ing.per100g,
+    source: 'user_added',
+  };
+}
+
+function buildRecipeLineProperties(
+  recipeName: string,
+  recipeId: string,
+  recipePageId: string,
+  ing: RecipeIngredient,
+  totalGrams: number,
+  ingredientPageId?: string,
+) {
+  const pct = totalGrams > 0 ? Math.round(ing.grams / totalGrams * 1000) / 10 : null;
+  const kcal = Math.round((ing.per100g.calories ?? 0) * ing.grams / 100);
+  return {
+    '名称': { title: [{ text: { content: `${recipeName} · ${ing.foodName}` } }] },
+    '组合食物': { relation: [{ id: recipePageId }] },
+    '食材': { relation: ingredientPageId ? [{ id: ingredientPageId }] : [] },
+    '克数(g)': { number: ing.grams },
+    '占比(%)': { number: pct },
+    '热量贡献(千卡)': { number: kcal },
+    '组合ID': richText(recipeId),
+    '食材ID': richText(ing.foodId),
+  };
+}
+
+/** 同步一个组合食物的「配方明细」行：先把各食材 upsert 进食物数据库，
+ *  再按（组合ID × 食材ID）diff——新增缺失行、更新已有行、归档被移除食材的行。 */
+async function syncRecipeLines(recipeFoodId: string, recipePageId: string, uid?: string): Promise<void> {
+  const allCustom = getAllCustomFoods();
+  const rec = allCustom.find(r => r.id === recipeFoodId);
+  if (!rec || rec.ingredients.length === 0) return;
+
+  const recipeDbId = await ensureRecipeDatabase(uid);
+  if (!recipeDbId) return;
+  const settings = getNotionSettings();
+  if (!settings) return;
+
+  // 同一食材出现多次时合并克数（食材ID 是明细行的去重键）
+  const merged = new Map<string, RecipeIngredient>();
+  for (const ing of rec.ingredients) {
+    const prev = merged.get(ing.foodId);
+    merged.set(ing.foodId, prev ? { ...prev, grams: prev.grams + ing.grams } : ing);
+  }
+  const ingredients = [...merged.values()];
+  const totalGrams = rec.totalGrams > 0 ? rec.totalGrams : ingredients.reduce((s, i) => s + i.grams, 0);
+
+  // 食材行 upsert（拿到 relation 需要的 page id）
+  const customById = new Map(allCustom.map(r => [r.id, recordToFoodItem(r)]));
+  const ingredientPages = new Map<string, string>();
+  for (const ing of ingredients) {
+    const food = await resolveIngredientFood(ing, customById);
+    const pid = await upsertFoodPage(food, uid);
+    if (pid) ingredientPages.set(ing.foodId, pid);
+    await sleep(300);
+  }
+
+  // 已有明细行（按 组合ID 查询）；查询失败时宁可跳过，避免重复建行
+  const q = await notionFetch(settings, `/v1/databases/${recipeDbId}/query`, 'POST', {
+    filter: { property: '组合ID', rich_text: { equals: rec.id } },
+    page_size: 100,
+  });
+  if (!q.ok) return;
+  const rows = ((await q.json()) as {
+    results?: { id: string; properties?: Record<string, { rich_text?: { plain_text?: string }[] }> }[];
+  }).results ?? [];
+  const existing = new Map<string, string>();  // 食材ID → 明细行 page id
+  const orphans: string[] = [];                // 没有食材ID 的脏行
+  for (const row of rows) {
+    const ingId = row.properties?.['食材ID']?.rich_text?.[0]?.plain_text;
+    if (ingId && !existing.has(ingId)) existing.set(ingId, row.id);
+    else orphans.push(row.id);
+  }
+
+  for (const ing of ingredients) {
+    const props = buildRecipeLineProperties(rec.name, rec.id, recipePageId, ing, totalGrams, ingredientPages.get(ing.foodId));
+    const rowId = existing.get(ing.foodId);
+    if (rowId) {
+      existing.delete(ing.foodId);
+      await notionFetch(settings, `/v1/pages/${rowId}`, 'PATCH', { properties: props });
+    } else {
+      await notionFetch(settings, '/v1/pages', 'POST', {
+        parent: { database_id: recipeDbId },
+        properties: props,
+      });
+    }
+    await sleep(300);
+  }
+
+  // 剩下的 = 配比调整时被移除的食材 → 归档
+  for (const rowId of [...existing.values(), ...orphans]) {
+    await notionFetch(settings, `/v1/pages/${rowId}`, 'PATCH', { archived: true });
+    await sleep(300);
   }
 }
 
@@ -652,6 +907,18 @@ export async function importFoodsToNotion(
     onProgress?.(imported + failed, total);
     // 限速：Notion API 3 req/s
     await new Promise(r => setTimeout(r, 350));
+  }
+
+  // 组合食物：补齐「配方明细」行（食材 upsert + 连接表 diff，syncRecipeLines 内部自带限速）
+  for (const rec of getAllCustomFoods()) {
+    if (rec.ingredients.length === 0) continue;
+    const recipePageId = map[rec.id];
+    if (!recipePageId) continue;
+    try {
+      await syncRecipeLines(rec.id, recipePageId, userId);
+    } catch (e) {
+      console.warn('Notion 配方明细同步失败:', rec.name, e);
+    }
   }
 
   return { imported, skipped: skipped + failed };

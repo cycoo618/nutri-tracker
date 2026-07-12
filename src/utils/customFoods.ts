@@ -83,7 +83,7 @@ function nullable(v: number): number | undefined {
 // ── 转换 ─────────────────────────────────────────────────────────────
 
 // Infer FoodCategory from food name keywords — applied once at save time, not on every read.
-function inferCategory(name: string): FoodCategory {
+export function inferCategory(name: string): FoodCategory {
   const n = name.toLowerCase();
   if (/籽|仁|坚果|核桃|杏仁|腰果|花生|开心果|榛子|松子|碧根果|夏威夷果|巴旦木|扁桃|瓜子|芝麻/.test(n)) return 'nut';
   if (/鱼|虾|蟹|贝|牡蛎|扇贝|蛤|蚌|鲑|鳕|三文|沙丁|鲭|金枪|墨鱼|鱿鱼|章鱼|海参|海带/.test(n)) return 'seafood';

@@ -464,7 +464,7 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
           )}
           {notionStatus !== 'ok' && isNotionOAuthAvailable() && (
             <p className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-faint)', margin: 0, lineHeight: 1.6 }}>
-              点击后登录 Notion 并勾选一个页面授权，应用会自动在该页面下创建「每日饮食记录」和「食物数据库」两个数据库，无需任何手动配置。
+              点击后登录 Notion 并勾选一个页面授权，应用会自动在该页面下创建「每日饮食记录」「食物数据库」「配方明细」三个数据库，无需任何手动配置。
             </p>
           )}
 
@@ -489,6 +489,15 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
                     style={{ color: 'var(--sage)', textDecoration: 'none', whiteSpace: 'nowrap' }}
                   >
                     食物数据库 ↗
+                  </a>
+                )}
+                {notionSettings.recipeDatabaseUrl && (
+                  <a
+                    href={notionSettings.recipeDatabaseUrl}
+                    onClick={e => { e.preventDefault(); openNotionUrl(notionSettings.recipeDatabaseUrl!); }}
+                    style={{ color: 'var(--sage)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    配方明细 ↗
                   </a>
                 )}
               </span>

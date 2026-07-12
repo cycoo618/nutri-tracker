@@ -8,7 +8,16 @@
 // ============================================
 
 import { Capacitor } from '@capacitor/core';
-import { saveNotionSettings, FOOD_DB_TITLE, FOOD_DB_SCHEMA, type NotionSettings } from './notion';
+import {
+  saveNotionSettings,
+  FOOD_DB_TITLE,
+  FOOD_DB_SCHEMA,
+  RECIPE_DB_TITLE,
+  buildRecipeDbSchema,
+  buildSyncedPropRenames,
+  type CreatedRecipeDb,
+  type NotionSettings,
+} from './notion';
 
 const WORKER_URL = ((import.meta.env.VITE_NOTION_WORKER_URL as string | undefined) ?? '').replace(/\/$/, '');
 const CALLBACK_URL = 'https://cycoo618.github.io/nutri-tracker/notion-callback.html';
@@ -180,11 +189,33 @@ async function createDatabase(token: string, parentPageId: string, title: string
   return ((await resp.json()) as { id: string }).id.replace(/-/g, '');
 }
 
-/** 找到用户已有的「每日饮食记录」和「食物数据库」，缺哪个建哪个（两库放同一父页面下） */
-async function findOrCreateDatabases(token: string): Promise<{ databaseId: string; foodDatabaseId: string | null }> {
+/** 创建「配方明细」库（relation 指向食物数据库），并把食物数据库上自动生成的反向属性改成中文名 */
+async function createRecipeDatabase(token: string, parentPageId: string, foodDatabaseId: string): Promise<string> {
+  const resp = await api(token, '/v1/databases', 'POST', {
+    parent: { type: 'page_id', page_id: parentPageId },
+    title: [{ type: 'text', text: { content: RECIPE_DB_TITLE } }],
+    properties: buildRecipeDbSchema(foodDatabaseId),
+  });
+  if (!resp.ok) throw new Error(`创建 Notion 数据库失败 (${resp.status})`);
+  const created = await resp.json() as CreatedRecipeDb;
+  const renames = buildSyncedPropRenames(created);
+  if (Object.keys(renames).length > 0) {
+    await api(token, `/v1/databases/${foodDatabaseId}`, 'PATCH', { properties: renames })
+      .catch(() => { /* 改名失败不影响功能 */ });
+  }
+  return created.id.replace(/-/g, '');
+}
+
+/** 找到用户已有的「每日饮食记录」「食物数据库」「配方明细」，缺哪个建哪个（三库放同一父页面下） */
+async function findOrCreateDatabases(token: string): Promise<{
+  databaseId: string;
+  foodDatabaseId: string | null;
+  recipeDatabaseId: string | null;
+}> {
   // 1) search 快速路径
   let databaseId = await searchDatabase(token, DB_TITLE);
   let foodDatabaseId = await searchDatabase(token, FOOD_DB_TITLE);
+  let recipeDatabaseId = await searchDatabase(token, RECIPE_DB_TITLE);
 
   // 2) 列出授权的页面（新建时也要用）
   const pageResp = await api(token, '/v1/search', 'POST', {
@@ -199,14 +230,16 @@ async function findOrCreateDatabases(token: string): Promise<{ databaseId: strin
   }
 
   // 3) search 对刚授权的深层内容有索引延迟，用 blocks API 逐层遍历兜底
-  if (!databaseId || !foodDatabaseId) {
+  if (!databaseId || !foodDatabaseId || !recipeDatabaseId) {
     const missing = [
       ...(!databaseId ? [DB_TITLE] : []),
       ...(!foodDatabaseId ? [FOOD_DB_TITLE] : []),
+      ...(!recipeDatabaseId ? [RECIPE_DB_TITLE] : []),
     ];
     const found = await walkForDatabases(token, pages.map(p => p.id), missing);
     databaseId ??= found.get(DB_TITLE) ?? null;
     foodDatabaseId ??= found.get(FOOD_DB_TITLE) ?? null;
+    recipeDatabaseId ??= found.get(RECIPE_DB_TITLE) ?? null;
   }
 
   // 4) 确定食物数据库的父页面：跟随已有每日库的位置，否则用第一个授权页面
@@ -221,7 +254,7 @@ async function findOrCreateDatabases(token: string): Promise<{ databaseId: strin
     } catch { /* 拿不到父页面就用授权页面 */ }
   }
 
-  // 5) 缺哪个建哪个（食物数据库创建失败不阻塞连接，之后同步时会自动重试）
+  // 5) 缺哪个建哪个（食物/配方库创建失败不阻塞连接，之后同步时会自动重试）
   if (!databaseId) {
     databaseId = await createDatabase(token, page.id, DB_TITLE, DB_SCHEMA);
     foodParentId = page.id;
@@ -233,13 +266,21 @@ async function findOrCreateDatabases(token: string): Promise<{ databaseId: strin
       console.warn('创建食物数据库失败（稍后同步时会重试）:', e);
     }
   }
+  // 配方明细的 relation 指向食物数据库，必须在食物数据库之后创建
+  if (!recipeDatabaseId && foodDatabaseId) {
+    try {
+      recipeDatabaseId = await createRecipeDatabase(token, foodParentId, foodDatabaseId);
+    } catch (e) {
+      console.warn('创建配方明细库失败（稍后同步时会重试）:', e);
+    }
+  }
 
-  return { databaseId, foodDatabaseId };
+  return { databaseId, foodDatabaseId, recipeDatabaseId };
 }
 
 async function completeConnection(code: string, uid: string): Promise<NotionSettings> {
   const { token, workspaceName } = await exchangeCode(code);
-  const { databaseId, foodDatabaseId } = await findOrCreateDatabases(token);
+  const { databaseId, foodDatabaseId, recipeDatabaseId } = await findOrCreateDatabases(token);
   const settings: NotionSettings = {
     workerUrl: WORKER_URL,
     token,
@@ -248,6 +289,10 @@ async function completeConnection(code: string, uid: string): Promise<NotionSett
     ...(foodDatabaseId ? {
       foodDatabaseId,
       foodDatabaseUrl: `https://www.notion.so/${foodDatabaseId}`,
+    } : {}),
+    ...(recipeDatabaseId ? {
+      recipeDatabaseId,
+      recipeDatabaseUrl: `https://www.notion.so/${recipeDatabaseId}`,
     } : {}),
     ...(workspaceName ? { workspaceName } : {}),
   };
