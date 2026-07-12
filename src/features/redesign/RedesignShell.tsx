@@ -1,9 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { UserProfile } from '../../types/user';
+import { getActiveGoals } from '../../types/user';
 import type { DailyLog, MealType, MealItem } from '../../types/log';
 import { createEmptyDailyLog } from '../../types/log';
 import type { FoodItem } from '../../types/food';
+import type { BloodSugarReading } from '../../types/bloodSugar';
 import { useSwipeDown } from '../../hooks/useSwipeDown';
+import { useBloodSugar } from '../../hooks/useBloodSugar';
+import { BloodSugarEntryModal } from '../bloodSugar/BloodSugarEntryModal';
 import type { RecentFoodEntry } from '../../utils/recentFoods';
 import type { SyncStatus } from '../../hooks/useFoodLog';
 import type { NutritionStatus } from '../../hooks/useNutrition';
@@ -52,6 +56,12 @@ export function RedesignShell(props: RedesignShellProps) {
   const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
   const [pendingQuick, setPendingQuick] = useState<{ grams: number; unit: string } | null>(null);
   const [editingLogItem, setEditingLogItem] = useState<MealItem | null>(null);
+
+  // ── 血糖记录（仅控血糖目标启用）──
+  const bsEnabled = getActiveGoals(profile).includes('blood_sugar');
+  const bs = useBloodSugar(profile.uid, currentDate, bsEnabled);
+  const [bsModal, setBsModal] = useState<{ open: boolean; editing: BloodSugarReading | null }>({ open: false, editing: null });
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const [fontZoom, setFontZoom] = useState(() => ZOOM_MAP[getFontSize()]);
@@ -259,6 +269,15 @@ export function RedesignShell(props: RedesignShellProps) {
     setPendingQuick(null);
   };
 
+  // 血糖卡 props（仅传给 current/editable 页的 DiaryHome）
+  const bloodSugarProps = bsEnabled ? {
+    readings: bs.readings,
+    trend: bs.trend,
+    onAdd: () => setBsModal({ open: true, editing: null }),
+    onEdit: (r: BloodSugarReading) => setBsModal({ open: true, editing: r }),
+    onDelete: bs.deleteReading,
+  } : undefined;
+
   const renderContent = () => {
     // Sub-views take precedence
     if (subView === 'diversity') {
@@ -372,6 +391,7 @@ export function RedesignShell(props: RedesignShellProps) {
                         onOpenAdd={editable ? handleAdd : () => {}}
                         onRemoveFood={editable ? props.onRemoveFood : undefined}
                         onEditFood={editable ? handleEditLogItem : undefined}
+                        bloodSugar={editable ? bloodSugarProps : undefined}
                         syncStatus={editable ? syncStatus : undefined}
                         syncError={editable ? props.syncError : null}
                         onForceSync={editable ? onForceSync : undefined}
@@ -636,6 +656,21 @@ export function RedesignShell(props: RedesignShellProps) {
           />
         );
       })()}
+
+      {/* 血糖录入弹窗 */}
+      {bsModal.open && (
+        <BloodSugarEntryModal
+          editing={bsModal.editing}
+          onSave={async (input) => {
+            if (bsModal.editing) {
+              await bs.updateReading(bsModal.editing.id, input);
+            } else {
+              await bs.addReading(input);
+            }
+          }}
+          onClose={() => setBsModal({ open: false, editing: null })}
+        />
+      )}
 
       {/* Food Pantry is now rendered inside the sub-view layer (with back-swipe animation) */}
     </div>

@@ -8,6 +8,17 @@ import { Bar } from './shared/Bar';
 import { RotatingBanner } from './shared/RotatingBanner';
 import { FOOD_GROUPS } from './tokens';
 import { computeCoveredGroups } from '../../utils/foodGroupCoverage';
+import { BloodSugarCard } from '../bloodSugar/BloodSugarCard';
+import type { BloodSugarReading } from '../../types/bloodSugar';
+
+/** 血糖卡 props（仅控血糖目标 + 当前编辑日传入） */
+export interface DiaryBloodSugar {
+  readings: BloodSugarReading[];
+  trend: BloodSugarReading[];
+  onAdd: () => void;
+  onEdit: (reading: BloodSugarReading) => void;
+  onDelete: (id: string) => Promise<void>;
+}
 
 interface DiaryHomeProps {
   profile: UserProfile;
@@ -19,6 +30,7 @@ interface DiaryHomeProps {
   onOpenAdd: (mealType?: string) => void;
   onRemoveFood?: (itemId: string) => Promise<void>;
   onEditFood?: (item: MealItem) => void;
+  bloodSugar?: DiaryBloodSugar;
   syncStatus?: SyncStatus;
   syncError?: string | null;
   onForceSync?: () => Promise<void>;
@@ -129,7 +141,7 @@ function GoalChip({ goalKey }: { goalKey: string }) {
   );
 }
 
-export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, onEditFood, syncStatus, syncError, onForceSync }: DiaryHomeProps) {
+export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, onEditFood, bloodSugar, syncStatus, syncError, onForceSync }: DiaryHomeProps) {
   const today = getTodayString();
   const isToday = currentDate === today;
   const dayNum = getDayNumber(currentDate, profile.createdAt);
@@ -331,6 +343,17 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
           </div>
         </div>
       </div>
+
+      {/* 血糖记录卡（控血糖目标专用） */}
+      {bloodSugar && (
+        <BloodSugarCard
+          readings={bloodSugar.readings}
+          trend={bloodSugar.trend}
+          onAdd={bloodSugar.onAdd}
+          onEdit={bloodSugar.onEdit}
+          onDelete={bloodSugar.onDelete}
+        />
+      )}
 
       {/* Today's Notes timeline */}
       <div style={{ padding: '4px 16px 8px' }}>

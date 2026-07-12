@@ -12,6 +12,7 @@ import {
 import { db } from '../config/firebase';
 import type { UserProfile } from '../types/user';
 import type { DailyLog } from '../types/log';
+import type { BloodSugarReading } from '../types/bloodSugar';
 import type { Family, FamilyMember } from '../types/family';
 
 // 所有 Firestore 操作加超时，防止连接挂起时无限等待
@@ -87,6 +88,49 @@ export async function getDailyLogs(
 export async function deleteDailyLog(userId: string, date: string): Promise<void> {
   const docId = `${userId}_${date}`;
   await withTimeout(deleteDoc(doc(db, LOGS_COLLECTION, docId)));
+}
+
+// ---- 血糖记录（控血糖目标专用，独立集合，每条读数一个文档）----
+
+const BLOOD_SUGAR_COLLECTION = 'bloodSugarReadings';
+
+/** 某一天的所有读数（客户端按 measuredAt 排序，避免复合索引） */
+export async function getBloodSugarReadings(userId: string, date: string): Promise<BloodSugarReading[]> {
+  const q = query(
+    collection(db, BLOOD_SUGAR_COLLECTION),
+    where('userId', '==', userId),
+    where('date', '==', date),
+  );
+  const snap = await withTimeout(getDocs(q));
+  return snap.docs
+    .map(d => d.data() as BloodSugarReading)
+    .sort((a, b) => a.measuredAt.localeCompare(b.measuredAt));
+}
+
+/** 日期范围内的所有读数（用于趋势） */
+export async function getBloodSugarReadingsInRange(
+  userId: string,
+  startDate: string,
+  endDate: string,
+): Promise<BloodSugarReading[]> {
+  const q = query(
+    collection(db, BLOOD_SUGAR_COLLECTION),
+    where('userId', '==', userId),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
+  );
+  const snap = await withTimeout(getDocs(q));
+  return snap.docs
+    .map(d => d.data() as BloodSugarReading)
+    .sort((a, b) => a.measuredAt.localeCompare(b.measuredAt));
+}
+
+export async function saveBloodSugarReading(reading: BloodSugarReading): Promise<void> {
+  await withTimeout(setDoc(doc(db, BLOOD_SUGAR_COLLECTION, reading.id), stripUndefined(reading) as DocumentData));
+}
+
+export async function deleteBloodSugarReading(id: string): Promise<void> {
+  await withTimeout(deleteDoc(doc(db, BLOOD_SUGAR_COLLECTION, id)));
 }
 
 // ---- 用户自定义食物库 ----
