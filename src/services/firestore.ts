@@ -228,6 +228,34 @@ export async function joinFamilyByCode(
   return family.id;
 }
 
+/**
+ * 反查用户所属家庭：用于自愈 profile 丢失 familyId 的情况
+ * （家庭成员名单里有该用户，但用户档案上没有家庭 ID）
+ */
+export async function findFamilyIdByMember(uid: string): Promise<string | null> {
+  // 快速路径：memberUids array-contains（新家庭文档都有此字段）
+  try {
+    const q = query(collection(db, FAMILIES_COLLECTION), where('memberUids', 'array-contains', uid));
+    const snap = await withTimeout(getDocs(q));
+    if (!snap.empty) return (snap.docs[0].data() as Family).id;
+  } catch { /* 查询被拒或超时，走全量扫描 */ }
+  // 兜底：旧家庭文档可能没有 memberUids，families 集合很小，全量扫 members
+  try {
+    const snap = await withTimeout(getDocs(collection(db, FAMILIES_COLLECTION)));
+    for (const d of snap.docs) {
+      const fam = d.data() as Family;
+      if (fam.members?.some(m => m.uid === uid)) {
+        // 顺手补写 memberUids，让旧家庭文档也能被安全规则和快速路径使用
+        if (!fam.memberUids) {
+          updateDoc(d.ref, { memberUids: fam.members.map(m => m.uid) }).catch(() => {});
+        }
+        return fam.id;
+      }
+    }
+  } catch { /* 无权限或网络问题，放弃自愈 */ }
+  return null;
+}
+
 /** 获取家庭数据 */
 export async function getFamily(familyId: string): Promise<Family | null> {
   const snap = await withTimeout(getDoc(doc(db, FAMILIES_COLLECTION, familyId)));

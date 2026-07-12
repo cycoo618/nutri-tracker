@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AuthUser } from '../services/auth';
 import { onAuthChange, signInWithGoogle, signInWithApple, signOut } from '../services/auth';
-import { getUserProfile, saveUserProfile } from '../services/firestore';
+import { getUserProfile, saveUserProfile, updateUserProfile, findFamilyIdByMember } from '../services/firestore';
 import type { UserProfile } from '../types/user';
 import { DEFAULT_USER_PROFILE } from '../types/user';
 
@@ -31,6 +31,16 @@ export function useAuth() {
         try {
           const profile = await getUserProfile(user.uid);
           if (profile) {
+            // 自愈：档案丢失 familyId 但家庭成员名单里有此用户 → 找回并写回档案
+            if (!profile.familyId) {
+              try {
+                const fid = await findFamilyIdByMember(user.uid);
+                if (fid) {
+                  profile.familyId = fid;
+                  updateUserProfile(user.uid, { familyId: fid }).catch(() => {});
+                }
+              } catch { /* 自愈失败不阻塞登录 */ }
+            }
             setState({ user, profile, loading: false, error: null });
           } else {
             // 新用户，profile 为 null 触发 onboarding
