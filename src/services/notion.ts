@@ -350,18 +350,21 @@ export async function notionTestConnection(settings: NotionSettings): Promise<st
   }
 }
 
-/** 查询数据库里已存在的条目（idProp 的值 → Notion page id），失败返回 null */
+/** 查询数据库里已存在的条目（idProp 的值 → Notion page id），失败返回 null。
+ *  按创建时间升序读取：同 ID 出现多页时保留最早那页，其余进 dupePageIds（并发竞态造成的重复行）。 */
 async function fetchExistingEntryMap(
   settings: NotionSettings,
   databaseId: string,
   idProp: string,
-): Promise<Map<string, string> | null> {
+): Promise<{ map: Map<string, string>; dupePageIds: string[] } | null> {
   const map = new Map<string, string>();
+  const dupePageIds: string[] = [];
   let cursor: string | undefined;
   try {
     do {
       const resp = await notionFetch(settings, `/v1/databases/${databaseId}/query`, 'POST', {
         page_size: 100,
+        sorts: [{ timestamp: 'created_time', direction: 'ascending' }],
         ...(cursor ? { start_cursor: cursor } : {}),
       });
       if (!resp.ok) return null;
@@ -372,20 +375,46 @@ async function fetchExistingEntryMap(
       };
       for (const page of data.results ?? []) {
         const entryId = page.properties?.[idProp]?.rich_text?.[0]?.plain_text;
-        if (entryId) map.set(entryId, page.id);
+        if (!entryId) continue;
+        if (map.has(entryId)) dupePageIds.push(page.id);
+        else map.set(entryId, page.id);
       }
       cursor = data.has_more && data.next_cursor ? data.next_cursor : undefined;
     } while (cursor);
-    return map;
+    return { map, dupePageIds };
   } catch {
     return null;
   }
 }
 
+/** 归档重复行（保留每个 ID 最早的一页，多余的移入废纸篓，可在 Notion 恢复） */
+async function archiveDuplicatePages(settings: NotionSettings, pageIds: string[]): Promise<void> {
+  for (const pageId of pageIds) {
+    try {
+      await notionFetch(settings, `/v1/pages/${pageId}`, 'PATCH', { archived: true });
+    } catch { /* 清理失败不影响导入 */ }
+    await new Promise(r => setTimeout(r, 350));
+  }
+}
+
+// 防重入：连接回调 + 组件挂载标记可能各触发一次导入，并发跑会重复建行
+let historicalImportInFlight: Promise<{ imported: number; skipped: number }> | null = null;
+
 /** 批量导入历史记录到 Notion（增量：以数据库实际内容为准，只补缺失的条目）。
  *  以「条目ID」比对当前数据库，本地 notionPageId 指向别的库/已删页面时会重新导入并修复映射；
- *  数据库查询失败时退回旧判断（跳过已有 notionPageId 的条目），保证绝不重复导入。 */
-export async function importHistoricalToNotion(
+ *  数据库查询失败时退回旧判断（跳过已有 notionPageId 的条目），保证绝不重复导入。
+ *  重复触发时直接复用进行中的那次（后来者的 onProgress 不会被调用）。 */
+export function importHistoricalToNotion(
+  userId: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ imported: number; skipped: number }> {
+  if (historicalImportInFlight) return historicalImportInFlight;
+  historicalImportInFlight = doImportHistorical(userId, onProgress)
+    .finally(() => { historicalImportInFlight = null; });
+  return historicalImportInFlight;
+}
+
+async function doImportHistorical(
   userId: string,
   onProgress?: (done: number, total: number) => void,
 ): Promise<{ imported: number; skipped: number }> {
@@ -393,7 +422,12 @@ export async function importHistoricalToNotion(
   if (!settings) return { imported: 0, skipped: 0 };
 
   const logs: DailyLog[] = await getAllDailyLogs(userId);
-  const existing = await fetchExistingEntryMap(settings, settings.databaseId, '条目ID');
+  const fetched = await fetchExistingEntryMap(settings, settings.databaseId, '条目ID');
+  const existing = fetched?.map ?? null;
+  // 顺手清理并发竞态留下的重复行（同 条目ID 多页，保留最早的）
+  if (fetched && fetched.dupePageIds.length > 0) {
+    await archiveDuplicatePages(settings, fetched.dupePageIds);
+  }
 
   // 按日志分组，方便批量回写 Firestore
   const logMap = new Map<string, DailyLog>(logs.map(l => [l.id, l]));
@@ -547,8 +581,24 @@ async function findOrCreateFoodDatabase(settings: NotionSettings, uid?: string):
   }
 }
 
+// 同一食物的 upsert 串行化：并发两次（快速连记两餐、导入撞上实时记录）
+// 会同时查到"库里没有"然后各建一行，排队后第二次走更新路径
+const foodUpsertQueue = new Map<string, Promise<string | null>>();
+
 /** 把一个食物 upsert 到「食物数据库」（按 食物ID 去重），返回 Notion page id */
-async function upsertFoodPage(food: FoodItem, uid?: string, firstLogged?: string): Promise<string | null> {
+function upsertFoodPage(food: FoodItem, uid?: string, firstLogged?: string): Promise<string | null> {
+  const prev = foodUpsertQueue.get(food.id) ?? Promise.resolve(null);
+  const run = prev
+    .catch(() => null)
+    .then(() => doUpsertFoodPage(food, uid, firstLogged));
+  foodUpsertQueue.set(food.id, run);
+  void run.finally(() => {
+    if (foodUpsertQueue.get(food.id) === run) foodUpsertQueue.delete(food.id);
+  }).catch(() => {});
+  return run;
+}
+
+async function doUpsertFoodPage(food: FoodItem, uid?: string, firstLogged?: string): Promise<string | null> {
   const settings = getNotionSettings();
   if (!settings) return null;
   const dbId = await ensureFoodDatabase(uid);
@@ -829,8 +879,22 @@ function deriveFoodFromItem(item: MealItem): FoodItem {
   };
 }
 
-/** 批量导入所有已知食物到「食物数据库」（自定义食材库 + 历史日志里的每种食物，按 食物ID 去重增量） */
-export async function importFoodsToNotion(
+// 防重入：同 importHistoricalToNotion
+let foodsImportInFlight: Promise<{ imported: number; skipped: number }> | null = null;
+
+/** 批量导入所有已知食物到「食物数据库」（自定义食材库 + 历史日志里的每种食物，按 食物ID 去重增量）。
+ *  重复触发时直接复用进行中的那次（后来者的 onProgress 不会被调用）。 */
+export function importFoodsToNotion(
+  userId: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ imported: number; skipped: number }> {
+  if (foodsImportInFlight) return foodsImportInFlight;
+  foodsImportInFlight = doImportFoods(userId, onProgress)
+    .finally(() => { foodsImportInFlight = null; });
+  return foodsImportInFlight;
+}
+
+async function doImportFoods(
   userId: string,
   onProgress?: (done: number, total: number) => void,
 ): Promise<{ imported: number; skipped: number }> {
@@ -867,7 +931,12 @@ export async function importFoodsToNotion(
   }
 
   // 与数据库实际内容比对，只补缺失的
-  const existing = await fetchExistingEntryMap(freshSettings, dbId, '食物ID');
+  const fetched = await fetchExistingEntryMap(freshSettings, dbId, '食物ID');
+  const existing = fetched?.map ?? null;
+  // 顺手清理并发竞态留下的重复行（同 食物ID 多页，保留最早的）
+  if (fetched && fetched.dupePageIds.length > 0) {
+    await archiveDuplicatePages(freshSettings, fetched.dupePageIds);
+  }
   const map = loadFoodPageMap();
   const tasks: { food: FoodItem; firstLogged: string }[] = [];
   let skipped = 0;
@@ -890,17 +959,11 @@ export async function importFoodsToNotion(
   const total = tasks.length;
   for (const { food, firstLogged } of tasks) {
     try {
-      const resp = await notionFetch(freshSettings, '/v1/pages', 'POST', {
-        parent: { database_id: dbId },
-        properties: buildFoodProperties(food, { firstLogged }),
-      });
-      if (resp.ok) {
-        map[food.id] = ((await resp.json()) as { id: string }).id;
-        saveFoodPageMap(map);
-        imported++;
-      } else {
-        failed++;
-      }
+      // 走带串行锁的 upsert（内部先按 食物ID 查一次库）：
+      // 即使导入期间用户实时记录了同一食物，也只会有一行
+      const pageId = await upsertFoodPage(food, userId, firstLogged);
+      if (pageId) imported++;
+      else failed++;
     } catch {
       failed++;
     }
@@ -910,9 +973,11 @@ export async function importFoodsToNotion(
   }
 
   // 组合食物：补齐「配方明细」行（食材 upsert + 连接表 diff，syncRecipeLines 内部自带限速）
+  // upsertFoodPage 内部维护 localStorage 映射，这里重新加载拿到新建页面的 id
+  const finalMap = loadFoodPageMap();
   for (const rec of getAllCustomFoods()) {
     if (rec.ingredients.length === 0) continue;
-    const recipePageId = map[rec.id];
+    const recipePageId = finalMap[rec.id];
     if (!recipePageId) continue;
     try {
       await syncRecipeLines(rec.id, recipePageId, userId);

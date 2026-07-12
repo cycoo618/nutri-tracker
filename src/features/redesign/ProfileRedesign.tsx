@@ -152,6 +152,8 @@ export function ProfileRedesign({ profile, onProfileUpdate, onLogout }: ProfileR
       const settings = await connectNotion(profile.uid);
       // Web 整页跳转时返回 null（页面即将离开）；原生直接拿到结果
       if (settings) {
+        // 这里已经触发导入，消费掉标记，避免切回本页时挂载逻辑再导入一次
+        consumeJustConnectedFlag();
         setNotionSettings(settings);
         setNotionStatus('ok');
         setNotionConnecting(false);
