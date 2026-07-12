@@ -138,7 +138,7 @@ export function FoodSearch({ recentFoods = [], userId, familyId, onSelect, onClo
         .then(family => {
           if (!family) return [];
           const memberUids = family.members.map(m => m.uid);
-          return getFamilyMemberFoods(memberUids, userId);
+          return getFamilyMemberFoods(memberUids, userId, familyId);
         })
         .then(rawFoods => {
           const filtered = rawFoods.filter(f =>

@@ -261,25 +261,39 @@ export async function getFamilyGroqKey(familyId: string): Promise<string | null>
   return (snap.data() as { groqKey?: string }).groqKey ?? null;
 }
 
-/** 获取家庭成员的食物（排除自己），返回带 ownerName 的扁平数组 */
+/** 获取家庭成员的食物（排除自己） */
 export async function getFamilyMemberFoods(
   memberUids: string[],
   excludeUserId: string,
+  familyId?: string,
 ): Promise<DocumentData[]> {
   const otherUids = memberUids.filter(uid => uid !== excludeUserId);
   if (otherUids.length === 0) return [];
 
-  const results = await Promise.all(
-    otherUids.map(async uid => {
-      const q = query(
-        collection(db, USER_FOODS_COLLECTION),
-        where('userId', '==', uid),
-      );
-      const snap = await withTimeout(getDocs(q));
-      return snap.docs.map(d => d.data());
-    }),
-  );
-  return results.flat();
+  try {
+    // 按成员 uid 逐个查询：宽松规则下可用，且能读到没写 familyId 字段的旧文档
+    const results = await Promise.all(
+      otherUids.map(async uid => {
+        const q = query(
+          collection(db, USER_FOODS_COLLECTION),
+          where('userId', '==', uid),
+        );
+        const snap = await withTimeout(getDocs(q));
+        return snap.docs.map(d => d.data());
+      }),
+    );
+    return results.flat();
+  } catch (err) {
+    // 严格规则下按 userId 查询无法被静态证明会整体被拒；
+    // 改用 familyId 等值查询（规则可证明），再在客户端剔除自己的
+    if (!familyId) throw err;
+    const q = query(
+      collection(db, USER_FOODS_COLLECTION),
+      where('familyId', '==', familyId),
+    );
+    const snap = await withTimeout(getDocs(q));
+    return snap.docs.map(d => d.data()).filter(f => f['userId'] !== excludeUserId);
+  }
 }
 
 // ---- Notion 设置（存在用户文档里，跨设备同步） ----

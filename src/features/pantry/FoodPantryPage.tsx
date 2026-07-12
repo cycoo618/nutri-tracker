@@ -176,6 +176,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
   const [selectedRecord, setSelectedRecord] = useState<CustomFoodRecord | null>(null);
   const [records, setRecords] = useState<CustomFoodRecord[]>(() => getAllCustomFoods());
   const [familyRecords, setFamilyRecords] = useState<CustomFoodRecord[]>([]);
+  const [familyError, setFamilyError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -223,11 +224,12 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       setFamilyRecords([]);
       return;
     }
+    setFamilyError(null);
     getFamily(familyId)
       .then(family => {
-        if (!family) return [];
+        if (!family) throw new Error('家庭信息不存在');
         const memberUids = family.members.map(m => m.uid);
-        return getFamilyMemberFoods(memberUids, userId);
+        return getFamilyMemberFoods(memberUids, userId, familyId);
       })
       .then(rawFoods => {
         const sorted = (rawFoods as CustomFoodRecord[]).sort(
@@ -237,6 +239,8 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       })
       .catch((err) => {
         console.error('[FoodPantry] 加载家庭成员食物失败:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        setFamilyError(msg.includes('超时') ? '加载超时' : msg.slice(0, 80));
         setFamilyRecords([]);
       });
   }, [familyId, userId]);
@@ -674,13 +678,24 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       )}
 
       {/* ── 家庭食材库（只读，来自家庭成员） ─────────────────────────── */}
-      {familyFiltered.length > 0 && (
+      {familyId && (
         <>
           <div style={{ padding: '18px 22px 6px', display: 'flex', alignItems: 'baseline', gap: 10, flexShrink: 0 }}>
             <span className="nt-serif" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>家庭食材库</span>
             <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--sage)' }}>family pantry</span>
             <span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>{familyFiltered.length} 件 · 只读</span>
           </div>
+          {familyError && (
+            <div className="nt-serif" style={{ margin: '0 22px 4px', fontSize: 11, color: 'var(--tomato)' }}>
+              加载失败：{familyError}
+            </div>
+          )}
+          {!familyError && familyFiltered.length === 0 && (
+            <div className="nt-serif" style={{ margin: '0 22px 4px', fontSize: 11, color: 'var(--ink-mute)' }}>
+              {search.trim() ? '没有匹配的家庭食物' : '家人还没有共享食物——让家人在食材库点一次 ☁ 同步'}
+            </div>
+          )}
+          {familyFiltered.length > 0 && (
           <div className="nt-card" style={{ margin: '0 18px 4px', padding: '4px 10px' }}>
             {familyFiltered.map((rec, i, arr) => (
               <div
@@ -715,6 +730,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
               </div>
             ))}
           </div>
+          )}
         </>
       )}
 
