@@ -7,7 +7,7 @@ import type { DailyLog, MealType, MealItem } from '../types/log';
 import { createEmptyDailyLog } from '../types/log';
 import type { FoodItem } from '../types/food';
 import { scaleNutrition, sumNutrition } from '../types/food';
-import { getDailyLog, saveDailyLog, getDailyLogs, getUserFoods, saveUserFood } from '../services/firestore';
+import { getDailyLog, saveDailyLog, getDailyLogs, getUserFoods, saveUserFoods } from '../services/firestore';
 import { getAllCustomFoods, mergeCustomFoods } from '../utils/customFoods';
 import type { CustomFoodRecord } from '../utils/customFoods';
 import type { DocumentData } from 'firebase/firestore';
@@ -314,8 +314,10 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
       // Step 3: 把本地食材库推到 Firestore
       const localFoods = getAllCustomFoods();
       if (localFoods.length > 0) {
-        await Promise.all(
-          localFoods.map(f => saveUserFood(userId, f as unknown as DocumentData, familyId))
+        await saveUserFoods(
+          userId,
+          localFoods.map(({ imageDataUrl: _img, ...rest }) => rest) as unknown as DocumentData[],
+          familyId,
         );
       }
       // Step 4: 从 Firestore 拉取食材库并合并
@@ -330,7 +332,7 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
       const msg = err instanceof Error ? err.message : String(err);
       setSyncError(msg.includes('超时') ? 'Firestore 连接超时，请检查网络' : msg.slice(0, 80));
     }
-  }, [userId, dailyLog, currentDate]);
+  }, [userId, familyId, dailyLog, currentDate]);
 
   return {
     currentDate,

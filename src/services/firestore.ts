@@ -6,7 +6,7 @@
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, getDocs,
-  arrayUnion, arrayRemove,
+  arrayUnion, arrayRemove, writeBatch,
   type DocumentData,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -110,6 +110,19 @@ export async function getUserFoods(userId: string) {
 export async function saveUserFood(userId: string, food: DocumentData, familyId?: string): Promise<void> {
   const docId = `${userId}_${food['id']}`;
   await withTimeout(setDoc(doc(db, USER_FOODS_COLLECTION, docId), stripUndefined({ ...food, userId, familyId }) as DocumentData));
+}
+
+/** 批量保存用户食物：writeBatch 一次网络往返提交，避免几十个并行请求在慢网络下集体超时 */
+export async function saveUserFoods(userId: string, foods: DocumentData[], familyId?: string): Promise<void> {
+  const CHUNK = 400; // Firestore batch 上限 500 ops
+  for (let i = 0; i < foods.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    for (const food of foods.slice(i, i + CHUNK)) {
+      const docId = `${userId}_${food['id']}`;
+      batch.set(doc(db, USER_FOODS_COLLECTION, docId), stripUndefined({ ...food, userId, familyId }) as DocumentData);
+    }
+    await withTimeout(batch.commit(), 30000);
+  }
 }
 
 export async function deleteUserFood(userId: string, foodId: string): Promise<void> {

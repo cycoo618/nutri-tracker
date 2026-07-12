@@ -13,7 +13,7 @@ import {
   getAllCustomFoods, deleteCustomFood, recordToFoodItem, mergeCustomFoods, updateCustomFood,
 } from '../../utils/customFoods';
 import type { CustomFoodRecord } from '../../utils/customFoods';
-import { getUserFoods, saveUserFood, deleteUserFood, getFamily, getFamilyMemberFoods } from '../../services/firestore';
+import { getUserFoods, saveUserFood, saveUserFoods, deleteUserFood, getFamily, getFamilyMemberFoods } from '../../services/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { formatNumber } from '../../utils/calculator';
 import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
@@ -251,7 +251,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     } catch {
       setCloudStatus('error');
     }
-  }, [userId]);
+  }, [userId, familyId]);
 
   // ── 回调：保存后刷新 + 推 Firestore ──────────────────────────────
   const handleSaved = useCallback((food: FoodItem) => {
@@ -294,12 +294,13 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     if (!userId) return;
     setCloudStatus('syncing');
     try {
-      // 1. 把本地所有 push 上去
+      // 1. 把本地所有 push 上去（writeBatch 批量提交）
       const all = getAllCustomFoods();
-      await Promise.all(all.map(r => {
-        const { imageDataUrl: _img, ...rForCloud } = r;
-        return saveUserFood(userId, rForCloud as unknown as DocumentData, familyId);
-      }));
+      await saveUserFoods(
+        userId,
+        all.map(({ imageDataUrl: _img, ...rest }) => rest) as unknown as DocumentData[],
+        familyId,
+      );
       // 2. 再 pull 合并
       const data = await getUserFoods(userId);
       if (data.length > 0) mergeCustomFoods(data as CustomFoodRecord[]);
@@ -308,7 +309,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     } catch {
       setCloudStatus('error');
     }
-  }, [userId]);
+  }, [userId, familyId]);
 
   const handleAddToLog = (record: CustomFoodRecord) => {
     if (!onAddToLog) return;
