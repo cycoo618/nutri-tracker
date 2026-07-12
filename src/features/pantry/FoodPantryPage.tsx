@@ -230,7 +230,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       })
       .then(rawFoods => {
         const sorted = (rawFoods as CustomFoodRecord[]).sort(
-          (a, b) => b.createdAt.localeCompare(a.createdAt)
+          (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
         );
         setFamilyRecords(sorted);
       })
@@ -353,6 +353,10 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     scan: records.filter(r => r.pantrySource === 'scanned').length,
     combo: records.filter(r => r.pantrySource !== 'scanned').length,
   };
+
+  const familyFiltered = search.trim()
+    ? familyRecords.filter(r => r.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : familyRecords;
 
   // ── 主列表 ──────────────────────────────────────────────────────────
   return (
@@ -655,6 +659,51 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
             </div>
           ))}
         </div>
+      )}
+
+      {/* ── 家庭食材库（只读，来自家庭成员） ─────────────────────────── */}
+      {familyFiltered.length > 0 && (
+        <>
+          <div style={{ padding: '18px 22px 6px', display: 'flex', alignItems: 'baseline', gap: 10, flexShrink: 0 }}>
+            <span className="nt-serif" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>家庭食材库</span>
+            <span className="nt-caveat" style={{ fontSize: 14, color: 'var(--sage)' }}>family pantry</span>
+            <span className="nt-serif" style={{ fontSize: 10, color: 'var(--ink-mute)' }}>{familyFiltered.length} 件 · 只读</span>
+          </div>
+          <div className="nt-card" style={{ margin: '0 18px 4px', padding: '4px 10px' }}>
+            {familyFiltered.map((rec, i, arr) => (
+              <div
+                key={rec.id || i}
+                onClick={() => setSelectedRecord(rec)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px',
+                  borderBottom: i < arr.length - 1 ? '1px dashed var(--line-soft)' : 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{
+                  flexShrink: 0, width: 36, height: 36, borderRadius: 10, fontSize: 14,
+                  background: 'color-mix(in oklab, var(--sage) 10%, var(--card))',
+                  color: 'var(--moss)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid color-mix(in oklab, var(--sage) 18%, var(--line-soft))',
+                }}>👨‍👩‍👧</div>
+                <div className="nt-serif" style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.name}</div>
+                <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 60 }}>
+                  <div className="nt-display" style={{ fontSize: 18, color: 'var(--mustard)', lineHeight: 1 }}>{rec.per100g.calories}</div>
+                  <div className="nt-serif" style={{ fontSize: 9, color: 'var(--ink-mute)', marginTop: 2 }}>千卡/100g</div>
+                </div>
+                {onAddToLog && (
+                  <button onClick={e => { e.stopPropagation(); handleAddToLog(rec); }} style={{
+                    flexShrink: 0, width: 28, height: 28, borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    background: 'color-mix(in oklab, var(--sage) 14%, var(--card))',
+                    border: '1px solid color-mix(in oklab, var(--sage) 35%, var(--line-soft))',
+                    color: 'var(--moss)',
+                  }}>＋</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <div style={{ height: 40 }} />
