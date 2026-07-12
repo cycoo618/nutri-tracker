@@ -14,18 +14,29 @@ import type { UserProfile } from '../types/user';
 import type { DailyLog } from '../types/log';
 import type { Family, FamilyMember } from '../types/family';
 
-// 所有 Firestore 操作加超时，防止规则拒绝时无限挂起
+// 连续超时自动降级：部分网络/浏览器组合下 Firestore 的 WebChannel 连接会静默挂起，
+// 连续 2 次超时就设置 flag，下次刷新页面后 config/firebase.ts 会强制长轮询兼容模式。
+const LP_FLAG = 'nt_force_longpolling';
+const LP_COUNT = 'nt_timeout_count';
+
+function recordTimeout(): string {
+  if (localStorage.getItem(LP_FLAG) === '1') return ''; // 已在兼容模式
+  const n = Number(localStorage.getItem(LP_COUNT) ?? '0') + 1;
+  localStorage.setItem(LP_COUNT, String(n));
+  if (n >= 2) {
+    localStorage.setItem(LP_FLAG, '1');
+    return '，已自动切换兼容连接模式——请刷新页面后重试';
+  }
+  return '';
+}
+
+// 所有 Firestore 操作加超时，防止连接挂起时无限等待
 function withTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
   return Promise.race([
-    promise,
+    promise.then(v => { localStorage.setItem(LP_COUNT, '0'); return v; }),
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(
-        `Firestore 连接超时（${ms / 1000}s）\n\n` +
-        `请在 Firebase Console 确认以下步骤：\n` +
-        `① Firestore Database → Rules → 粘贴新规则 → 点击 Publish\n` +
-        `② 规则生效需约 1 分钟，请稍后再试\n\n` +
-        `调试规则（临时）：\n` +
-        `allow read, write: if request.auth != null;`
+        `Firestore 连接超时（${ms / 1000}s）${recordTimeout()}`
       )), ms)
     ),
   ]);

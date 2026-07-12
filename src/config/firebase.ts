@@ -6,7 +6,7 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -31,7 +31,14 @@ export const app = initializeApp(firebaseConfig);
 export const auth = initializeAuth(app, {
   persistence: browserLocalPersistence,
 });
-export const db = getFirestore(app, 'default');
+// Firestore 默认用 WebChannel 流式连接，部分网络/浏览器组合（代理、广告拦截器、
+// 某些 iOS Safari 配置）会让它静默挂起，表现为所有读写超时。
+// services/firestore.ts 在连续超时后设置此 flag，刷新后强制走长轮询兼容模式。
+const forceLongPolling = localStorage.getItem('nt_force_longpolling') === '1';
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: forceLongPolling,
+  experimentalAutoDetectLongPolling: !forceLongPolling,
+}, 'default');
 
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');
