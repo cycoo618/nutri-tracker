@@ -32,12 +32,11 @@ export const auth = initializeAuth(app, {
   persistence: browserLocalPersistence,
 });
 // Firestore 默认用 WebChannel 流式连接，部分网络/浏览器组合（代理、广告拦截器、
-// 某些 iOS Safari 配置）会让它静默挂起，表现为所有读写超时。
-// services/firestore.ts 在连续超时后设置此 flag，刷新后强制走长轮询兼容模式。
-const forceLongPolling = localStorage.getItem('nt_force_longpolling') === '1';
+// 某些 iOS Safari / PWA 配置）会让它静默挂起，表现为所有读写超时且无报错。
+// 本应用只做一次性读写、无实时监听，长轮询没有实际性能损失，
+// 所以对所有环境直接强制长轮询，避免 PWA 和 Safari 各自踩一遍坑。
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: forceLongPolling,
-  experimentalAutoDetectLongPolling: !forceLongPolling,
+  experimentalForceLongPolling: true,
 }, 'default');
 
 export const googleProvider = new GoogleAuthProvider();
