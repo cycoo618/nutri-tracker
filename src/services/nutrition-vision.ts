@@ -8,6 +8,27 @@ import type { ExtractedNutrition } from '../features/food-log/NutritionLabelScan
 
 const LOCAL_KEY = 'nutri_groq_key';
 
+// ── Groq 模型 ────────────────────────────────────────────────────────
+// Groq 会定期下线模型（llama-4-scout 已于 2026-07-17 停用，
+// llama-3.3-70b-versatile 将于 2026-08-16 停用）。
+// 模型名集中在这里，下次换模型只改这两行。
+// 现役列表见 https://console.groq.com/docs/models
+/** 支持图片输入的模型（扫营养标签 / 识别食物照片） */
+export const GROQ_VISION_MODEL = 'qwen/qwen3.6-27b';
+/** 纯文本模型（营养估算 / 洞察分析） */
+export const GROQ_TEXT_MODEL = 'openai/gpt-oss-120b';
+
+/**
+ * 从模型输出里取 JSON。
+ * 推理型模型可能吐 <think>…</think> 前言，里面也可能带花括号，
+ * 所以先剥思考段再匹配，避免贪婪正则把思考内容一起吞进去。
+ */
+export function extractJson(text: string): string | null {
+  const body = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const match = body.match(/\{[\s\S]*\}/);
+  return match ? match[0] : null;
+}
+
 export function getGroqKey(): string | null {
   return localStorage.getItem(LOCAL_KEY)
     // 若部署时注入了环境变量，所有用户自动使用该 key
@@ -182,8 +203,9 @@ async function estimateByServing(
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_TEXT_MODEL,
       max_tokens: 200,
+      reasoning_effort: 'none',
       messages: [{ role: 'user', content: prompt }],
     }),
     signal: AbortSignal.timeout(10000),
@@ -193,11 +215,11 @@ async function estimateByServing(
 
   const data = await resp.json();
   const text: string = data.choices?.[0]?.message?.content ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const jsonMatch = extractJson(text);
   if (!jsonMatch) return null;
 
   let parsed: Record<string, unknown>;
-  try { parsed = JSON.parse(jsonMatch[0]); } catch { return null; }
+  try { parsed = JSON.parse(jsonMatch); } catch { return null; }
   if (parsed.error) return null;
 
   const servingG = Number(parsed.serving_g) || 0;
@@ -280,8 +302,9 @@ export async function recognizeFoodPhoto(imageBase64: string): Promise<Recognize
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      max_tokens: 200,
+      model: GROQ_VISION_MODEL,
+      max_tokens: 400,
+      reasoning_effort: 'none',
       messages: [{ role: 'user', content: [
         { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
         { type: 'text', text: FOOD_PHOTO_PROMPT },
@@ -296,10 +319,10 @@ export async function recognizeFoodPhoto(imageBase64: string): Promise<Recognize
 
   const data = await response.json();
   const text: string = data.choices?.[0]?.message?.content ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const jsonMatch = extractJson(text);
   if (!jsonMatch) throw new Error('API 返回格式异常');
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  const parsed = JSON.parse(jsonMatch);
   if (parsed.error) throw new Error(parsed.error);
 
   const foodName = String(parsed.foodName ?? '').trim();
@@ -325,8 +348,9 @@ export async function analyzeNutritionLabel(imageBase64: string): Promise<Extrac
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      max_tokens: 512,
+      model: GROQ_VISION_MODEL,
+      max_tokens: 1024,
+      reasoning_effort: 'none',
       messages: [
         {
           role: 'user',
@@ -356,10 +380,10 @@ export async function analyzeNutritionLabel(imageBase64: string): Promise<Extrac
   const data = await response.json();
   const text: string = data.choices?.[0]?.message?.content ?? '';
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const jsonMatch = extractJson(text);
   if (!jsonMatch) throw new Error('API 返回格式异常');
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  const parsed = JSON.parse(jsonMatch);
   if (parsed.error) throw new Error(parsed.error);
 
   const servingG = Number(parsed.serving_g) || 100;

@@ -12,7 +12,7 @@ import { getAllCustomFoods, mergeCustomFoods } from '../utils/customFoods';
 import type { CustomFoodRecord } from '../utils/customFoods';
 import type { DocumentData } from 'firebase/firestore';
 import { getTodayString, generateId } from '../utils/calculator';
-import { recordFoodUsage, getRecentFoods } from '../utils/recentFoods';
+import { recordFoodUsage, getRecentFoods, RECENT_FOODS_EVENT } from '../utils/recentFoods';
 import type { RecentFoodEntry } from '../utils/recentFoods';
 import { notionAddEntry, notionUpdateEntry, notionDeleteEntry, notionUpsertFood, getNotionSettings } from '../services/notion';
 
@@ -54,6 +54,13 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
   const [recentFoods, setRecentFoods] = useState<RecentFoodEntry[]>(() => getRecentFoods());
+
+  // 常用列表在别处（如食材库扫码录入、编辑配料）被改动时同步刷新
+  useEffect(() => {
+    const onChange = () => setRecentFoods(getRecentFoods());
+    window.addEventListener(RECENT_FOODS_EVENT, onChange);
+    return () => window.removeEventListener(RECENT_FOODS_EVENT, onChange);
+  }, []);
 
   // 加载当天记录：先读 localStorage（即时显示），再从 Firestore 同步
   useEffect(() => {
@@ -232,6 +239,50 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
     if (notionPageId) notionDeleteEntry(notionPageId).catch(() => {});
   }, [dailyLog, userId, currentDate, recalculateTotal]);
 
+  /** 把已录入的条目挪到另一个餐次（时间轴上拖拽） */
+  const moveFood = useCallback(async (itemId: string, targetMeal: MealType) => {
+    if (!dailyLog) return;
+
+    let moving: MealItem | undefined;
+    let fromMeal: MealType | undefined;
+    for (const m of dailyLog.meals) {
+      const found = m.items.find(i => i.id === itemId);
+      if (found) { moving = found; fromMeal = m.type; break; }
+    }
+    if (!moving || !fromMeal || fromMeal === targetMeal) return;
+
+    const item = moving;
+    const updatedLog = {
+      ...dailyLog,
+      meals: dailyLog.meals.map(m =>
+        m.type === fromMeal   ? { ...m, items: m.items.filter(i => i.id !== itemId) }
+        : m.type === targetMeal ? { ...m, items: [...m.items, item] }
+        : m,
+      ),
+    };
+
+    // 总营养不变，但要刷新 updatedAt 并让引用变化触发重渲染
+    const finalLog = recalculateTotal(updatedLog);
+    setDailyLog(finalLog);
+
+    if (userId) saveToLocal(userId, currentDate, finalLog);
+    setSyncStatus('syncing');
+    saveDailyLog(finalLog)
+      .then(() => { setSyncStatus('synced'); setSyncError(null); })
+      .catch(err => {
+        setSyncStatus('error');
+        const msg = err instanceof Error ? err.message : String(err);
+        setSyncError(msg.includes('超时') ? 'Firestore 写入超时，数据仅保存在本设备' : msg.slice(0, 80));
+        setTimeout(() => setSyncError(null), 5000);
+        console.warn('Firestore save failed:', err);
+      });
+
+    // Notion：同一条记录只是餐次变了，更新即可
+    if (item.notionPageId) {
+      notionUpdateEntry(item.notionPageId, item, currentDate, targetMeal).catch(() => {});
+    }
+  }, [dailyLog, userId, currentDate, recalculateTotal]);
+
   /** 修改已录入条目的计量 */
   const updateFood = useCallback(async (
     itemId: string,
@@ -355,6 +406,7 @@ export function useFoodLog(userId: string | undefined, familyId?: string) {
     addFood,
     removeFood,
     updateFood,
+    moveFood,
     recentFoods,
     getLogsInRange,
   };

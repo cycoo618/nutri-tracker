@@ -19,7 +19,7 @@ import { formatNumber } from '../../utils/calculator';
 import { NutritionLabelScanner } from '../food-log/NutritionLabelScanner';
 import { RecipeBuilder } from '../food-log/RecipeBuilder';
 
-function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; onClose: () => void }) {
+function PantryNutritionSheet({ record, onClose, onEdit }: { record: CustomFoodRecord; onClose: () => void; onEdit?: () => void }) {
   const { t, locale } = useLocale();
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const n = record.per100g;
@@ -104,6 +104,15 @@ function PantryNutritionSheet({ record, onClose }: { record: CustomFoodRecord; o
                 ))}
               </div>
               <div className="text-xs text-gray-400 mt-2 text-center">共 {record.ingredients.reduce((s, i) => s + i.grams, 0)}g</div>
+              {onEdit && (
+                <button
+                  onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
+                  onClick={onEdit}
+                  className="w-full mt-3 py-2.5 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 text-sm font-medium transition-colors"
+                >
+                  ✏️ 修改配料 / 计量
+                </button>
+              )}
             </div>
           )}
           <div style={{ height: 8 }} />
@@ -323,6 +332,11 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
     }
   }, [userId, familyId]);
 
+  // 能进 RecipeBuilder 编辑的 = 有配料的组合食材。
+  // 不能只看 pantrySource==='recipe'：早期存的记录没有这个字段，会漏掉。
+  const isCombo = (rec: CustomFoodRecord) =>
+    rec.pantrySource === 'recipe' || (rec.ingredients?.length ?? 0) > 0;
+
   const handleAddToLog = (record: CustomFoodRecord) => {
     if (!onAddToLog) return;
     onAddToLog(recordToFoodItem(record));
@@ -539,7 +553,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                   </div>
                   {/* edit/delete actions */}
                   <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                    {rec.pantrySource === 'recipe' && (
+                    {isCombo(rec) && (
                       <button onClick={() => { setEditingRecipe(rec); setSubView('recipe'); }} style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 4px' }} title="编辑配料">✏️</button>
                     )}
                     <button onClick={() => { setRenamingId(rec.id); setRenameValue(rec.name); }} style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 4px' }} title="改名">Aa</button>
@@ -597,7 +611,7 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                         <MiniKindDot source={rec.pantrySource} />
                         {/* edit/delete */}
                         <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }}>
-                          {rec.pantrySource === 'recipe' && (
+                          {isCombo(rec) && (
                             <button onClick={() => { setEditingRecipe(rec); setSubView('recipe'); }} style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 3px' }} title="编辑配料">✏️</button>
                           )}
                           <button onClick={() => { setRenamingId(rec.id); setRenameValue(rec.name); }} style={{ fontSize: 10, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '2px 3px' }} title="改名">Aa</button>
@@ -650,6 +664,9 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
                     <div className="nt-serif" style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{rec.name}</div>
                     <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                       <MiniKindDot source={rec.pantrySource} />
+                      {isCombo(rec) && (
+                        <button onClick={() => { setEditingRecipe(rec); setSubView('recipe'); }} style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', lineHeight: 1, padding: 0 }} title="编辑配料">✏️</button>
+                      )}
                       <button onClick={() => setDeleteConfirm(rec.id)} style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', lineHeight: 1, padding: 0 }}>×</button>
                     </div>
                   </>
@@ -737,7 +754,13 @@ export function FoodPantryPage({ onClose, userId, familyId, onAddToLog }: FoodPa
       <div style={{ height: 40 }} />
 
       {selectedRecord && (
-        <PantryNutritionSheet record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+        <PantryNutritionSheet
+          record={selectedRecord}
+          onClose={() => setSelectedRecord(null)}
+          onEdit={isCombo(selectedRecord)
+            ? () => { setEditingRecipe(selectedRecord); setSelectedRecord(null); setSubView('recipe'); }
+            : undefined}
+        />
       )}
     </div>
   );

@@ -91,6 +91,7 @@ export default function App() {
         onAddFood={foodLog.addFood}
         onRemoveFood={foodLog.removeFood}
         onUpdateFood={foodLog.updateFood}
+        onMoveFood={foodLog.moveFood}
         onLogout={auth.logout}
         onProfileUpdate={auth.updateProfile}
       />

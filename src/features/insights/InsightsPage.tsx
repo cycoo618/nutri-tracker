@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getDailyLogs } from '../../services/firestore';
-import { getGroqKey } from '../../services/nutrition-vision';
+import { getGroqKey, GROQ_TEXT_MODEL, extractJson } from '../../services/nutrition-vision';
 import type { DailyLog, MealItem } from '../../types/log';
 import type { UserProfile } from '../../types/user';
 import { getActiveGoals } from '../../types/user';
@@ -190,8 +190,9 @@ ${combinedFramework}
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_TEXT_MODEL,
       max_tokens: 800,
+      reasoning_effort: 'none',
       messages: [{ role: 'user', content: prompt }],
     }),
     signal: AbortSignal.timeout(20000),
@@ -200,9 +201,9 @@ ${combinedFramework}
   if (!resp.ok) throw new Error(`groq_error_${resp.status}`);
   const data = await resp.json();
   const text: string = data.choices?.[0]?.message?.content ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const jsonMatch = extractJson(text);
   if (!jsonMatch) throw new Error('parse_error');
-  return JSON.parse(jsonMatch[0]) as AiInsight;
+  return JSON.parse(jsonMatch) as AiInsight;
 }
 
 // ── 进度条组件 ───────────────────────────────────────────────────

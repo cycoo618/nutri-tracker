@@ -4,6 +4,7 @@
 // ============================================
 
 import type { FoodItem, FoodCategory, NutritionData, ServingSize } from '../types/food';
+import { registerNewFood, refreshRecentFood, removeRecentFood } from './recentFoods';
 
 const STORAGE_KEY = 'nutri_custom_foods';
 
@@ -171,6 +172,10 @@ export function saveCustomFood(record: Omit<CustomFoodRecord, 'id' | 'createdAt'
   };
   records.unshift(newRecord);
   save(records);
+  // 扫码/手动/组合录入的食材立刻进「最常使用」，不用先吃一次才出现
+  const item = recordToFoodItem(newRecord);
+  const serving = newRecord.servingSizes?.[0];
+  registerNewFood(item, serving?.grams ?? 100, serving?.label ?? '100g');
   return newRecord;
 }
 
@@ -180,12 +185,15 @@ export function updateCustomFood(id: string, update: Partial<Omit<CustomFoodReco
   if (idx >= 0) {
     records[idx] = { ...records[idx], ...update, updatedAt: new Date().toISOString() };
     save(records);
+    // 常用列表里存的是营养快照，改了配料要同步刷新，否则点快捷芯片记的还是旧数据
+    refreshRecentFood(recordToFoodItem(records[idx]));
   }
 }
 
 export function deleteCustomFood(id: string): void {
   const records = load().filter(r => r.id !== id);
   save(records);
+  removeRecentFood(id);
 }
 
 /** 搜索自定义食物（名称模糊匹配） */

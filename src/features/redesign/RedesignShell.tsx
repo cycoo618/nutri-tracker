@@ -42,6 +42,7 @@ export interface RedesignShellProps {
   onAddFood: (food: FoodItem, grams: number, displayUnit?: string, mealType?: MealType) => Promise<void>;
   onRemoveFood: (itemId: string) => Promise<void>;
   onUpdateFood: (itemId: string, grams: number, displayUnit: string, per100g: FoodItem['per100g']) => Promise<void>;
+  onMoveFood: (itemId: string, targetMeal: MealType) => Promise<void>;
   onLogout: () => Promise<void>;
   onProfileUpdate: (updates: Partial<UserProfile>) => Promise<void>;
 }
@@ -152,6 +153,8 @@ export function RedesignShell(props: RedesignShellProps) {
     };
     const onMove = (e: TouchEvent) => {
       if (snapping.current) return;
+      // 正在拖食物换餐次 → 别把这次滑动当成换日
+      if (document.body.dataset.ntDragging) return;
       const dx = e.touches[0].clientX - touchSX.current;
       const dy = e.touches[0].clientY - touchSY.current;
 
@@ -391,6 +394,7 @@ export function RedesignShell(props: RedesignShellProps) {
                         onOpenAdd={editable ? handleAdd : () => {}}
                         onRemoveFood={editable ? props.onRemoveFood : undefined}
                         onEditFood={editable ? handleEditLogItem : undefined}
+                        onMoveFood={editable ? props.onMoveFood : undefined}
                         bloodSugar={editable ? bloodSugarProps : undefined}
                         syncStatus={editable ? syncStatus : undefined}
                         syncError={editable ? props.syncError : null}

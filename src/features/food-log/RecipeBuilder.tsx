@@ -107,6 +107,8 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // 编辑已有组合时，保存前先问"覆盖原有"还是"另存为新组合"
+  const [askSaveMode, setAskSaveMode] = useState(false);
 
   const { cardRef, dragHandlers, cardDragHandlers } = useSwipeDown(onClose);
   const { per100g, totalGrams } = calcRecipeNutrition(ingredients);
@@ -133,15 +135,21 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
     setIngredients(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSave = () => {
-    if (!name.trim()) { setError(t('foodNameRequired')); return; }
-    if (ingredients.length === 0) { setError(t('noIngredientError')); return; }
+  /** asNew=true 时即使在编辑已有组合，也另存为一条新的自定义食物 */
+  const doSave = (asNew: boolean) => {
+    setAskSaveMode(false);
     setSaving(true);
     setError('');
 
+    // 另存为新组合但没改名字 → 加后缀，避免食材库里两条同名分不清
+    const trimmed = name.trim();
+    const finalName = asNew && existingRecord && trimmed === existingRecord.name
+      ? `${trimmed} (副本)`
+      : trimmed;
+
     const defaultLabel = `1份 (${totalGrams}g)`;
     const updates = {
-      name: name.trim(),
+      name: finalName,
       pantrySource: 'recipe' as const,
       ingredients,
       totalGrams,
@@ -151,7 +159,7 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
 
     let foodItem: FoodItem;
     try {
-      if (existingRecord) {
+      if (existingRecord && !asNew) {
         updateCustomFood(existingRecord.id, updates);
         foodItem = recordToFoodItem({ ...existingRecord, ...updates });
         if (userId) {
@@ -174,6 +182,14 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
 
     setSaving(false);
     onSaved(foodItem);
+  };
+
+  const handleSave = () => {
+    if (!name.trim()) { setError(t('foodNameRequired')); return; }
+    if (ingredients.length === 0) { setError(t('noIngredientError')); return; }
+    // 新建组合直接存；改的是已有组合就先问一句，别默默覆盖
+    if (existingRecord) { setError(''); setAskSaveMode(true); return; }
+    doSave(false);
   };
 
   return (
@@ -338,6 +354,50 @@ export function RecipeBuilder({ onClose, onSaved, existingRecord, userId, family
 
         <BottomReturnButton onClick={onClose} />
       </div>
+
+      {/* 保存方式选择 — 编辑已有组合时才出现 */}
+      {askSaveMode && existingRecord && (
+        <div
+          className="fixed inset-x-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 px-4"
+          style={{ top: 'var(--vvt, 0px)', height: 'var(--vvh, 100vh)' }}
+          onClick={e => { e.stopPropagation(); setAskSaveMode(false); }}
+          onTouchEnd={e => e.stopPropagation()}
+        >
+          <div
+            className="bg-white w-full sm:max-w-sm rounded-2xl p-5 mb-6 sm:mb-0"
+            onClick={e => e.stopPropagation()}
+            onTouchEnd={e => e.stopPropagation()}
+          >
+            <h4 className="font-semibold text-gray-900 text-base mb-1">保存修改</h4>
+            <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+              「{existingRecord.name}」的配料有改动，要覆盖原来的组合，还是另存为一个新的组合食材？
+            </p>
+            <div className="space-y-2">
+              <button
+                onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); doSave(true); }}
+                onClick={() => doSave(true)}
+                className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition-colors"
+              >
+                另存为新的组合食材
+              </button>
+              <button
+                onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); doSave(false); }}
+                onClick={() => doSave(false)}
+                className="w-full py-3 rounded-xl border border-gray-200 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-colors"
+              >
+                覆盖原有组合
+              </button>
+              <button
+                onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); setAskSaveMode(false); }}
+                onClick={() => setAskSaveMode(false)}
+                className="w-full py-2.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 食材搜索弹窗 — 复用完整 FoodSearch（含 AI 估算、联网、自定义食物） */}
       {showIngFoodSearch && (

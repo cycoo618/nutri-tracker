@@ -1,6 +1,7 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import type { UserProfile } from '../../types/user';
-import type { DailyLog, MealItem } from '../../types/log';
+import type { DailyLog, MealItem, MealType } from '../../types/log';
 import { MEAL_LABELS, MEAL_ICONS } from '../../types/log';
 import type { NutritionStatus } from '../../hooks/useNutrition';
 import type { SyncStatus } from '../../hooks/useFoodLog';
@@ -30,6 +31,8 @@ interface DiaryHomeProps {
   onOpenAdd: (mealType?: string) => void;
   onRemoveFood?: (itemId: string) => Promise<void>;
   onEditFood?: (item: MealItem) => void;
+  /** 长按食物拖到另一个餐次 */
+  onMoveFood?: (itemId: string, targetMeal: MealType) => Promise<void>;
   bloodSugar?: DiaryBloodSugar;
   syncStatus?: SyncStatus;
   syncError?: string | null;
@@ -120,6 +123,21 @@ function diversityNudge(doneCount: number): string {
   return `加 ${7 - doneCount} 类更稳`;
 }
 
+// ── 跨餐次拖拽 ───────────────────────────────────────────────────────
+/** 长按多久算开始拖拽（太短会误触发，太长手感发黏） */
+const LONG_PRESS_MS = 320;
+/** 长按期间手指移动超过这个距离就当成滚动，取消拖拽 */
+const PRESS_SLOP = 8;
+const ALL_MEALS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+interface DragState {
+  itemId: string;
+  fromMeal: MealType;
+  label: string;
+  x: number;
+  y: number;
+}
+
 function GoalChip({ goalKey }: { goalKey: string }) {
   const map: Record<string, { emoji: string; label: string; color: string; bg: string; border: string }> = {
     fat_loss:          { emoji: '🔥', label: '减脂',  color: 'var(--tomato)', bg: 'rgba(255,107,87,0.1)', border: 'rgba(255,107,87,0.25)' },
@@ -141,7 +159,132 @@ function GoalChip({ goalKey }: { goalKey: string }) {
   );
 }
 
-export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, onEditFood, bloodSugar, syncStatus, syncError, onForceSync }: DiaryHomeProps) {
+export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onDateChange, onNav, onOpenAdd, onRemoveFood, onEditFood, onMoveFood, bloodSugar, syncStatus, syncError, onForceSync }: DiaryHomeProps) {
+  // ── 拖拽状态 ───────────────────────────────────────────────────────
+  const canDrag = !!onMoveFood;
+  const [drag, setDrag] = React.useState<DragState | null>(null);
+  const [hoverMeal, setHoverMeal] = React.useState<MealType | null>(null);
+  const dragRef = React.useRef<DragState | null>(null);
+  const hoverRef = React.useRef<MealType | null>(null);
+  const pressTimer = React.useRef<number | undefined>(undefined);
+  const pressStart = React.useRef<{ x: number; y: number } | null>(null);
+  // 拖完之后浏览器可能补一个 click，要吞掉，否则顺手打开了编辑弹窗
+  const justDragged = React.useRef(false);
+
+  const cancelPress = React.useCallback(() => {
+    if (pressTimer.current !== undefined) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = undefined;
+    }
+    pressStart.current = null;
+  }, []);
+
+  const beginDrag = React.useCallback((item: MealItem, fromMeal: MealType, x: number, y: number) => {
+    const st: DragState = { itemId: item.id, fromMeal, label: item.foodName, x, y };
+    dragRef.current = st;
+    hoverRef.current = null;
+    justDragged.current = true;
+    setDrag(st);
+    setHoverMeal(null);
+    // 让 RedesignShell 的左右滑动换日手势在拖拽期间让路
+    document.body.dataset.ntDragging = '1';
+    navigator.vibrate?.(15);
+  }, []);
+
+  const dragActive = drag !== null;
+  React.useEffect(() => {
+    if (!dragActive) return;
+
+    const update = (x: number, y: number) => {
+      const cur = dragRef.current;
+      if (!cur) return;
+      dragRef.current = { ...cur, x, y };
+      setDrag(dragRef.current);
+      const zone = (document.elementFromPoint(x, y) as HTMLElement | null)
+        ?.closest('[data-meal-drop]') as HTMLElement | null;
+      const meal = (zone?.dataset.mealDrop as MealType | undefined) ?? null;
+      if (meal !== hoverRef.current) {
+        hoverRef.current = meal;
+        setHoverMeal(meal);
+      }
+    };
+
+    const finish = () => {
+      const cur = dragRef.current;
+      const target = hoverRef.current;
+      dragRef.current = null;
+      hoverRef.current = null;
+      delete document.body.dataset.ntDragging;
+      setDrag(null);
+      setHoverMeal(null);
+      if (cur && target && target !== cur.fromMeal) onMoveFood?.(cur.itemId, target);
+      window.setTimeout(() => { justDragged.current = false; }, 400);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();  // 拖拽期间不让页面滚动
+      const t = e.touches[0];
+      if (t) update(t.clientX, t.clientY);
+    };
+    const onMouseMove = (e: MouseEvent) => update(e.clientX, e.clientY);
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', finish);
+    document.addEventListener('touchcancel', finish);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', finish);
+    return () => {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', finish);
+      document.removeEventListener('touchcancel', finish);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', finish);
+      delete document.body.dataset.ntDragging;
+    };
+  }, [dragActive, onMoveFood]);
+
+  React.useEffect(() => cancelPress, [cancelPress]);
+
+  /** 食物行上的长按侦测（触摸 + 鼠标共用） */
+  const pressHandlers = (item: MealItem, mealType: MealType) => canDrag ? {
+    onTouchStart: (e: React.TouchEvent) => {
+      // 行内按钮（如删除 ×）自己 stopPropagation 了 touchend，
+      // 在它上面起计时会漏掉取消，320ms 后误触发拖拽 → 直接不计时
+      if ((e.target as HTMLElement).closest('button')) return;
+      const t = e.touches[0];
+      pressStart.current = { x: t.clientX, y: t.clientY };
+      const { clientX, clientY } = t;
+      pressTimer.current = window.setTimeout(
+        () => beginDrag(item, mealType, clientX, clientY), LONG_PRESS_MS);
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      const start = pressStart.current;
+      if (!start || dragRef.current) return;
+      const t = e.touches[0];
+      if (Math.abs(t.clientX - start.x) > PRESS_SLOP || Math.abs(t.clientY - start.y) > PRESS_SLOP) {
+        cancelPress();
+      }
+    },
+    onTouchEnd: cancelPress,
+    onTouchCancel: cancelPress,
+    onMouseDown: (e: React.MouseEvent) => {
+      if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
+      const { clientX, clientY } = e;
+      pressStart.current = { x: clientX, y: clientY };
+      pressTimer.current = window.setTimeout(
+        () => beginDrag(item, mealType, clientX, clientY), LONG_PRESS_MS);
+    },
+    onMouseMove: (e: React.MouseEvent) => {
+      const start = pressStart.current;
+      if (!start || dragRef.current) return;
+      if (Math.abs(e.clientX - start.x) > PRESS_SLOP || Math.abs(e.clientY - start.y) > PRESS_SLOP) {
+        cancelPress();
+      }
+    },
+    onMouseUp: cancelPress,
+    onMouseLeave: cancelPress,
+  } : {};
+
   const today = getTodayString();
   const isToday = currentDate === today;
   const dayNum = getDayNumber(currentDate, profile.createdAt);
@@ -380,8 +523,22 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
             const mealCal = meal.items.reduce((s, i) => s + i.calories, 0);
             const isEmpty = meal.items.length === 0;
 
+            const isDropTarget = !!drag && hoverMeal === meal.type && drag.fromMeal !== meal.type;
+
             return (
-              <div key={meal.type} style={{ marginBottom: 18, position: 'relative' }}>
+              <div
+                key={meal.type}
+                data-meal-drop={canDrag ? meal.type : undefined}
+                style={{
+                  marginBottom: 18, position: 'relative',
+                  // 拖拽悬停时整段高亮，让"放到这一餐"看得见
+                  borderRadius: 10,
+                  outline: isDropTarget ? '2px dashed var(--sage)' : 'none',
+                  outlineOffset: 4,
+                  background: isDropTarget ? 'rgba(79,166,99,0.07)' : 'transparent',
+                  transition: 'background .12s',
+                }}
+              >
                 {/* Circle chip */}
                 <div style={{
                   position: 'absolute', left: -52, width: 28, height: 28,
@@ -420,8 +577,16 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
                     {meal.items.map(item => (
                       <div
                         key={item.id}
-                        onClick={() => onEditFood?.(item)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '2px 4px', margin: '0 -4px', cursor: onEditFood ? 'pointer' : 'default', minHeight: 32 }}
+                        {...pressHandlers(item, meal.type)}
+                        onClick={() => { if (justDragged.current) return; onEditFood?.(item); }}
+                        title={canDrag ? '长按可拖到其他餐次' : undefined}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                          borderRadius: 8, padding: '2px 4px', margin: '0 -4px',
+                          cursor: onEditFood ? 'pointer' : 'default', minHeight: 32,
+                          opacity: drag?.itemId === item.id ? 0.35 : 1,
+                          background: drag?.itemId === item.id ? 'var(--paper-2)' : 'transparent',
+                        }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
                           <span className="nt-serif" style={{ fontSize: 12, color: 'var(--ink-soft)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -514,6 +679,74 @@ export function DiaryHome({ profile, dailyLog, nutritionStatus, currentDate, onD
           );
         })()}
       </div>
+
+      {/* 拖拽浮层 — 必须 portal 到 body：外层日期条带有 transform，
+          transform 会成为 fixed 定位的包含块，浮层会跟着页面一起漂 */}
+      {drag && createPortal(
+        <>
+          {/* 跟手的小标签 */}
+          <div
+            style={{
+              position: 'fixed', left: drag.x, top: drag.y,
+              transform: 'translate(-50%, -160%)',
+              zIndex: 9999, pointerEvents: 'none',
+              padding: '6px 12px', borderRadius: 999,
+              background: 'var(--ink)', color: 'var(--paper, #fff)',
+              fontSize: 12, fontFamily: 'Noto Serif SC, serif', fontWeight: 600,
+              boxShadow: '0 6px 20px rgba(0,0,0,0.25)', whiteSpace: 'nowrap',
+              maxWidth: '70vw', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}
+          >
+            {drag.label}
+          </div>
+
+          {/* 底部餐次投放区 — 不用把食物拖过整个时间轴，也不用滚动 */}
+          <div
+            style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9998,
+              padding: '10px 12px calc(env(safe-area-inset-bottom, 0px) + 12px)',
+              background: 'var(--card, #fff)',
+              borderTop: '1px solid var(--line-soft)',
+              boxShadow: '0 -6px 24px rgba(0,0,0,0.12)',
+            }}
+          >
+            <div className="nt-serif" style={{ fontSize: 11, color: 'var(--ink-mute)', textAlign: 'center', marginBottom: 8 }}>
+              拖到下面的餐次松手
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {ALL_MEALS.map(mt => {
+                const isSource = mt === drag.fromMeal;
+                const isOver = hoverMeal === mt && !isSource;
+                return (
+                  <div
+                    key={mt}
+                    data-meal-drop={isSource ? undefined : mt}
+                    style={{
+                      flex: 1, padding: '10px 4px', borderRadius: 12, textAlign: 'center',
+                      background: isOver ? 'var(--sage)' : 'var(--paper-2, rgba(0,0,0,0.04))',
+                      border: `1px ${isOver ? 'solid' : 'dashed'} ${isOver ? 'var(--sage)' : 'var(--line)'}`,
+                      opacity: isSource ? 0.35 : 1,
+                      transition: 'background .12s',
+                    }}
+                  >
+                    <div style={{ fontSize: 16, lineHeight: 1.2 }}>{MEAL_ICONS[mt]}</div>
+                    <div
+                      className="nt-serif"
+                      style={{
+                        fontSize: 11, fontWeight: 700, marginTop: 2,
+                        color: isOver ? '#fff' : 'var(--ink-soft)',
+                      }}
+                    >
+                      {MEAL_LABELS[mt]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
     </div>
   );
 }
